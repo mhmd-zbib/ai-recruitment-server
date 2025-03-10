@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN" monitorInterval="30">
+    <Properties>
+        <Property name="APP_LOG_ROOT">c:/Development/Projects/ai-enhanced-recruitment-pipeline/server/logging</Property>
+    </Properties>
+    
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <JsonTemplateLayout eventTemplateUri="classpath:LogEventTemplate.json">
+                <EventTemplateAdditionalField key="service" value="hiresync-api"/>
+                <EventTemplateAdditionalField key="environment" value="${sys:spring.profiles.active:-development}"/>
+            </JsonTemplateLayout>
+        </Console>
+        
+        <RollingFile name="ApplicationLogFile" 
+                     fileName="${APP_LOG_ROOT}/application.json" 
+                     filePattern="${APP_LOG_ROOT}/application-%d{yyyy-MM-dd}-%i.json">
+            <JsonTemplateLayout eventTemplateUri="classpath:LogEventTemplate.json" locationInfoEnabled="true">
+                <EventTemplateAdditionalField key="service" value="hiresync-api"/>
+                <EventTemplateAdditionalField key="environment" value="${sys:spring.profiles.active:-development}"/>
+            </JsonTemplateLayout>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+        
+        <RollingFile name="RequestResponseLogFile" 
+                     fileName="${APP_LOG_ROOT}/request-response.json" 
+                     filePattern="${APP_LOG_ROOT}/request-response-%d{yyyy-MM-dd}-%i.json">
+            <JsonTemplateLayout eventTemplateUri="classpath:LogEventTemplate.json">
+                <EventTemplateAdditionalField key="service" value="hiresync-api"/>
+                <EventTemplateAdditionalField key="environment" value="${sys:spring.profiles.active:-development}"/>
+            </JsonTemplateLayout>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+        
+        <RollingFile name="ErrorLogFile" 
+                     fileName="${APP_LOG_ROOT}/error.json" 
+                     filePattern="${APP_LOG_ROOT}/error-%d{yyyy-MM-dd}-%i.json">
+            <JsonTemplateLayout eventTemplateUri="classpath:LogEventTemplate.json">
+                <EventTemplateAdditionalField key="service" value="hiresync-api"/>
+                <EventTemplateAdditionalField key="environment" value="${sys:spring.profiles.active:-development}"/>
+            </JsonTemplateLayout>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+        
+        <RollingFile name="AuthLogFile" 
+                     fileName="${APP_LOG_ROOT}/auth.json" 
+                     filePattern="${APP_LOG_ROOT}/auth-%d{yyyy-MM-dd}-%i.json">
+            <JsonTemplateLayout eventTemplateUri="classpath:LogEventTemplate.json">
+                <EventTemplateAdditionalField key="service" value="hiresync-api"/>
+                <EventTemplateAdditionalField key="environment" value="${sys:spring.profiles.active:-development}"/>
+            </JsonTemplateLayout>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+        
+        <RollingFile name="MethodLogFile" 
+                     fileName="${APP_LOG_ROOT}/method.json" 
+                     filePattern="${APP_LOG_ROOT}/method-%d{yyyy-MM-dd}-%i.json">
+            <JsonTemplateLayout eventTemplateUri="classpath:LogEventTemplate.json">
+                <EventTemplateAdditionalField key="service" value="hiresync-api"/>
+                <EventTemplateAdditionalField key="environment" value="${sys:spring.profiles.active:-development}"/>
+            </JsonTemplateLayout>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+        
+        <RollingFile name="ExternalApiLogFile" 
+                     fileName="${APP_LOG_ROOT}/external-api.json" 
+                     filePattern="${APP_LOG_ROOT}/external-api-%d{yyyy-MM-dd}-%i.json">
+            <JsonTemplateLayout eventTemplateUri="classpath:LogEventTemplate.json">
+                <EventTemplateAdditionalField key="service" value="hiresync-api"/>
+                <EventTemplateAdditionalField key="environment" value="${sys:spring.profiles.active:-development}"/>
+            </JsonTemplateLayout>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+    </Appenders>
+    
+    <Loggers>
+        <!-- Request/Response Logger -->
+        <Logger name="com.zbib.hiresync.logging.aspect.ControllerLoggingAspect" level="INFO" additivity="false">
+            <AppenderRef ref="RequestResponseLogFile"/>
+            <AppenderRef ref="Console"/>
+        </Logger>
+        
+        <!-- Authentication Logger -->
+        <Logger name="com.zbib.hiresync.security" level="INFO" additivity="false">
+            <AppenderRef ref="AuthLogFile"/>
+            <AppenderRef ref="Console"/>
+        </Logger>
+        
+        <!-- Error Logger -->
+        <Logger name="com.zbib.hiresync.logging.aspect" level="ERROR" additivity="false">
+            <AppenderRef ref="ErrorLogFile"/>
+            <AppenderRef ref="Console"/>
+        </Logger>
+        
+        <!-- Application Logger -->
+        <Logger name="com.zbib.hiresync" level="DEBUG" additivity="false">
+            <AppenderRef ref="ApplicationLogFile"/>
+            <AppenderRef ref="Console"/>
+        </Logger>
+        
+        <!-- Spring Framework -->
+        <Logger name="org.springframework" level="INFO" additivity="false">
+            <AppenderRef ref="ApplicationLogFile"/>
+            <AppenderRef ref="Console"/>
+        </Logger>
+        
+        <!-- Root Logger -->
+        <Root level="INFO">
+            <AppenderRef ref="ApplicationLogFile"/>
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</Configuration>
