@@ -70,24 +70,16 @@ public class JobBuilder {
                 .build();
     }
 
-    /**
-     * Builds a JobListResponseDTO from a Page of Job entities
-     *
-     * @param jobPage the page of job entities
-     * @return a new JobListResponseDTO
-     */
-    public static JobListResponseDTO buildJobListResponseDTO(Page<Job> jobPage) {
-        List<JobResponseDTO> content = jobPage.getContent().stream()
-                .map(JobBuilder::buildJobResponseDTO)
-                .collect(Collectors.toList());
-        
+    public static JobListResponseDTO buildJobListResponseDTO(Job job) {
         return JobListResponseDTO.builder()
-                .content(content)
-                .pageNo(jobPage.getNumber())
-                .pageSize(jobPage.getSize())
-                .totalElements(jobPage.getTotalElements())
-                .totalPages(jobPage.getTotalPages())
-                .last(jobPage.isLast())
+                .id(job.getId())
+                .title(job.getTitle())
+                .department(job.getDepartment())
+                .createdAt(job.getCreatedAt())
                 .build();
+    }
+
+    public static Page<JobListResponseDTO> buildJobListResponseDTOPage(Page<Job> jobPage) {
+        return jobPage.map(JobBuilder::buildJobListResponseDTO);
     }
 }

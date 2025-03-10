@@ -12,6 +12,7 @@ import com.zbib.hiresync.security.UserDetailsImpl;
 import com.zbib.hiresync.service.JobService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -45,7 +46,7 @@ public class JobController {
     }
 
     @GetMapping
-    public ResponseEntity<JobListResponseDTO> getAllJobs(
+    public ResponseEntity<Page<JobListResponseDTO>> getAllJobs(
             @AuthenticationPrincipal UserDetailsImpl userDetailsImpl,
             @ModelAttribute JobFilter filter,
             @RequestParam(defaultValue = "0") int pageNo,
@@ -56,9 +57,9 @@ public class JobController {
         Long userId = userDetailsImpl != null ? userDetailsImpl.getId() : null;
         filter.setUserId(userId);
         
-        JobListResponseDTO jobListResponseDTO = jobService.getAllJobsWithFilters(
+        Page<JobListResponseDTO> jobListPage = jobService.getAllJobsWithFilters(
                 filter, pageNo, pageSize, sortBy, sortDir);
         
-        return ResponseEntity.ok(jobListResponseDTO);
+        return ResponseEntity.ok(jobListPage);
     }
 }

@@ -51,7 +51,7 @@ public class JobService {
     }
 
 
-    public JobListResponseDTO getAllJobsWithFilters(
+    public Page<JobListResponseDTO> getAllJobsWithFilters(
             JobFilter filter, int pageNo, int pageSize, String sortBy, String sortDir) {
         
         Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? 
@@ -63,7 +63,7 @@ public class JobService {
                 JobSpecification.filterJobs(filter),
                 pageable);
         
-        return JobBuilder.buildJobListResponseDTO(jobs);
+        return JobBuilder.buildJobListResponseDTOPage(jobs);
     }
 
     

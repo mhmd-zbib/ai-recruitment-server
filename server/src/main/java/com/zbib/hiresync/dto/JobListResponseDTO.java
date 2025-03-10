@@ -5,23 +5,16 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 public class JobListResponseDTO {
-    
-    private List<JobResponseDTO> content;
-    
-    private int pageNo;
-    
-    private int pageSize;
-    
-    private long totalElements;
-    
-    private int totalPages;
-    
-    private boolean last;
+        private UUID id;
+        private String title;
+        private String department;
+        private LocalDateTime createdAt;
 }
