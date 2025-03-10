@@ -29,12 +29,10 @@ spring:
         format_sql: true
     show-sql: true
 
-# JWT Configuration
 jwt:
   secret: your-jwt-secret-key-should-be-at-least-256-bits-long
-  expiration: 86400000  # 24 hours in milliseconds
+  expiration: 86400000
 
-# Logging configuration
 logging:
   level:
     root: INFO

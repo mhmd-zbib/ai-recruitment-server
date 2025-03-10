@@ -13,6 +13,8 @@ import com.zbib.hiresync.service.JobService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -32,11 +34,13 @@ public class JobController {
     public ResponseEntity<JobResponseDTO> createJob(
             @Valid @RequestBody JobRequestDTO jobRequestDTO,
             @AuthenticationPrincipal UserDetailsImpl userDetailsImpl) {
-        
+
         Long userId = userDetailsImpl.getId();
-        
-        JobResponseDTO jobResponseDTO = jobService.createJob(jobRequestDTO, userId);
-        return new ResponseEntity<>(jobResponseDTO, HttpStatus.CREATED);
+
+        JobResponseDTO jobResponseDTO = jobService.createJob(jobRequestDTO,
+                userId);
+        return new ResponseEntity<>(jobResponseDTO,
+                HttpStatus.CREATED);
     }
 
     @GetMapping("/{id}")
@@ -48,18 +52,13 @@ public class JobController {
     @GetMapping
     public ResponseEntity<Page<JobListResponseDTO>> getAllJobs(
             @AuthenticationPrincipal UserDetailsImpl userDetailsImpl,
-            @ModelAttribute JobFilter filter,
-            @RequestParam(defaultValue = "0") int pageNo,
-            @RequestParam(defaultValue = "10") int pageSize,
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir) {
-        
+            JobFilter filter,
+            Pageable pageable) {
+
         Long userId = userDetailsImpl != null ? userDetailsImpl.getId() : null;
         filter.setUserId(userId);
-        
-        Page<JobListResponseDTO> jobListPage = jobService.getAllJobsWithFilters(
-                filter, pageNo, pageSize, sortBy, sortDir);
-        
+
+        Page<JobListResponseDTO> jobListPage = jobService.getAllJobsWithFilters(filter, pageable);
         return ResponseEntity.ok(jobListPage);
     }
 }

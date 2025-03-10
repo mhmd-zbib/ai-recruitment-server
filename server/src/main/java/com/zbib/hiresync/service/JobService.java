@@ -32,13 +32,14 @@ public class JobService {
 
     public JobResponseDTO createJob(JobRequestDTO jobRequestDTO, Long userId) {
         validateJobRequest(jobRequestDTO);
-        
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
-        
-        Job job = JobBuilder.buildJobEntity(jobRequestDTO, user);
+
+        Job job = JobBuilder.buildJobEntity(jobRequestDTO,
+                user);
         Job savedJob = jobRepository.save(job);
-        
+
         return JobBuilder.buildJobResponseDTO(savedJob);
     }
 
@@ -46,33 +47,16 @@ public class JobService {
     public JobResponseDTO getJobById(UUID id) {
         Job job = jobRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Job not found with id: " + id));
-        
+
         return JobBuilder.buildJobResponseDTO(job);
     }
 
 
-    public Page<JobListResponseDTO> getAllJobsWithFilters(
-            JobFilter filter, int pageNo, int pageSize, String sortBy, String sortDir) {
-        
-        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? 
-                Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
-        
-        Pageable pageable = PageRequest.of(pageNo, pageSize, sort);
-        
-        Page<Job> jobs = jobRepository.findAll(
-                JobSpecification.filterJobs(filter),
-                pageable);
-        
+    public Page<JobListResponseDTO> getAllJobsWithFilters(JobFilter filter, Pageable pageable) {
+        Page<Job> jobs = jobRepository.findAll(JobSpecification.filterJobs(filter), pageable);
         return JobBuilder.buildJobListResponseDTOPage(jobs);
     }
 
-    
-    /**
-     * Validates job request data
-     *
-     * @param jobRequestDTO the job request to validate
-     * @throws IllegalArgumentException if validation fails
-     */
     private void validateJobRequest(JobRequestDTO jobRequestDTO) {
         if (jobRequestDTO.getMinSalary() > jobRequestDTO.getMaxSalary()) {
             throw new IllegalArgumentException("Minimum salary cannot be greater than maximum salary");
