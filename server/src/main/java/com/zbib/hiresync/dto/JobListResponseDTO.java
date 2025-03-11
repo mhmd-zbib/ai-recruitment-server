@@ -13,8 +13,10 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 public class JobListResponseDTO {
-        private UUID id;
-        private String title;
-        private String department;
-        private LocalDateTime createdAt;
+    private UUID id;
+    private String title;
+    private String department;
+    private LocalDateTime createdAt;
+    private int applications;
+    private double match;
 }

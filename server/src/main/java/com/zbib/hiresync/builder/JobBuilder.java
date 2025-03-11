@@ -75,6 +75,8 @@ public class JobBuilder {
                 .id(job.getId())
                 .title(job.getTitle())
                 .department(job.getDepartment())
+                .applications(10)
+                .match(0.92)
                 .createdAt(job.getCreatedAt())
                 .build();
     }
