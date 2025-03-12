@@ -23,6 +23,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.UUID;
 
+import static com.zbib.hiresync.builder.JobBuilder.buildJobResponseDTO;
+
 @Service
 @RequiredArgsConstructor
 public class JobService {
@@ -40,21 +42,21 @@ public class JobService {
                 user);
         Job savedJob = jobRepository.save(job);
 
-        return JobBuilder.buildJobResponseDTO(savedJob);
+        return buildJobResponseDTO(savedJob);
     }
 
 
     public JobResponseDTO getJobById(UUID id) {
         Job job = jobRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Job not found with id: " + id));
-
-        return JobBuilder.buildJobResponseDTO(job);
+        return buildJobResponseDTO(job);
     }
 
 
     public Page<JobListResponseDTO> getAllJobsWithFilters(JobFilter filter, Pageable pageable) {
-        Page<Job> jobs = jobRepository.findAll(JobSpecification.filterJobs(filter), pageable);
-        return JobBuilder.buildJobListResponseDTOPage(jobs);
+        Page<Job> jobs = jobRepository.findAll(JobSpecification.filterJobs(filter),
+                pageable);
+        return jobs.map(JobBuilder::buildJobListResponseDTO);
     }
 
     private void validateJobRequest(JobRequestDTO jobRequestDTO) {

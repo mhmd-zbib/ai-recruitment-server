@@ -80,8 +80,4 @@ public class JobBuilder {
                 .createdAt(job.getCreatedAt())
                 .build();
     }
-
-    public static Page<JobListResponseDTO> buildJobListResponseDTOPage(Page<Job> jobPage) {
-        return jobPage.map(JobBuilder::buildJobListResponseDTO);
-    }
 }
