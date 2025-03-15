@@ -7,33 +7,8 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.util.ArrayList;
 import java.util.List;
-
-/**
- * Specification class for Job entity filtering
- */
 public class JobSpecification {
 
-    /**
-     * Creates a specification for filtering jobs based on various criteria
-     *
-     * @param userId the ID of the user who created the job
-     * @param department the department of the job
-     * @param locationType the location type of the job
-     * @param employmentType the employment type of the job
-     * @param status the status of the job
-     * @param keyword keyword to search in job title
-     * @param minExperience minimum years of experience required
-     * @param maxExperience maximum years of experience required
-     * @param minSalary minimum salary offered
-     * @param maxSalary maximum salary offered
-     * @return a specification for filtering jobs
-     */
-    /**
-     * Creates a specification for filtering jobs based on JobFilter criteria
-     *
-     * @param filter the JobFilter containing all filter criteria
-     * @return a specification for filtering jobs
-     */
     public static Specification<Job> filterJobs(JobFilter filter) {
         
         return (root, query, criteriaBuilder) -> {

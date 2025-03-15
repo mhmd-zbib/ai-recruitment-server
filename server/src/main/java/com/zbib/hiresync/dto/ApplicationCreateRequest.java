@@ -17,9 +17,6 @@ import java.util.UUID;
 @Builder
 public class ApplicationCreateRequest {
 
-    @NotNull(message = "Job ID is required")
-    private UUID jobId;
-
     @NotBlank(message = "First name is required")
     @Size(min = 2, max = 50, message = "First name must be between 2 and 50 characters")
     private String firstName;
@@ -47,12 +44,6 @@ public class ApplicationCreateRequest {
     @URL(message = "Please provide a valid CV URL")
     private String cvUrl;
 
-    @NotNull(message = "Application status is required")
-    private ApplicationStatus status;
-
     private String referredBy;
-
-    @PastOrPresent(message = "Applied date cannot be in the future")
-    private LocalDateTime appliedAt;
 
 }

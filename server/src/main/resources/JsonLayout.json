@@ -1,0 +1,112 @@
+{
+  "@timestamp": {
+    "$resolver": "timestamp",
+    "pattern": {
+      "format": "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+      "timeZone": "UTC"
+    }
+  },
+  "log.level": {
+    "$resolver": "level",
+    "field": "name"
+  },
+  "message": {
+    "$resolver": "message",
+    "stringified": true
+  },
+  "process.thread.name": {
+    "$resolver": "thread",
+    "field": "name"
+  },
+  "log.logger": {
+    "$resolver": "logger",
+    "field": "name"
+  },
+  "labels": {
+    "app_name": {
+      "$resolver": "template",
+      "template": "${json:app_name}"
+    },
+    "environment": {
+      "$resolver": "template",
+      "template": "${json:environment}"
+    }
+  },
+  "trace": {
+    "id": {
+      "$resolver": "mdc",
+      "key": "correlation_id",
+      "fallback": ""
+    }
+  },
+  "event": {
+    "type": {
+      "$resolver": "mdc",
+      "key": "event_type",
+      "fallback": ""
+    }
+  },
+  "method": {
+    "$resolver": "mdc",
+    "key": "method",
+    "fallback": ""
+  },
+  "execution_time_ms": {
+    "$resolver": "mdc",
+    "key": "execution_time_ms",
+    "fallback": ""
+  },
+  "error": {
+    "type": {
+      "$resolver": "mdc",
+      "key": "error_type",
+      "fallback": ""
+    },
+    "message": {
+      "$resolver": "mdc",
+      "key": "error_message",
+      "fallback": ""
+    },
+    "stack_trace": {
+      "$resolver": "exception",
+      "field": "stackTrace",
+      "stackTrace": {
+        "stringified": true
+      }
+    }
+  },
+  "request": {
+    "id": {
+      "$resolver": "mdc",
+      "key": "requestId",
+      "fallback": ""
+    }
+  },
+  "parameters": {
+    "$dynamic": {
+      "$resolver": "mdc",
+      "pattern": "param_.*"
+    }
+  },
+  "host": {
+    "name": {
+      "$resolver": "hostname"
+    }
+  },
+  "source": {
+    "file": {
+      "name": {
+        "$resolver": "source",
+        "field": "fileName"
+      }
+    },
+    "line": {
+      "$resolver": "source",
+      "field": "lineNumber"
+    }
+  },
+  "exception": {
+    "$resolver": "exception",
+    "field": "message"
+  }
+}

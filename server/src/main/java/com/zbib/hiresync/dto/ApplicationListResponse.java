@@ -15,11 +15,11 @@ import java.util.UUID;
 @Builder
 public class ApplicationListResponse {
     private UUID id;
+    private UUID jobId;
     private String firstName;
     private String lastName;
     private String email;
     private String jobTitle;
-    private UUID jobId;
     private ApplicationStatus status;
     private LocalDateTime appliedAt;
 }

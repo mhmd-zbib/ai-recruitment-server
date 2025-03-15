@@ -1,20 +1,14 @@
 package com.zbib.hiresync.controller;
 
-import com.zbib.hiresync.dto.JobFilter;
-import com.zbib.hiresync.dto.JobListResponseDTO;
-import com.zbib.hiresync.dto.JobRequestDTO;
-import com.zbib.hiresync.dto.JobResponseDTO;
-import com.zbib.hiresync.enums.EmploymentType;
-import com.zbib.hiresync.enums.JobStatus;
-import com.zbib.hiresync.enums.LocationType;
+import com.zbib.hiresync.dto.*;
 import com.zbib.hiresync.security.JwtUtil;
 import com.zbib.hiresync.security.UserDetailsImpl;
+import com.zbib.hiresync.service.ApplicationService;
 import com.zbib.hiresync.service.JobService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,37 +22,36 @@ import java.util.UUID;
 public class JobController {
 
     private final JobService jobService;
-    private final JwtUtil jwtUtil;
+    private final ApplicationService applicationService;
 
     @PostMapping
-    public ResponseEntity<JobResponseDTO> createJob(
-            @Valid @RequestBody JobRequestDTO jobRequestDTO,
-            @AuthenticationPrincipal UserDetailsImpl userDetailsImpl) {
-
+    public ResponseEntity<JobResponse> createJob(@Valid @RequestBody JobRequest jobRequest, @AuthenticationPrincipal UserDetailsImpl userDetailsImpl) {
         Long userId = userDetailsImpl.getId();
-
-        JobResponseDTO jobResponseDTO = jobService.createJob(jobRequestDTO,
-                userId);
-        return new ResponseEntity<>(jobResponseDTO,
+        JobResponse jobResponse = jobService.createJob(jobRequest,userId);
+        return new ResponseEntity<>(jobResponse,
                 HttpStatus.CREATED);
     }
 
+    @PostMapping("/{id}")
+    public ResponseEntity<ApplicationResponse> createApplication(@Valid @RequestBody ApplicationCreateRequest applicationCreateRequest, @PathVariable UUID id) {
+        ApplicationResponse applicationResponse = applicationService.createApplication(applicationCreateRequest,id);
+        return ResponseEntity.ok(applicationResponse);
+    }
+
     @GetMapping("/{id}")
-    public ResponseEntity<JobResponseDTO> getJobById(@PathVariable UUID id) {
-        JobResponseDTO jobResponseDTO = jobService.getJobById(id);
-        return ResponseEntity.ok(jobResponseDTO);
+    public ResponseEntity<JobResponse> getJobById(@PathVariable UUID id) {
+        JobResponse jobResponse = jobService.getJobResponseById(id);
+        return ResponseEntity.ok(jobResponse);
     }
 
     @GetMapping
-    public ResponseEntity<Page<JobListResponseDTO>> getAllJobs(
-            @AuthenticationPrincipal UserDetailsImpl userDetailsImpl,
-            JobFilter filter,
-            Pageable pageable) {
+    public ResponseEntity<Page<JobListResponse>> getAllJobs(@AuthenticationPrincipal UserDetailsImpl userDetailsImpl, JobFilter filter, Pageable pageable) {
 
         Long userId = userDetailsImpl != null ? userDetailsImpl.getId() : null;
         filter.setUserId(userId);
 
-        Page<JobListResponseDTO> jobListPage = jobService.getAllJobsWithFilters(filter, pageable);
+        Page<JobListResponse> jobListPage = jobService.getAllJobsWithFilters(filter,
+                pageable);
         return ResponseEntity.ok(jobListPage);
     }
 }

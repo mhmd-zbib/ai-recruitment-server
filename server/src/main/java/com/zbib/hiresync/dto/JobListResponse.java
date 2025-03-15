@@ -12,7 +12,7 @@ import java.util.UUID;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class JobListResponseDTO {
+public class JobListResponse {
     private UUID id;
     private String title;
     private String department;

@@ -15,7 +15,7 @@ import java.util.UUID;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class JobResponseDTO {
+public class JobResponse {
     
     private UUID id;
     

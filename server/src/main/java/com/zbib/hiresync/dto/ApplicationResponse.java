@@ -1,6 +1,8 @@
 package com.zbib.hiresync.dto;
 
+import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.enums.ApplicationStatus;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,8 +18,6 @@ import java.util.UUID;
 public class ApplicationResponse {
     private UUID id;
     private UUID jobId;
-    private String jobTitle;
-    private UUID userId;
     private String firstName;
     private String lastName;
     private String email;
@@ -25,9 +25,7 @@ public class ApplicationResponse {
     private String linkedInUrl;
     private String websiteUrl;
     private String cvUrl;
-    private String coverLetter;
     private ApplicationStatus status;
     private String referredBy;
     private LocalDateTime appliedAt;
-    private LocalDateTime lastUpdatedAt;
 }

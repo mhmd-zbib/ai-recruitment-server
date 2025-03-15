@@ -1,16 +1,13 @@
 package com.zbib.hiresync.builder;
 
-import com.zbib.hiresync.dto.JobListResponseDTO;
-import com.zbib.hiresync.dto.JobRequestDTO;
-import com.zbib.hiresync.dto.JobResponseDTO;
+import com.zbib.hiresync.dto.JobListResponse;
+import com.zbib.hiresync.dto.JobRequest;
+import com.zbib.hiresync.dto.JobResponse;
 import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.entity.User;
 import com.zbib.hiresync.enums.JobStatus;
-import org.springframework.data.domain.Page;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Utility class for building Job-related objects
@@ -20,37 +17,31 @@ public class JobBuilder {
     /**
      * Builds a Job entity from a JobRequestDTO and User
      *
-     * @param jobRequestDTO the DTO containing job information
+     * @param jobRequest the DTO containing job information
      * @param user the user creating the job
      * @return a new Job entity
      */
-    public static Job buildJobEntity(JobRequestDTO jobRequestDTO, User user) {
+    public static Job buildJobEntity(JobRequest jobRequest, User user) {
         return Job.builder()
                 .user(user)
-                .title(jobRequestDTO.getTitle())
-                .department(jobRequestDTO.getDepartment())
-                .description(jobRequestDTO.getDescription())
-                .responsibilities(jobRequestDTO.getResponsibilities())
-                .qualifications(jobRequestDTO.getQualifications())
-                .benefits(jobRequestDTO.getBenefits())
-                .yearsOfExperience(jobRequestDTO.getYearsOfExperience())
-                .locationType(jobRequestDTO.getLocationType())
-                .employmentType(jobRequestDTO.getEmploymentType())
+                .title(jobRequest.getTitle())
+                .department(jobRequest.getDepartment())
+                .description(jobRequest.getDescription())
+                .responsibilities(jobRequest.getResponsibilities())
+                .qualifications(jobRequest.getQualifications())
+                .benefits(jobRequest.getBenefits())
+                .yearsOfExperience(jobRequest.getYearsOfExperience())
+                .locationType(jobRequest.getLocationType())
+                .employmentType(jobRequest.getEmploymentType())
                 .status(JobStatus.ACTIVE)
-                .minSalary(jobRequestDTO.getMinSalary())
-                .maxSalary(jobRequestDTO.getMaxSalary())
+                .minSalary(jobRequest.getMinSalary())
+                .maxSalary(jobRequest.getMaxSalary())
                 .createdAt(LocalDateTime.now())
                 .build();
     }
 
-    /**
-     * Builds a JobResponseDTO from a Job entity
-     *
-     * @param job the job entity
-     * @return a new JobResponseDTO
-     */
-    public static JobResponseDTO buildJobResponseDTO(Job job) {
-        return JobResponseDTO.builder()
+    public static JobResponse buildJobResponseDTO(Job job) {
+        return JobResponse.builder()
                 .id(job.getId())
                 .userId(job.getUser().getId())
                 .username(job.getUser().getUsername())
@@ -70,8 +61,8 @@ public class JobBuilder {
                 .build();
     }
 
-    public static JobListResponseDTO buildJobListResponseDTO(Job job) {
-        return JobListResponseDTO.builder()
+    public static JobListResponse buildJobListResponseDTO(Job job) {
+        return JobListResponse.builder()
                 .id(job.getId())
                 .title(job.getTitle())
                 .department(job.getDepartment())
