@@ -2,6 +2,7 @@ package com.zbib.hiresync.controller;
 
 import com.zbib.hiresync.dto.AuthRequest;
 import com.zbib.hiresync.dto.AuthResponse;
+import com.zbib.hiresync.logging.Loggable;
 import com.zbib.hiresync.service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;

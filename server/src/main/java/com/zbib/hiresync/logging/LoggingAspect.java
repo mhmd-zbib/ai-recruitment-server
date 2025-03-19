@@ -1,56 +1,55 @@
 package com.zbib.hiresync.logging;
 
-import lombok.extern.log4j.Log4j2;
-import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.annotation.Around;
-import org.aspectj.lang.annotation.Aspect;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.logging.log4j.ThreadContext;
+import org.aspectj.lang.JoinPoint;
+import org.aspectj.lang.annotation.*;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
-
-import java.util.UUID;
 
 @Aspect
 @Component
-@Log4j2
 public class LoggingAspect {
 
-    private final RequestLogger requestLogger;
-    private final ResponseFormatter responseFormatter;
-    private final PerformanceMonitor performanceMonitor;
-    
-    public LoggingAspect(RequestLogger requestLogger, ResponseFormatter responseFormatter, 
-                         PerformanceMonitor performanceMonitor) {
-        this.requestLogger = requestLogger;
-        this.responseFormatter = responseFormatter;
-        this.performanceMonitor = performanceMonitor;
+    private static final Logger logger = LogManager.getLogger(LoggingAspect.class);
+    private final ObjectMapper jacksonObjectMapper;
+
+    public LoggingAspect(ObjectMapper jacksonObjectMapper) {
+        this.jacksonObjectMapper = jacksonObjectMapper;
     }
 
-    @Around("execution(* com.zbib.hiresync.controller.*.*(..))")
-    public Object logControllerMethods(ProceedingJoinPoint pjp) throws Throwable {
-        String correlationId = UUID.randomUUID().toString();
-        String controllerName = pjp.getSignature().getDeclaringType().getSimpleName();
-        String methodName = pjp.getSignature().getName();
-        
-        requestLogger.logRequest(correlationId, controllerName, methodName, pjp.getArgs());
-        
-        long startTime = performanceMonitor.startTimer();
-        
-        try {
-            Object result = pjp.proceed();
-            
-            long executionTime = performanceMonitor.calculateExecutionTime(startTime);
-            
-            performanceMonitor.logPerformanceWarning(correlationId, executionTime, controllerName, methodName);
-            
-            String formattedResponse = responseFormatter.formatResponse(result);
-            log.info("[{}] <- {}ms - {}", correlationId, executionTime, formattedResponse);
-            
-            return result;
-        } catch (Exception e) {
-            long executionTime = performanceMonitor.calculateExecutionTime(startTime);
-            log.error("[{}] X {}ms: - {}", correlationId, executionTime, e.getMessage());
-            throw e;
-        }
+    // Pointcut for methods annotated with @Loggable
+    @Pointcut("@annotation(com.zbib.hiresync.logging.Loggable)")
+    public void loggableMethods() {
     }
 
+    // Before method execution logging
+    @Before("loggableMethods()")
+    public void logMethodEntry(JoinPoint joinPoint) throws JsonProcessingException {
+        Object[] args = joinPoint.getArgs();
+        String jsonArgs = jacksonObjectMapper.writeValueAsString(args[0]);
 
+        ThreadContext.put("data", jsonArgs);
+        String methodName = joinPoint.getSignature().getName();
+        logger.info("Entering method: " + methodName);
+    }
+
+    // After method execution logging
+    @AfterReturning(pointcut = "loggableMethods()", returning = "result")
+    public void logMethodExit(JoinPoint joinPoint, Object result) throws JsonProcessingException {
+        String jsonResult = jacksonObjectMapper.writeValueAsString(result);
+
+        ThreadContext.put("data", jsonResult);
+        String methodName = joinPoint.getSignature().getName();
+        logger.info("Exiting method: " + methodName);
+    }
+
+    // After throwing exception logging
+    @AfterThrowing(pointcut = "loggableMethods()", throwing = "exception")
+    public void logMethodException(JoinPoint joinPoint, Throwable exception) {
+        String methodName = joinPoint.getSignature().getName();
+        logger.error("Exception in method: " + methodName, exception);
+    }
 }

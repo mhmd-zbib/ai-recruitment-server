@@ -3,6 +3,7 @@ package com.zbib.hiresync.service;
 import com.zbib.hiresync.dto.AuthRequest;
 import com.zbib.hiresync.dto.AuthResponse;
 import com.zbib.hiresync.entity.User;
+import com.zbib.hiresync.logging.Loggable;
 import com.zbib.hiresync.repository.UserRepository;
 import com.zbib.hiresync.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final UserService userService;
 
+    @Loggable
     public AuthResponse authenticate(AuthRequest request) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(),
