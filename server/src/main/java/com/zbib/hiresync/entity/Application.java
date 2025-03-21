@@ -20,28 +20,38 @@ public class Application {
     @GeneratedValue
     private UUID id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "job_id", nullable = false)
     private Job job;
 
+    @Column(nullable = false, length = 50)
     private String firstName;
 
+    @Column(nullable = false, length = 50)
     private String lastName;
 
+    @Column(nullable = false, length = 100)
     private String email;
 
+    @Column(nullable = false, length = 20)
     private String phoneNumber;
 
+    @Column(length = 255)
     private String linkedInUrl;
 
+    @Column(length = 255)
     private String websiteUrl;
 
+    @Column(nullable = false, length = 255)
     private String cvUrl;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private ApplicationStatus status;
 
+    @Column(length = 100)
     private String referredBy;
 
+    @Column(nullable = false)
     private LocalDateTime createdAt;
-
 }

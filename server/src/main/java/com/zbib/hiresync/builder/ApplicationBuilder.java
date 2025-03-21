@@ -1,6 +1,6 @@
 package com.zbib.hiresync.builder;
 
-import com.zbib.hiresync.dto.ApplicationCreateRequest;
+import com.zbib.hiresync.dto.ApplicationRequest;
 import com.zbib.hiresync.dto.ApplicationListResponse;
 import com.zbib.hiresync.dto.ApplicationResponse;
 import com.zbib.hiresync.entity.Application;
@@ -44,7 +44,7 @@ public class ApplicationBuilder {
                 .build();
     }
 
-    public static Application buildApplication(ApplicationCreateRequest request, Job job) {
+    public static Application buildApplication(ApplicationRequest request, Job job) {
         return Application.builder()
                 .job(job)
                 .firstName(request.getFirstName())

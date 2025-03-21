@@ -1,7 +1,7 @@
 package com.zbib.hiresync.service;
 
 import com.zbib.hiresync.builder.ApplicationBuilder;
-import com.zbib.hiresync.dto.ApplicationCreateRequest;
+import com.zbib.hiresync.dto.ApplicationRequest;
 import com.zbib.hiresync.dto.ApplicationFilter;
 import com.zbib.hiresync.dto.ApplicationListResponse;
 import com.zbib.hiresync.dto.ApplicationResponse;
@@ -29,7 +29,7 @@ public class ApplicationService {
     private final ApplicationRepository applicationRepository;
     private final JobService jobService;
 
-    public ApplicationResponse createApplication(ApplicationCreateRequest request, UUID jobId) {
+    public ApplicationResponse createApplication(ApplicationRequest request, UUID jobId) {
         Job job = jobService.getJobById(jobId);
         Application application = buildApplication(request, job);
         Application savedApplication = applicationRepository.save(application);

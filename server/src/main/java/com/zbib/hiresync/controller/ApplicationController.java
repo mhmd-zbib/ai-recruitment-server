@@ -1,16 +1,10 @@
 package com.zbib.hiresync.controller;
 
-import com.zbib.hiresync.dto.ApplicationCreateRequest;
-import com.zbib.hiresync.dto.ApplicationFilter;
-import com.zbib.hiresync.dto.ApplicationListResponse;
 import com.zbib.hiresync.dto.ApplicationResponse;
 import com.zbib.hiresync.security.UserDetailsImpl;
 import com.zbib.hiresync.service.ApplicationService;
 import com.zbib.hiresync.validator.ApplicationValidator;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

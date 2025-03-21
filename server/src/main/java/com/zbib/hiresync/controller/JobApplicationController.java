@@ -1,6 +1,6 @@
 package com.zbib.hiresync.controller;
 
-import com.zbib.hiresync.dto.ApplicationCreateRequest;
+import com.zbib.hiresync.dto.ApplicationRequest;
 import com.zbib.hiresync.dto.ApplicationFilter;
 import com.zbib.hiresync.dto.ApplicationListResponse;
 import com.zbib.hiresync.dto.ApplicationResponse;
@@ -29,8 +29,8 @@ public class JobApplicationController {
     private final JobValidator jobValidator;
 
     @PostMapping("/applications")
-    public ResponseEntity<ApplicationResponse> createApplication(@Valid @RequestBody ApplicationCreateRequest applicationCreateRequest, @PathVariable UUID jobId) {
-        ApplicationResponse applicationResponse = applicationService.createApplication(applicationCreateRequest, jobId);
+    public ResponseEntity<ApplicationResponse> createApplication(@Valid @RequestBody ApplicationRequest applicationRequest, @PathVariable UUID jobId) {
+        ApplicationResponse applicationResponse = applicationService.createApplication(applicationRequest, jobId);
         return ResponseEntity.ok(applicationResponse);
     }
 
