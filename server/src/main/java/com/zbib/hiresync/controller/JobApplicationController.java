@@ -4,32 +4,44 @@ import com.zbib.hiresync.dto.ApplicationCreateRequest;
 import com.zbib.hiresync.dto.ApplicationFilter;
 import com.zbib.hiresync.dto.ApplicationListResponse;
 import com.zbib.hiresync.dto.ApplicationResponse;
+import com.zbib.hiresync.security.UserDetailsImpl;
 import com.zbib.hiresync.service.ApplicationService;
+import com.zbib.hiresync.validator.JobValidator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/jobs/{id}")
+@RequestMapping("/jobs/{jobId}")
 @RequiredArgsConstructor
 public class JobApplicationController {
 
     private final ApplicationService applicationService;
+    private final JobValidator jobValidator;
 
-    @PostMapping("/applicationss")
-    public ResponseEntity<ApplicationResponse> createApplication(@Valid @RequestBody ApplicationCreateRequest applicationCreateRequest, @PathVariable UUID id) {
-        ApplicationResponse applicationResponse = applicationService.createApplication(applicationCreateRequest, id);
+    @PostMapping("/applications")
+    public ResponseEntity<ApplicationResponse> createApplication(@Valid @RequestBody ApplicationCreateRequest applicationCreateRequest, @PathVariable UUID jobId) {
+        ApplicationResponse applicationResponse = applicationService.createApplication(applicationCreateRequest, jobId);
         return ResponseEntity.ok(applicationResponse);
     }
 
-    @GetMapping("/applicationss")
-    public ResponseEntity<Page<ApplicationListResponse>> getAllApplications(@PathVariable UUID id, ApplicationFilter filter, Pageable pageable) {
-        Page<ApplicationListResponse> applications = applicationService.geJobApplications(id, filter, pageable);
+    @GetMapping("/applications")
+    @PreAuthorize("@jobValidator.isJobOwner(#userDetailsImpl, #jobId)")
+    public ResponseEntity<Page<ApplicationListResponse>> getAllApplications(
+            @AuthenticationPrincipal UserDetailsImpl userDetailsImpl,
+            @PathVariable UUID jobId,
+            ApplicationFilter filter,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        Page<ApplicationListResponse> applications = applicationService.geJobApplications(jobId, filter, pageable);
         return ResponseEntity.ok(applications);
     }
 }

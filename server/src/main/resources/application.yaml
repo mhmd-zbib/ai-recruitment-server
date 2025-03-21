@@ -1,10 +1,8 @@
-# Server configuration
 server:
   port: 8080
   servlet:
     context-path: /api
 
-# Spring application settings
 spring:
   main:
     banner-mode: off
@@ -16,10 +14,8 @@ spring:
     password: hiresync_password
     driver-class-name: org.postgresql.Driver
     hikari:
-      connection-timeout: 30000  # 30 seconds
+      connection-timeout: 30000
       maximum-pool-size: 5
-  
-  # JPA and Hibernate settings
   jpa:
     hibernate:
       ddl-auto: update

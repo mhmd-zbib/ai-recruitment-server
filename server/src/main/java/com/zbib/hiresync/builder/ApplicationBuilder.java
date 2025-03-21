@@ -25,7 +25,7 @@ public class ApplicationBuilder {
                 .cvUrl(application.getCvUrl())
                 .status(application.getStatus())
                 .referredBy(application.getReferredBy())
-                .appliedAt(application.getAppliedAt())
+                .appliedAt(application.getCreatedAt())
                 .build();
     }
 
@@ -40,7 +40,7 @@ public class ApplicationBuilder {
                 .jobId(application.getJob()
                         .getId())
                 .status(application.getStatus())
-                .appliedAt(application.getAppliedAt())
+                .createdAt(application.getCreatedAt())
                 .build();
     }
 
@@ -56,7 +56,7 @@ public class ApplicationBuilder {
                 .cvUrl(request.getCvUrl())
                 .status(ApplicationStatus.PENDING)
                 .referredBy(request.getReferredBy())
-                .appliedAt(LocalDateTime.now())
+                .createdAt(LocalDateTime.now())
                 .build();
     }
 }

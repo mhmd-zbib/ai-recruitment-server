@@ -6,6 +6,7 @@ import lombok.extern.log4j.Log4j2;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -28,6 +29,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(errorResponse, ex.getStatus());
     }
 
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDeniedException(
+            AccessDeniedException ex,
+            HttpServletRequest request) {
+        ErrorResponse errorResponse = buildErrorResponse(
+                HttpStatus.UNAUTHORIZED,
+                "Access Denied",
+                ex.getMessage(),
+                request
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleBadCredentialsException(
             BadCredentialsException ex,
@@ -47,8 +61,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpServletRequest request) {
         ErrorResponse errorResponse = buildErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
-                "An unexpected error occurred",
-                ex.getMessage(),
+                "Something went wrong",
+                "Internal server error",
                 request
         );
         return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);

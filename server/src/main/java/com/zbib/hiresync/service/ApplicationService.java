@@ -11,6 +11,7 @@ import com.zbib.hiresync.exceptions.ApplicationException;
 import com.zbib.hiresync.repository.ApplicationRepository;
 import com.zbib.hiresync.specification.ApplicationSpecification;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ import java.util.UUID;
 import static com.zbib.hiresync.builder.ApplicationBuilder.buildApplication;
 import static com.zbib.hiresync.builder.ApplicationBuilder.buildApplicationResponse;
 
+@Log4j2
 @Service
 @RequiredArgsConstructor
 public class ApplicationService {
@@ -43,7 +45,7 @@ public class ApplicationService {
         return applicationRepository.findById(id).orElseThrow(() -> ApplicationException.applicationNotFound(id));
     }
 
-    public Page<ApplicationListResponse> geJobApplications( UUID jobId, ApplicationFilter filter, Pageable pageable) {
+    public Page<ApplicationListResponse> geJobApplications(UUID jobId, ApplicationFilter filter, Pageable pageable) {
         Page<Application> applications = applicationRepository.findAll(
                 ApplicationSpecification.buildSpecification(jobId, filter), pageable);
         return applications.map(ApplicationBuilder::buildApplicationListResponse);

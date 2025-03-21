@@ -21,5 +21,5 @@ public class ApplicationListResponse {
     private String email;
     private String jobTitle;
     private ApplicationStatus status;
-    private LocalDateTime appliedAt;
+    private LocalDateTime createdAt;
 }

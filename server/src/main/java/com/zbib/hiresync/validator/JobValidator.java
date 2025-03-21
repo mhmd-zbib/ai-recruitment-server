@@ -1,0 +1,26 @@
+package com.zbib.hiresync.validator;
+
+import com.zbib.hiresync.entity.Job;
+import com.zbib.hiresync.repository.JobRepository;
+import com.zbib.hiresync.security.UserDetailsImpl;
+import com.zbib.hiresync.service.JobService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+import java.util.UUID;
+
+@Component
+@RequiredArgsConstructor
+public class JobValidator {
+
+    private final JobService jobService;
+
+    public boolean isJobOwner(UserDetailsImpl user, UUID jobId) {
+        if (user == null || jobId == null) {
+            return false;
+        }
+        UUID userId = user.getId();
+        Job job = jobService.getJobById(jobId);
+        return job.getUser().getId().equals(userId);
+    }
+}

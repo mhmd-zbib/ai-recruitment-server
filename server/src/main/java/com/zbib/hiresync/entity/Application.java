@@ -42,6 +42,6 @@ public class Application {
 
     private String referredBy;
 
-    private LocalDateTime appliedAt;
+    private LocalDateTime createdAt;
 
 }
