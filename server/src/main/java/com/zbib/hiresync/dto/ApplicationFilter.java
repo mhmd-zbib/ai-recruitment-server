@@ -15,7 +15,6 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ApplicationFilter {
-    private UUID jobId;
     private String searchTerm;
     private ApplicationStatus status;
     private LocalDateTime appliedDateFrom;
@@ -23,16 +22,4 @@ public class ApplicationFilter {
     private String referredBy;
     private Integer page;
     private Integer size;
-    private Sort.Direction sortDirection;
-    private String sortBy;
-
-    public static class Fields {
-        public static final String JOB_ID = "job.id";
-        public static final String STATUS = "status";
-        public static final String APPLIED_AT = "appliedAt";
-        public static final String REFERRED_BY = "referredBy";
-        public static final String FIRST_NAME = "firstName";
-        public static final String LAST_NAME = "lastName";
-        public static final String EMAIL = "email";
-    }
 }

@@ -8,15 +8,16 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class ApplicationSpecification {
 
-    public static Specification<Application> buildSpecification(ApplicationFilter filter) {
+    public static Specification<Application> buildSpecification(UUID jobId, ApplicationFilter filter) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            if (filter.getJobId() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("job").get("id"), filter.getJobId()));
+            if (jobId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("job").get("id"), jobId));
             }
 
             if (filter.getStatus() != null) {
@@ -24,7 +25,8 @@ public class ApplicationSpecification {
             }
 
             if (filter.getAppliedDateFrom() != null) {
-                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("appliedAt"), filter.getAppliedDateFrom()));
+                predicates.add(
+                        criteriaBuilder.greaterThanOrEqualTo(root.get("appliedAt"), filter.getAppliedDateFrom()));
             }
 
             if (filter.getAppliedDateTo() != null) {
@@ -38,9 +40,9 @@ public class ApplicationSpecification {
             if (StringUtils.hasText(filter.getSearchTerm())) {
                 String searchTerm = "%" + filter.getSearchTerm().toLowerCase() + "%";
                 predicates.add(criteriaBuilder.or(
-                    criteriaBuilder.like(criteriaBuilder.lower(root.get("firstName")), searchTerm),
-                    criteriaBuilder.like(criteriaBuilder.lower(root.get("lastName")), searchTerm),
-                    criteriaBuilder.like(criteriaBuilder.lower(root.get("email")), searchTerm)
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("firstName")), searchTerm),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("lastName")), searchTerm),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("email")), searchTerm)
                 ));
             }
 

@@ -7,59 +7,61 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+
 public class JobSpecification {
 
-    public static Specification<Job> filterJobs(JobFilter filter) {
-        
+    public static Specification<Job> filterJobs(UUID userId, JobFilter filter) {
+
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
-            
-            if (filter.getUserId() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("user").get("id"), filter.getUserId()));
+
+            if (userId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("user").get("id"), userId));
             }
-            
+
             if (filter.getDepartment() != null && !filter.getDepartment().isEmpty()) {
                 predicates.add(criteriaBuilder.equal(root.get("department"), filter.getDepartment()));
             }
-            
+
             if (filter.getLocationType() != null) {
                 predicates.add(criteriaBuilder.equal(root.get("locationType"), filter.getLocationType()));
             }
-            
+
             if (filter.getEmploymentType() != null) {
                 predicates.add(criteriaBuilder.equal(root.get("employmentType"), filter.getEmploymentType()));
             }
-            
+
             if (filter.getStatus() != null) {
                 predicates.add(criteriaBuilder.equal(root.get("status"), filter.getStatus()));
             }
-            
+
             if (filter.getKeyword() != null && !filter.getKeyword().isEmpty()) {
                 predicates.add(criteriaBuilder.like(
-                        criteriaBuilder.lower(root.get("title")), 
+                        criteriaBuilder.lower(root.get("title")),
                         "%" + filter.getKeyword().toLowerCase() + "%"));
             }
-            
+
             if (filter.getMinExperience() != null) {
                 predicates.add(criteriaBuilder.greaterThanOrEqualTo(
                         root.get("yearsOfExperience"), filter.getMinExperience()));
             }
-            
+
             if (filter.getMaxExperience() != null) {
                 predicates.add(criteriaBuilder.lessThanOrEqualTo(
                         root.get("yearsOfExperience"), filter.getMaxExperience()));
             }
-            
+
             if (filter.getMinSalary() != null) {
                 predicates.add(criteriaBuilder.greaterThanOrEqualTo(
                         root.get("minSalary"), filter.getMinSalary()));
             }
-            
+
             if (filter.getMaxSalary() != null) {
                 predicates.add(criteriaBuilder.lessThanOrEqualTo(
                         root.get("maxSalary"), filter.getMaxSalary()));
             }
-            
+
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
     }

@@ -26,22 +26,17 @@ import static com.zbib.hiresync.builder.JobBuilder.buildJobResponseDTO;
 public class JobService {
 
     private final JobRepository jobRepository;
-    private final UserRepository userRepository;
+    private final UserService userService;
 
-    public JobResponse createJob(JobRequest jobRequest, Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
-
-        Job job = JobBuilder.buildJobEntity(jobRequest,
-                user);
+    public JobResponse createJob(JobRequest jobRequest, UUID userId) {
+        User user = userService.getUserById(userId);
+        Job job = JobBuilder.buildJobEntity(jobRequest, user);
         Job savedJob = jobRepository.save(job);
         return buildJobResponseDTO(savedJob);
     }
 
-
     public Job getJobById(UUID id) {
-        return jobRepository.findById(id)
-                .orElseThrow(() -> JobException.jobNotFound(id));
+        return jobRepository.findById(id).orElseThrow(() -> JobException.jobNotFound(id));
     }
 
     public JobResponse getJobResponseById(UUID id) {
@@ -50,9 +45,8 @@ public class JobService {
     }
 
 
-    public Page<JobListResponse> getAllJobsWithFilters(JobFilter filter, Pageable pageable) {
-        Page<Job> jobs = jobRepository.findAll(JobSpecification.filterJobs(filter),
-                pageable);
+    public Page<JobListResponse> getUserJobs(UUID userId, JobFilter filter, Pageable pageable) {
+        Page<Job> jobs = jobRepository.findAll(JobSpecification.filterJobs(userId, filter), pageable);
         return jobs.map(JobBuilder::buildJobListResponseDTO);
     }
 }

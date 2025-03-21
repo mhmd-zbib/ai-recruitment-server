@@ -1,9 +1,7 @@
 package com.zbib.hiresync.controller;
 
 import com.zbib.hiresync.dto.*;
-import com.zbib.hiresync.security.JwtUtil;
 import com.zbib.hiresync.security.UserDetailsImpl;
-import com.zbib.hiresync.service.ApplicationService;
 import com.zbib.hiresync.service.JobService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,20 +20,12 @@ import java.util.UUID;
 public class JobController {
 
     private final JobService jobService;
-    private final ApplicationService applicationService;
 
     @PostMapping
     public ResponseEntity<JobResponse> createJob(@Valid @RequestBody JobRequest jobRequest, @AuthenticationPrincipal UserDetailsImpl userDetailsImpl) {
-        Long userId = userDetailsImpl.getId();
-        JobResponse jobResponse = jobService.createJob(jobRequest,userId);
-        return new ResponseEntity<>(jobResponse,
-                HttpStatus.CREATED);
-    }
-
-    @PostMapping("/{id}")
-    public ResponseEntity<ApplicationResponse> createApplication(@Valid @RequestBody ApplicationCreateRequest applicationCreateRequest, @PathVariable UUID id) {
-        ApplicationResponse applicationResponse = applicationService.createApplication(applicationCreateRequest,id);
-        return ResponseEntity.ok(applicationResponse);
+        UUID userId = userDetailsImpl.getId();
+        JobResponse jobResponse = jobService.createJob(jobRequest, userId);
+        return new ResponseEntity<>(jobResponse, HttpStatus.CREATED);
     }
 
     @GetMapping("/{id}")
@@ -46,12 +36,8 @@ public class JobController {
 
     @GetMapping
     public ResponseEntity<Page<JobListResponse>> getAllJobs(@AuthenticationPrincipal UserDetailsImpl userDetailsImpl, JobFilter filter, Pageable pageable) {
-
-        Long userId = userDetailsImpl != null ? userDetailsImpl.getId() : null;
-        filter.setUserId(userId);
-
-        Page<JobListResponse> jobListPage = jobService.getAllJobsWithFilters(filter,
-                pageable);
+        UUID userId = userDetailsImpl != null ? userDetailsImpl.getId() : null;
+        Page<JobListResponse> jobListPage = jobService.getUserJobs(userId, filter, pageable);
         return ResponseEntity.ok(jobListPage);
     }
 }

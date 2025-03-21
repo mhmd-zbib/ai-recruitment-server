@@ -18,9 +18,7 @@ import java.util.UUID;
 public class JobResponse {
     
     private UUID id;
-    
-    private Long userId;
-    
+
     private String username;
     
     private String title;

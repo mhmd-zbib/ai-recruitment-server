@@ -10,7 +10,6 @@ import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.exceptions.ApplicationException;
 import com.zbib.hiresync.repository.ApplicationRepository;
 import com.zbib.hiresync.specification.ApplicationSpecification;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -35,17 +34,23 @@ public class ApplicationService {
         return buildApplicationResponse(savedApplication);
     }
 
-    public ApplicationResponse getApplicationById(UUID id) {
-        Application application = applicationRepository.findById(id)
-                .orElseThrow(() -> ApplicationException.applicationNotFound(id));
+    public ApplicationResponse getApplicationResponseById(UUID id) {
+        Application application = getApplicationById(id);
         return buildApplicationResponse(application);
     }
 
-    public Page<ApplicationListResponse> getAllApplicationsWithFilters(ApplicationFilter filter, Pageable pageable) {
+    public Application getApplicationById(UUID id) {
+        return applicationRepository.findById(id).orElseThrow(() -> ApplicationException.applicationNotFound(id));
+    }
+
+    public Page<ApplicationListResponse> geJobApplications( UUID jobId, ApplicationFilter filter, Pageable pageable) {
         Page<Application> applications = applicationRepository.findAll(
-                ApplicationSpecification.buildSpecification(filter),
-                pageable
-        );
+                ApplicationSpecification.buildSpecification(jobId, filter), pageable);
         return applications.map(ApplicationBuilder::buildApplicationListResponse);
+    }
+
+    public void deleteApplicationById(UUID id) {
+        Application application = getApplicationById(id);
+        applicationRepository.delete(application);
     }
 }

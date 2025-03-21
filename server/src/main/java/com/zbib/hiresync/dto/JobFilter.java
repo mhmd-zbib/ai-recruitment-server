@@ -8,32 +8,27 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Data Transfer Object for job filtering criteria
- */
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 public class JobFilter {
-    
-    private Long userId;
-    
+
     private String department;
-    
+
     private LocationType locationType;
-    
+
     private EmploymentType employmentType;
-    
+
     private JobStatus status;
-    
+
     private String keyword;
-    
+
     private Integer minExperience;
-    
+
     private Integer maxExperience;
-    
+
     private Integer minSalary;
-    
+
     private Integer maxSalary;
 }

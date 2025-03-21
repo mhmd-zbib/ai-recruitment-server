@@ -43,7 +43,6 @@ public class JobBuilder {
     public static JobResponse buildJobResponseDTO(Job job) {
         return JobResponse.builder()
                 .id(job.getId())
-                .userId(job.getUser().getId())
                 .username(job.getUser().getUsername())
                 .title(job.getTitle())
                 .department(job.getDepartment())

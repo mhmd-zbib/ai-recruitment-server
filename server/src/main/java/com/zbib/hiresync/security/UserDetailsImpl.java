@@ -9,6 +9,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Objects;
+import java.util.UUID;
 
 @Getter
 public class UserDetailsImpl implements UserDetails {
@@ -54,12 +55,11 @@ public class UserDetailsImpl implements UserDetails {
         return true;
     }
 
-    public Long getId() {
+    public UUID getId() {
         return user.getId();
     }
 
     public User getUser() {
         return user;
     }
-
 }

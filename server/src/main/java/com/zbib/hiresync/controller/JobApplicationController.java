@@ -15,21 +15,21 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/applications/{id}")
+@RequestMapping("/jobs/{id}")
 @RequiredArgsConstructor
-public class ApplicationController {
+public class JobApplicationController {
 
     private final ApplicationService applicationService;
 
-    @GetMapping
-    public ResponseEntity<ApplicationResponse> getApplicationById(@PathVariable UUID id) {
-        ApplicationResponse applicationResponse = applicationService.getApplicationResponseById(id);
+    @PostMapping("/applicationss")
+    public ResponseEntity<ApplicationResponse> createApplication(@Valid @RequestBody ApplicationCreateRequest applicationCreateRequest, @PathVariable UUID id) {
+        ApplicationResponse applicationResponse = applicationService.createApplication(applicationCreateRequest, id);
         return ResponseEntity.ok(applicationResponse);
     }
 
-    @DeleteMapping
-    public ResponseEntity<String> deleteApplicationById(@PathVariable UUID id) {
-        applicationService.deleteApplicationById(id);
-        return ResponseEntity.ok("Application has been deleted successfully");
+    @GetMapping("/applicationss")
+    public ResponseEntity<Page<ApplicationListResponse>> getAllApplications(@PathVariable UUID id, ApplicationFilter filter, Pageable pageable) {
+        Page<ApplicationListResponse> applications = applicationService.geJobApplications(id, filter, pageable);
+        return ResponseEntity.ok(applications);
     }
 }
