@@ -4,12 +4,16 @@ import com.zbib.hiresync.dto.ApplicationCreateRequest;
 import com.zbib.hiresync.dto.ApplicationFilter;
 import com.zbib.hiresync.dto.ApplicationListResponse;
 import com.zbib.hiresync.dto.ApplicationResponse;
+import com.zbib.hiresync.security.UserDetailsImpl;
 import com.zbib.hiresync.service.ApplicationService;
+import com.zbib.hiresync.validator.ApplicationValidator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -20,15 +24,18 @@ import java.util.UUID;
 public class ApplicationController {
 
     private final ApplicationService applicationService;
+    private final ApplicationValidator applicationValidator;
 
     @GetMapping
-    public ResponseEntity<ApplicationResponse> getApplicationById(@PathVariable UUID id) {
+    @PreAuthorize("@applicationValidator.isApplicationOwner(#userDetailsImpl, #id)")
+    public ResponseEntity<ApplicationResponse> getApplicationById(@AuthenticationPrincipal UserDetailsImpl userDetailsImpl, @PathVariable UUID id) {
         ApplicationResponse applicationResponse = applicationService.getApplicationResponseById(id);
         return ResponseEntity.ok(applicationResponse);
     }
 
     @DeleteMapping
-    public ResponseEntity<String> deleteApplicationById(@PathVariable UUID id) {
+    @PreAuthorize("@applicationValidator.isApplicationOwner(#userDetailsImpl, #id)")
+    public ResponseEntity<String> deleteApplicationById(@AuthenticationPrincipal UserDetailsImpl userDetailsImpl, @PathVariable UUID id) {
         applicationService.deleteApplicationById(id);
         return ResponseEntity.ok("Application has been deleted successfully");
     }
