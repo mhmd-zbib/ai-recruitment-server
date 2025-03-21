@@ -1,22 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration monitorInterval="30">
     <Properties>
-        <Property name="LOG_PATTERN">%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ} | %-5level | %-20.20c{1}.%M() | %msg%n</Property>
-        <Property name="JSON_PATTERN">
-            {"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%level","service":"%c{1}","event":"%X{event}","data":%X{data},"thread":"%t"%notEmpty{,"error":"%exception"}}%n
-        </Property>
-    </Properties>
+        <!-- Console pattern with highlighted request, response and error information -->
+        <Property name="LOG_PATTERN">%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ} | %highlight{%-5level} | %-20.20c{1}.%M() | %msg | %style{API Path:%X{apiPath}}{cyan} | %style{HTTP Method:%X{httpMethod}}{cyan} | %style{Correlation ID:%X{correlationId}}{magenta} | %style{Exec Time:%X{executionTime}ms}{yellow} | %style{Client IP:%X{clientIP}}{blue} %style{REQUEST: %X{request}}{green} %style{RESPONSE: %X{response}}{green} %style{ERROR: %X{errorInfo}}{red} %n</Property>
 
+        <!-- JSON pattern with everything on a single line for log processing with enhanced fields -->
+        <Property name="JSON_PATTERN">{"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%level","service":"%c{1}","message":"%X{message}","request":%X{request},"response":%X{response},"apiPath":"%X{apiPath}","httpMethod":"%X{httpMethod}","correlationId":"%X{correlationId}","executionTime":"%X{executionTime}","clientIP":"%X{clientIP}","userAgent":"%X{userAgent}","errorInfo":%X{errorInfo},"stackTrace":"%exception{full}"}%n</Property>
+    </Properties>
     <Appenders>
-        <!-- Console Appender for Human-Readable Format -->
         <Console name="ConsoleAppender" target="SYSTEM_OUT">
-            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <PatternLayout pattern="${LOG_PATTERN}" disableAnsi="false"/>
         </Console>
 
-        <!-- Rolling File Appender for JSON Format -->
         <RollingFile name="JsonFileAppender"
-                     fileName="logs/recruitment-pipeline.json"
-                     filePattern="logs/recruitment-pipeline-%d{yyyy-MM-dd}-%i.json.gz">
+                     fileName="logs/app.log"
+                     filePattern="logs/hiresync-%d{yyyy-MM-dd}-%i.json.gz">
             <PatternLayout pattern="${JSON_PATTERN}"/>
             <Policies>
                 <TimeBasedTriggeringPolicy/>
@@ -24,13 +22,37 @@
             </Policies>
             <DefaultRolloverStrategy max="30"/>
         </RollingFile>
+
+        <RollingFile name="ErrorFileAppender"
+                     fileName="logs/error.log"
+                     filePattern="logs/hiresync-error-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}" disableAnsi="false"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+            <ThresholdFilter level="ERROR" onMatch="ACCEPT" onMismatch="DENY"/>
+        </RollingFile>
     </Appenders>
 
     <Loggers>
-        <Root>
+        <Logger name="com.zbib.hiresync" level="info" additivity="false">
             <AppenderRef ref="ConsoleAppender"/>
-            <AppenderRef ref="FileAppender"/>
             <AppenderRef ref="JsonFileAppender"/>
+            <AppenderRef ref="ErrorFileAppender"/>
+        </Logger>
+
+        <Logger name="org.springframework" level="warn" additivity="false">
+            <AppenderRef ref="ConsoleAppender"/>
+            <AppenderRef ref="JsonFileAppender"/>
+            <AppenderRef ref="ErrorFileAppender"/>
+        </Logger>
+
+        <Root level="info">
+            <AppenderRef ref="ConsoleAppender"/>
+            <AppenderRef ref="JsonFileAppender"/>
+            <AppenderRef ref="ErrorFileAppender"/>
         </Root>
     </Loggers>
 </Configuration>
