@@ -16,34 +16,18 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 public class JobResponse {
-    
     private UUID id;
-
-    private String username;
-    
     private String title;
-    
     private String department;
-    
     private String description;
-    
     private String responsibilities;
-    
     private String qualifications;
-    
     private String benefits;
-    
     private int yearsOfExperience;
-    
     private LocationType locationType;
-    
     private EmploymentType employmentType;
-    
     private JobStatus status;
-    
     private int minSalary;
-    
     private int maxSalary;
-    
     private LocalDateTime createdAt;
 }

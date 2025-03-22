@@ -1,25 +1,41 @@
 package com.zbib.hiresync.dto;
 
 import com.zbib.hiresync.enums.ApplicationStatus;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import org.springframework.data.domain.Sort;
+import com.zbib.hiresync.enums.EmploymentType;
+import com.zbib.hiresync.enums.JobStatus;
+import com.zbib.hiresync.enums.LocationType;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
+import java.util.List;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@Getter
+@Setter
 public class ApplicationFilter {
-    private String searchTerm;
-    private ApplicationStatus status;
-    private LocalDateTime appliedDateFrom;
-    private LocalDateTime appliedDateTo;
-    private String referredBy;
-    private Integer page;
-    private Integer size;
+
+    // General search query
+    private String query;
+
+    // Job-related filters
+    private List<Long> jobId;
+    private List<LocationType> locationType;
+    private List<EmploymentType> employmentType;
+    private List<JobStatus> jobStatus;
+
+    // Experience and salary ranges
+    private Integer minExperience;
+    private Integer maxExperience;
+    private Integer minSalary;
+    private Integer maxSalary;
+
+    // Application status (multiple values)
+    private List<ApplicationStatus> status;
+
+    // Date filters
+    private LocalDateTime minJobCreatedAt;
+    private LocalDateTime maxJobCreatedAt;
+    private LocalDateTime minCreatedAt;
+    private LocalDateTime maxCreatedAt;
+
 }

@@ -1,6 +1,8 @@
 package com.zbib.hiresync.logging;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.apache.logging.log4j.ThreadContext;
 import org.springframework.stereotype.Component;
 
@@ -37,10 +39,7 @@ public class LogFormatter {
 
         try {
             // Create basic error info without stack trace
-            ClientErrorInfo errorInfo = new ClientErrorInfo(
-                    throwable.getClass().getName(),
-                    throwable.getMessage()
-            );
+            ClientErrorInfo errorInfo = new ClientErrorInfo(throwable.getClass().getName(), throwable.getMessage());
 
             // Serialize error info to JSON
             String errorJson = jacksonObjectMapper.writeValueAsString(errorInfo);
@@ -70,12 +69,8 @@ public class LogFormatter {
             String stackTrace = sw.toString();
 
             // Create structured error info with stack trace
-            ServerErrorInfo errorInfo = new ServerErrorInfo(
-                    throwable.getClass().getName(),
-                    throwable.getMessage(),
-                    stackTrace,
-                    throwable.getCause() != null ? throwable.getCause().getMessage() : null
-            );
+            ServerErrorInfo errorInfo = new ServerErrorInfo(throwable.getClass().getName(), throwable.getMessage(),
+                    stackTrace, throwable.getCause() != null ? throwable.getCause().getMessage() : null);
 
             // Serialize error info to JSON
             String errorJson = jacksonObjectMapper.writeValueAsString(errorInfo);
@@ -98,65 +93,14 @@ public class LogFormatter {
         if (message == null) return "null";
 
         // Replace potential sensitive patterns like passwords, tokens, etc.
-        return message
-                .replaceAll("(?i)password\\s*[=:]\\s*[^,;\\s]+", "password=*****")
+        return message.replaceAll("(?i)password\\s*[=:]\\s*[^,;\\s]+", "password=*****")
                 .replaceAll("(?i)token\\s*[=:]\\s*[^,;\\s]+", "token=*****")
                 .replaceAll("(?i)secret\\s*[=:]\\s*[^,;\\s]+", "secret=*****");
     }
 
-    /**
-     * Helper class for structured client error information (4xx)
-     */
-    private static class ClientErrorInfo {
-        private final String exceptionType;
-        private final String message;
-
-        public ClientErrorInfo(String exceptionType, String message) {
-            this.exceptionType = exceptionType;
-            this.message = message;
-        }
-
-        // Getters needed for Jackson serialization
-        public String getExceptionType() {
-            return exceptionType;
-        }
-
-        public String getMessage() {
-            return message;
-        }
+    private record ClientErrorInfo(String exceptionType, String message) {
     }
 
-    /**
-     * Helper class for structured server error information (5xx)
-     */
-    private static class ServerErrorInfo {
-        private final String exceptionType;
-        private final String message;
-        private final String stackTrace;
-        private final String cause;
-
-        public ServerErrorInfo(String exceptionType, String message, String stackTrace, String cause) {
-            this.exceptionType = exceptionType;
-            this.message = message;
-            this.stackTrace = stackTrace;
-            this.cause = cause;
-        }
-
-        // Getters needed for Jackson serialization
-        public String getExceptionType() {
-            return exceptionType;
-        }
-
-        public String getMessage() {
-            return message;
-        }
-
-        public String getStackTrace() {
-            return stackTrace;
-        }
-
-        public String getCause() {
-            return cause;
-        }
+    private record ServerErrorInfo(String exceptionType, String message, String stackTrace, String cause) {
     }
 }

@@ -8,6 +8,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,11 +19,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/jobs")
+@RequestMapping("/v1/jobs")
 @RequiredArgsConstructor
 public class JobController {
 
     private final JobService jobService;
+
     @PostMapping
     public ResponseEntity<JobResponse> createJob(@Valid @RequestBody JobRequest jobRequest, @AuthenticationPrincipal UserDetailsImpl userDetailsImpl) {
         UUID userId = userDetailsImpl.getId();
@@ -37,7 +40,10 @@ public class JobController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<JobListResponse>> getAllJobs(@AuthenticationPrincipal UserDetailsImpl userDetailsImpl, JobFilter filter, Pageable pageable) {
+    public ResponseEntity<Page<JobListResponse>> getAllJobs(
+            @AuthenticationPrincipal UserDetailsImpl userDetailsImpl,
+            JobFilter filter,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         UUID userId = userDetailsImpl != null ? userDetailsImpl.getId() : null;
         Page<JobListResponse> jobListPage = jobService.getUserJobs(userId, filter, pageable);
         return ResponseEntity.ok(jobListPage);

@@ -1,8 +1,8 @@
 package com.zbib.hiresync.controller;
 
 import com.zbib.hiresync.dto.ApplicationRequest;
-import com.zbib.hiresync.dto.ApplicationFilter;
-import com.zbib.hiresync.dto.ApplicationListResponse;
+import com.zbib.hiresync.dto.JobApplicationFilter;
+import com.zbib.hiresync.dto.JobApplicationListResponse;
 import com.zbib.hiresync.dto.ApplicationResponse;
 import com.zbib.hiresync.security.UserDetailsImpl;
 import com.zbib.hiresync.service.ApplicationService;
@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/jobs/{jobId}")
+@RequestMapping("/v1/jobs/{jobId}")
 @RequiredArgsConstructor
 public class JobApplicationController {
 
@@ -36,12 +36,12 @@ public class JobApplicationController {
 
     @GetMapping("/applications")
     @PreAuthorize("@jobValidator.isJobOwner(#userDetailsImpl, #jobId)")
-    public ResponseEntity<Page<ApplicationListResponse>> getAllApplications(
+    public ResponseEntity<Page<JobApplicationListResponse>> getAllApplications(
             @AuthenticationPrincipal UserDetailsImpl userDetailsImpl,
             @PathVariable UUID jobId,
-            ApplicationFilter filter,
+            JobApplicationFilter filter,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<ApplicationListResponse> applications = applicationService.geJobApplications(jobId, filter, pageable);
+        Page<JobApplicationListResponse> applications = applicationService.geJobApplications(jobId, filter, pageable);
         return ResponseEntity.ok(applications);
     }
 }

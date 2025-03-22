@@ -37,8 +37,8 @@ public class Application {
     private String phoneNumber;
 
     @Column(length = 255)
-    private String linkedInUrl;
-
+    private String linkedinUrl;
+ 
     @Column(length = 255)
     private String websiteUrl;
 

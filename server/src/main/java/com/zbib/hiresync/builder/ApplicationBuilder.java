@@ -1,7 +1,8 @@
 package com.zbib.hiresync.builder;
 
-import com.zbib.hiresync.dto.ApplicationRequest;
 import com.zbib.hiresync.dto.ApplicationListResponse;
+import com.zbib.hiresync.dto.ApplicationRequest;
+import com.zbib.hiresync.dto.JobApplicationListResponse;
 import com.zbib.hiresync.dto.ApplicationResponse;
 import com.zbib.hiresync.entity.Application;
 import com.zbib.hiresync.entity.Job;
@@ -12,15 +13,17 @@ import java.time.LocalDateTime;
 public class ApplicationBuilder {
 
     public static ApplicationResponse buildApplicationResponse(Application application) {
-        return ApplicationResponse.builder()
+        return ApplicationResponse
+                .builder()
                 .id(application.getId())
-                .jobId(application.getJob()
+                .jobId(application
+                        .getJob()
                         .getId())
                 .firstName(application.getFirstName())
                 .lastName(application.getLastName())
                 .email(application.getEmail())
                 .phoneNumber(application.getPhoneNumber())
-                .linkedInUrl(application.getLinkedInUrl())
+                .linkedInUrl(application.getLinkedinUrl())
                 .websiteUrl(application.getWebsiteUrl())
                 .cvUrl(application.getCvUrl())
                 .status(application.getStatus())
@@ -29,34 +32,59 @@ public class ApplicationBuilder {
                 .build();
     }
 
-    public static ApplicationListResponse buildApplicationListResponse(Application application) {
-        return ApplicationListResponse.builder()
+    public static JobApplicationListResponse buildJobApplicationListResponse(Application application) {
+        return JobApplicationListResponse
+                .builder()
                 .id(application.getId())
                 .firstName(application.getFirstName())
                 .lastName(application.getLastName())
                 .email(application.getEmail())
-                .jobTitle(application.getJob()
-                        .getTitle())
-                .jobId(application.getJob()
-                        .getId())
                 .status(application.getStatus())
                 .createdAt(application.getCreatedAt())
                 .build();
     }
 
     public static Application buildApplication(ApplicationRequest request, Job job) {
-        return Application.builder()
+        return Application
+                .builder()
                 .job(job)
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .email(request.getEmail())
                 .phoneNumber(request.getPhoneNumber())
-                .linkedInUrl(request.getLinkedInUrl())
+                .linkedinUrl(request.getLinkedInUrl())
                 .websiteUrl(request.getWebsiteUrl())
                 .cvUrl(request.getCvUrl())
-                .status(ApplicationStatus.PENDING)
+                .status(ApplicationStatus.NEW)
                 .referredBy(request.getReferredBy())
                 .createdAt(LocalDateTime.now())
+                .build();
+    }
+
+    public static ApplicationListResponse buildApplicationListResponse(Application application) {
+        return ApplicationListResponse
+                .builder()
+                .id(application.getId())
+                .firstName(application.getFirstName())
+                .lastName(application.getLastName())
+                .email(application.getEmail())
+                .status(application.getStatus())
+                .createdAt(application.getCreatedAt())
+                .job(ApplicationListResponse.ApplicationJobResponse
+                        .builder()
+                        .id(application
+                                .getJob()
+                                .getId())
+                        .title(application
+                                .getJob()
+                                .getTitle())
+                        .department(application
+                                .getJob()
+                                .getDepartment())
+                        .status(application
+                                .getJob()
+                                .getStatus())
+                        .build())
                 .build();
     }
 }

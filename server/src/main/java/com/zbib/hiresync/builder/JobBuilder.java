@@ -9,20 +9,11 @@ import com.zbib.hiresync.enums.JobStatus;
 
 import java.time.LocalDateTime;
 
-/**
- * Utility class for building Job-related objects
- */
 public class JobBuilder {
 
-    /**
-     * Builds a Job entity from a JobRequestDTO and User
-     *
-     * @param jobRequest the DTO containing job information
-     * @param user the user creating the job
-     * @return a new Job entity
-     */
     public static Job buildJobEntity(JobRequest jobRequest, User user) {
-        return Job.builder()
+        return Job
+                .builder()
                 .user(user)
                 .title(jobRequest.getTitle())
                 .department(jobRequest.getDepartment())
@@ -41,9 +32,9 @@ public class JobBuilder {
     }
 
     public static JobResponse buildJobResponseDTO(Job job) {
-        return JobResponse.builder()
+        return JobResponse
+                .builder()
                 .id(job.getId())
-                .username(job.getUser().getUsername())
                 .title(job.getTitle())
                 .department(job.getDepartment())
                 .description(job.getDescription())
@@ -61,12 +52,17 @@ public class JobBuilder {
     }
 
     public static JobListResponse buildJobListResponseDTO(Job job) {
-        return JobListResponse.builder()
+        return JobListResponse
+                .builder()
                 .id(job.getId())
                 .title(job.getTitle())
                 .department(job.getDepartment())
-                .applications(10)
-                .match(0.92)
+                .locationType(job.getLocationType())
+                .employmentType(job.getEmploymentType())
+                .status(job.getStatus())
+                .yearsOfExperience(job.getYearsOfExperience())
+                .minSalary(job.getMinSalary())
+                .maxSalary(job.getMaxSalary())
                 .createdAt(job.getCreatedAt())
                 .build();
     }

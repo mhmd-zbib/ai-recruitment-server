@@ -1,15 +1,13 @@
 package com.zbib.hiresync.service;
 
 import com.zbib.hiresync.builder.ApplicationBuilder;
-import com.zbib.hiresync.dto.ApplicationRequest;
-import com.zbib.hiresync.dto.ApplicationFilter;
-import com.zbib.hiresync.dto.ApplicationListResponse;
-import com.zbib.hiresync.dto.ApplicationResponse;
+import com.zbib.hiresync.dto.*;
 import com.zbib.hiresync.entity.Application;
 import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.exceptions.ApplicationException;
 import com.zbib.hiresync.repository.ApplicationRepository;
 import com.zbib.hiresync.specification.ApplicationSpecification;
+import com.zbib.hiresync.specification.JobApplicationSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.data.domain.Page;
@@ -42,13 +40,22 @@ public class ApplicationService {
     }
 
     public Application getApplicationById(UUID id) {
-        return applicationRepository.findById(id).orElseThrow(() -> ApplicationException.applicationNotFound(id));
+        return applicationRepository
+                .findById(id)
+                .orElseThrow(() -> ApplicationException.applicationNotFound(id));
     }
 
-    public Page<ApplicationListResponse> geJobApplications(UUID jobId, ApplicationFilter filter, Pageable pageable) {
+    public Page<JobApplicationListResponse> geJobApplications(UUID jobId, JobApplicationFilter filter, Pageable pageable) {
         Page<Application> applications = applicationRepository.findAll(
-                ApplicationSpecification.buildSpecification(jobId, filter), pageable);
+                JobApplicationSpecification.buildSpecification(jobId, filter), pageable);
+        return applications.map(ApplicationBuilder::buildJobApplicationListResponse);
+    }
+
+    public Page<ApplicationListResponse> getApplications(UUID userId, ApplicationFilter filter, Pageable pageable) {
+        Page<Application> applications = applicationRepository.findAll(
+                ApplicationSpecification.buildSpecification(userId, filter), pageable);
         return applications.map(ApplicationBuilder::buildApplicationListResponse);
+
     }
 
     public void deleteApplicationById(UUID id) {

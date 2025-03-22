@@ -1,6 +1,9 @@
 package com.zbib.hiresync.repository;
 
+import com.zbib.hiresync.dto.ApplicationListResponse;
 import com.zbib.hiresync.entity.Application;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -14,4 +17,9 @@ public interface ApplicationRepository extends JpaRepository<Application, UUID>,
             "JOIN a.job j " +
             "WHERE a.id = :applicationId AND j.user.id = :userId")
     boolean existsByIdAndUserId(@Param("applicationId") UUID applicationId, @Param("userId") UUID userId);
+
+
+
+
+
 }

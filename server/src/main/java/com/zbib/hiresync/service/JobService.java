@@ -9,9 +9,7 @@ import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.entity.User;
 import com.zbib.hiresync.exceptions.JobException;
 import com.zbib.hiresync.repository.JobRepository;
-import com.zbib.hiresync.repository.UserRepository;
 import com.zbib.hiresync.specification.JobSpecification;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -46,7 +44,7 @@ public class JobService {
 
 
     public Page<JobListResponse> getUserJobs(UUID userId, JobFilter filter, Pageable pageable) {
-        Page<Job> jobs = jobRepository.findAll(JobSpecification.filterJobs(userId, filter), pageable);
+        Page<Job> jobs = jobRepository.findAll(JobSpecification.buildSpecification(userId, filter), pageable);
         return jobs.map(JobBuilder::buildJobListResponseDTO);
     }
 }
