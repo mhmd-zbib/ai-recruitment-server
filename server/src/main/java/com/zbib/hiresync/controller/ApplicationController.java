@@ -26,14 +26,18 @@ public class ApplicationController {
 
     @GetMapping("/{id}")
     @PreAuthorize("@applicationValidator.isApplicationOwner(#userDetailsImpl, #id)")
-    public ResponseEntity<ApplicationResponse> getApplicationById(@AuthenticationPrincipal UserDetailsImpl userDetailsImpl, @PathVariable UUID id) {
+    public ResponseEntity<ApplicationResponse> getApplicationById(
+            @AuthenticationPrincipal UserDetailsImpl userDetailsImpl,
+            @PathVariable UUID id) {
         ApplicationResponse applicationResponse = applicationService.getApplicationResponseById(id);
         return ResponseEntity.ok(applicationResponse);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("@applicationValidator.isApplicationOwner(#userDetailsImpl, #id)")
-    public ResponseEntity<String> deleteApplicationById(@AuthenticationPrincipal UserDetailsImpl userDetailsImpl, @PathVariable UUID id) {
+    public ResponseEntity<String> deleteApplicationById(
+            @AuthenticationPrincipal UserDetailsImpl userDetailsImpl,
+            @PathVariable UUID id) {
         applicationService.deleteApplicationById(id);
         return ResponseEntity.ok("Application has been deleted successfully");
     }

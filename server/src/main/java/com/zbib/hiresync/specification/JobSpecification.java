@@ -12,54 +12,47 @@ import java.util.UUID;
 public class JobSpecification {
 
     public static Specification<Job> buildSpecification(UUID userId, JobFilter filter) {
-
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
 
+            // User ID filter
             if (userId != null) {
-                predicates.add(criteriaBuilder.equal(root
-                        .get("user")
-                        .get("id"), userId));
+                predicates.add(SpecificationUtils.createEqualPredicate(
+                        criteriaBuilder, root.get("user").get("id"), userId));
             }
 
-            if (filter.getQuery() != null && !filter
-                    .getQuery()
-                    .isEmpty()) {
-                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), "%" + filter
-                        .getQuery()
-                        .toLowerCase() + "%"));
-            }
+            // Text search
+            SpecificationUtils.addStringSearchPredicateIfNotEmpty(
+                    predicates, criteriaBuilder, filter.getQuery(), root.get("title"));
 
-
+            // Simple equality filters
             if (filter.getLocationType() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("locationType"), filter.getLocationType()));
+                predicates.add(SpecificationUtils.createEqualPredicate(
+                        criteriaBuilder, root.get("locationType"), filter.getLocationType()));
             }
 
             if (filter.getEmploymentType() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("employmentType"), filter.getEmploymentType()));
+                predicates.add(SpecificationUtils.createEqualPredicate(
+                        criteriaBuilder, root.get("employmentType"), filter.getEmploymentType()));
             }
 
             if (filter.getStatus() != null) {
-                predicates.add(criteriaBuilder.equal(root.get("status"), filter.getStatus()));
+                predicates.add(SpecificationUtils.createEqualPredicate(
+                        criteriaBuilder, root.get("status"), filter.getStatus()));
             }
 
-            if (filter.getMinExperience() != null) {
-                predicates.add(
-                        criteriaBuilder.greaterThanOrEqualTo(root.get("yearsOfExperience"), filter.getMinExperience()));
-            }
-
-            if (filter.getMaxExperience() != null) {
-                predicates.add(
-                        criteriaBuilder.lessThanOrEqualTo(root.get("yearsOfExperience"), filter.getMaxExperience()));
-            }
-
-            if (filter.getMinSalary() != null) {
-                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("minSalary"), filter.getMinSalary()));
-            }
-
-            if (filter.getMaxSalary() != null) {
-                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("maxSalary"), filter.getMaxSalary()));
-            }
+            // Range filters
+            SpecificationUtils.addGreaterThanOrEqualPredicateIfNotNull(
+                    predicates, root.get("yearsOfExperience"), filter.getMinExperience(), criteriaBuilder);
+            
+            SpecificationUtils.addLessThanOrEqualPredicateIfNotNull(
+                    predicates, root.get("yearsOfExperience"), filter.getMaxExperience(), criteriaBuilder);
+            
+            SpecificationUtils.addGreaterThanOrEqualPredicateIfNotNull(
+                    predicates, root.get("minSalary"), filter.getMinSalary(), criteriaBuilder);
+            
+            SpecificationUtils.addLessThanOrEqualPredicateIfNotNull(
+                    predicates, root.get("maxSalary"), filter.getMaxSalary(), criteriaBuilder);
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
