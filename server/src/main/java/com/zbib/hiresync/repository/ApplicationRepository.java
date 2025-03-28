@@ -18,8 +18,4 @@ public interface ApplicationRepository extends JpaRepository<Application, UUID>,
             "WHERE a.id = :applicationId AND j.user.id = :userId")
     boolean existsByIdAndUserId(@Param("applicationId") UUID applicationId, @Param("userId") UUID userId);
 
-
-
-
-
 }

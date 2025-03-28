@@ -1,23 +1,16 @@
 package com.zbib.hiresync.logging;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+
 import org.apache.logging.log4j.ThreadContext;
 import org.springframework.stereotype.Component;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
-/**
- * Responsible for formatting log messages and context
- */
 @Component
 public class LogFormatter {
 
-    /**
-     * Format success response for logging
-     */
     public void formatSuccessResponse(Object result, long executionTime, ObjectMapper jacksonObjectMapper) {
         // Add execution time to context
         ThreadContext.put("executionTime", String.valueOf(executionTime));
@@ -26,20 +19,25 @@ public class LogFormatter {
         try {
             String jsonResponse = result != null ? jacksonObjectMapper.writeValueAsString(result) : "{}";
             ThreadContext.put("response", jsonResponse);
+
         } catch (Exception e) {
             ThreadContext.put("response", "{\"error\":\"Could not serialize response\"}");
         }
     }
 
-    /**
-     * Format client error for logging
-     */
-    public void formatClientError(Throwable throwable, String message, long executionTime, ObjectMapper jacksonObjectMapper) {
+
+    public void formatClientError(
+            Throwable throwable,
+            String message,
+            long executionTime,
+            ObjectMapper jacksonObjectMapper) {
         ThreadContext.put("executionTime", String.valueOf(executionTime));
 
         try {
             // Create basic error info without stack trace
-            ClientErrorInfo errorInfo = new ClientErrorInfo(throwable.getClass().getName(), throwable.getMessage());
+            ClientErrorInfo errorInfo = new ClientErrorInfo(throwable
+                    .getClass()
+                    .getName(), throwable.getMessage());
 
             // Serialize error info to JSON
             String errorJson = jacksonObjectMapper.writeValueAsString(errorInfo);
@@ -49,15 +47,12 @@ public class LogFormatter {
             ThreadContext.put("response", "{\"error\": \"" + escapeSensitiveInfo(throwable.getMessage()) + "\"}");
 
         } catch (Exception e) {
-            // Fallback if JSON serialization fails
+            // Fallback if serialization fails
             ThreadContext.put("errorInfo", "{\"error\": \"Error serializing exception details\"}");
             ThreadContext.put("response", "{\"error\": \"Client error\"}");
         }
     }
 
-    /**
-     * Format server error for logging
-     */
     public void formatServerError(Throwable throwable, String message, long executionTime, ObjectMapper jacksonObjectMapper) {
         ThreadContext.put("executionTime", String.valueOf(executionTime));
 
@@ -69,8 +64,12 @@ public class LogFormatter {
             String stackTrace = sw.toString();
 
             // Create structured error info with stack trace
-            ServerErrorInfo errorInfo = new ServerErrorInfo(throwable.getClass().getName(), throwable.getMessage(),
-                    stackTrace, throwable.getCause() != null ? throwable.getCause().getMessage() : null);
+            ServerErrorInfo errorInfo = new ServerErrorInfo(throwable
+                    .getClass()
+                    .getName(), throwable.getMessage(),
+                    stackTrace, throwable.getCause() != null ? throwable
+                    .getCause()
+                    .getMessage() : null);
 
             // Serialize error info to JSON
             String errorJson = jacksonObjectMapper.writeValueAsString(errorInfo);
@@ -86,21 +85,25 @@ public class LogFormatter {
         }
     }
 
-    /**
-     * Prevents sensitive information from being logged
-     */
     private String escapeSensitiveInfo(String message) {
         if (message == null) return "null";
 
         // Replace potential sensitive patterns like passwords, tokens, etc.
-        return message.replaceAll("(?i)password\\s*[=:]\\s*[^,;\\s]+", "password=*****")
+        return message
+                .replaceAll("(?i)password\\s*[=:]\\s*[^,;\\s]+", "password=*****")
                 .replaceAll("(?i)token\\s*[=:]\\s*[^,;\\s]+", "token=*****")
                 .replaceAll("(?i)secret\\s*[=:]\\s*[^,;\\s]+", "secret=*****");
     }
 
-    private record ClientErrorInfo(String exceptionType, String message) {
+    private record ClientErrorInfo(
+            String exceptionType,
+            String message) {
     }
 
-    private record ServerErrorInfo(String exceptionType, String message, String stackTrace, String cause) {
+    private record ServerErrorInfo(
+            String exceptionType,
+            String message,
+            String stackTrace,
+            String cause) {
     }
 }

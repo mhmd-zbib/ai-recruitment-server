@@ -12,9 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Responsible for building the logging context from request and method information
- */
+
 @Component
 @RequiredArgsConstructor
 public class LogContextBuilder {

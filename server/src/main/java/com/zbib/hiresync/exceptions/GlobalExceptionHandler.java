@@ -35,8 +35,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpServletRequest request) {
         ErrorResponse errorResponse = buildErrorResponse(
                 HttpStatus.UNAUTHORIZED,
-                "Access Denied",
                 ex.getMessage(),
+                "You are unauthorized to access this resource",
                 request
         );
         return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
@@ -48,7 +48,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpServletRequest request) {
         ErrorResponse errorResponse = buildErrorResponse(
                 HttpStatus.UNAUTHORIZED,
-                "Invalid email or password",
+                "Bad credentials",
                 ex.getMessage(),
                 request
         );
