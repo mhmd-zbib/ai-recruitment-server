@@ -1,7 +1,12 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
   servlet:
     context-path: /api
+  tomcat:
+    max-threads: 200
+    min-spare-threads: 20
+    max-connections: 10000
+    accept-count: 100
 
 spring:
   main:
@@ -9,29 +14,51 @@ spring:
   application:
     name: hiresync-api
   datasource:
-    url: jdbc:postgresql://localhost:5544/hiresync_db
-    username: hiresync_user
-    password: hiresync_password
+    url: ${JDBC_DATABASE_URL:jdbc:postgresql://localhost:5544/hiresync_db}
+    username: ${JDBC_DATABASE_USERNAME:hiresync_user}
+    password: ${JDBC_DATABASE_PASSWORD:hiresync_password}
     driver-class-name: org.postgresql.Driver
     hikari:
       connection-timeout: 30000
-      maximum-pool-size: 5
+      maximum-pool-size: ${DB_MAX_POOL_SIZE:10}
+      minimum-idle: ${DB_MIN_IDLE:5}
+      idle-timeout: 600000
+      max-lifetime: 1800000
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc.batch_size: 50
+        order_inserts: true
+        order_updates: true
+        connection.provider_disables_autocommit: true
+    open-in-view: false
   output:
     ansi:
       enabled: always
 
 jwt:
-  secret: your-jwt-secret-key-should-be-at-least-256-bits-long
-  expiration: 86400000
+  secret: ${JWT_SECRET:your-jwt-secret-key-should-be-at-least-256-bits-long}
+  expiration: ${JWT_EXPIRATION:86400000}
 
 logging:
   level:
-    root: INFO
-    com.zbib.hiresync: INFO
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.zbib.hiresync: ${LOG_LEVEL_APP:INFO}
+    org.hibernate.SQL: ${LOG_LEVEL_SQL:INFO}
   config: classpath:log4j2.xml
+
+# Production settings
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+  health:
+    db:
+      enabled: true
