@@ -10,7 +10,6 @@ RUN mvn clean package -DskipTests
 FROM eclipse-temurin:17-jdk-alpine
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
-COPY src/main/resources/.env .env
 
 # Determine which env vars to load based on SPRING_PROFILES_ACTIVE
 ARG SPRING_PROFILES_ACTIVE=prod
