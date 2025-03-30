@@ -1,19 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration monitorInterval="30">
     <Properties>
-        <Property name="LOG_PATTERN">%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ} | %highlight{%-5level} | %-20.20c{1}.%M() | %msg |
-            %style{API Path:%X{apiPath}}{cyan} | %style{HTTP Method:%X{httpMethod}}{cyan} | %style{Correlation
-            ID:%X{correlationId}}{magenta} | %style{Exec Time:%X{executionTime}ms}{yellow} | %style{Client
-            IP:%X{clientIP}}{blue} %style{REQUEST: %X{request}}{green} %style{RESPONSE: %X{response}}{green}
-            %style{ERROR: %X{errorInfo}}{red} %n
-        </Property>
-        <Property name="JSON_PATTERN">
-            {"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%level","service":"%c{1}","message":"%X{message}","request":%X{request},"response":%X{response},"apiPath":"%X{apiPath}","httpMethod":"%X{httpMethod}","correlationId":"%X{correlationId}","executionTime":"%X{executionTime}","clientIP":"%X{clientIP}","userAgent":"%X{userAgent}","errorInfo":%X{errorInfo},"stackTrace":"%exception{full}"}%n
-        </Property>
+        <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight{%-5level} %highlight{[%c{1.}]}{cyan} %highlight{%msg}{bright} %style{%X{correlationId}}{magenta}%n%style{%X{httpMethod} %X{apiPath}}{blue}%style{%X{executionTime}}{yellow}%style{%X{errorInfo}}{red}</Property>
+        <Property name="JSON_PATTERN">{"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%level","service":"%c{1}","message":"%X{message}","request":%X{request},"response":%X{response},"apiPath":"%X{apiPath}","httpMethod":"%X{httpMethod}","correlationId":"%X{correlationId}","executionTime":"%X{executionTime}","clientIP":"%X{clientIP}","userAgent":"%X{userAgent}","errorInfo":%X{errorInfo},"stackTrace":"%exception{full}"}%n</Property>
+        <Property name="ERROR_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%c{1.}] %msg %X{correlationId}%n%X{httpMethod} %X{apiPath}%n%exception{full}</Property>
     </Properties>
     <Appenders>
         <Console name="ConsoleAppender" target="SYSTEM_OUT">
             <PatternLayout pattern="${LOG_PATTERN}" disableAnsi="false"/>
+            <ThresholdFilter level="DEBUG"/>
         </Console>
         <RollingFile name="JsonFileAppender"
                      fileName="logs/app.log"
@@ -25,9 +20,32 @@
             </Policies>
             <DefaultRolloverStrategy max="30"/>
         </RollingFile>
+        <RollingFile name="ErrorFileAppender"
+                     fileName="logs/error.log"
+                     filePattern="logs/error-%d{yyyy-MM-dd}-%i.log">
+            <PatternLayout pattern="${ERROR_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+            <LevelRangeFilter minLevel="ERROR" maxLevel="ERROR" onMatch="ACCEPT" onMismatch="DENY"/>
+        </RollingFile>
     </Appenders>
     <Loggers>
-        <Root level="info">
+        <!-- Reduce noise from Hibernate -->
+        <Logger name="org.hibernate" level="WARN"/>
+        <Logger name="org.hibernate.SQL" level="DEBUG"/>
+        <Logger name="org.hibernate.type.descriptor.sql" level="TRACE"/>
+        
+        <!-- Spring Framework -->
+        <Logger name="org.springframework" level="INFO"/>
+        <Logger name="org.springframework.web" level="INFO"/>
+        
+        <!-- Application Logs -->
+        <Logger name="com.zbib.hiresync" level="DEBUG"/>
+        
+        <Root level="INFO">
             <AppenderRef ref="ConsoleAppender"/>
             <AppenderRef ref="JsonFileAppender"/>
             <AppenderRef ref="ErrorFileAppender"/>
