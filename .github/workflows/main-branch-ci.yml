@@ -1,0 +1,138 @@
+name: Main Branch CI/CD
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'master'
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: hiresync_test
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+      
+      - name: Build with Maven
+        run: mvn -B clean package -DskipTests
+      
+      - name: Run unit tests
+        run: mvn -B test
+        env:
+          SPRING_PROFILES_ACTIVE: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: hiresync_test
+          DB_USERNAME: test_user
+          DB_PASSWORD: test_password
+      
+      - name: Run integration tests
+        run: mvn -B verify -P integration-test
+        env:
+          SPRING_PROFILES_ACTIVE: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: hiresync_test
+          DB_USERNAME: test_user
+          DB_PASSWORD: test_password
+      
+      - name: Run code quality checks
+        run: mvn -B verify
+        
+      - name: Build JAR file
+        run: mvn -B package -DskipTests
+        
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: application-jar
+          path: target/*.jar
+          retention-days: 5
+          
+      - name: Build and tag Docker image
+        run: |
+          docker build -t hiresync-app:${{ github.sha }} .
+          docker tag hiresync-app:${{ github.sha }} hiresync-app:latest
+        
+  prepare-for-render:
+    name: Prepare for Render Deployment
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Create render.yaml if not exists
+        run: |
+          if [ ! -f "render.yaml" ]; then
+            cat > render.yaml << EOF
+          services:
+            - type: web
+              name: hiresync-api
+              env: docker
+              dockerfilePath: ./Dockerfile
+              envVars:
+                - key: SPRING_PROFILES_ACTIVE
+                  value: prod
+                - key: JPA_DDL_AUTO
+                  value: validate
+                - key: PORT
+                  value: 8080
+                - key: DB_HOST
+                  fromDatabase:
+                    name: hiresync-db
+                    property: host
+                - key: DB_PORT
+                  fromDatabase:
+                    name: hiresync-db
+                    property: port
+                - key: DB_NAME
+                  fromDatabase:
+                    name: hiresync-db
+                    property: database
+                - key: DB_USERNAME
+                  fromDatabase:
+                    name: hiresync-db
+                    property: user
+                - key: DB_PASSWORD
+                  fromDatabase:
+                    name: hiresync-db
+                    property: password
+          
+          databases:
+            - name: hiresync-db
+              databaseName: hiresync_db
+              ipAllowList: []
+          EOF
+          fi
+      
+      # Render will detect push to main branch via GitHub integration 
+      # This step is a placeholder, actual deployment handled by Render
+      - name: Notify Render of successful build
+        run: echo "Build successful and ready for Render deployment" 
