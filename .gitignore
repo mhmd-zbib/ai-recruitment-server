@@ -33,3 +33,15 @@ build/
 .vscode/
 
 ./logs
+
+# Eclipse
+.settings/
+
+# Logs
+logs/
+*.log
+log/
+
+# Environment files
+.env
+!.env.example

@@ -11,6 +11,35 @@ HireSync is an AI-enhanced recruitment pipeline backend application built with S
 - Comprehensive logging
 - Error handling
 
+## Environment Configuration
+
+HireSync uses environment variables for configuration. A `.env` file is used to manage these variables:
+
+1. Copy the sample environment file:
+   ```
+   cp src/main/resources/.env.example src/main/resources/.env
+   ```
+
+2. Edit the `.env` file with your configuration values.
+
+3. The application supports two main environment profiles:
+   - `dev`: For local development with containerized dependencies
+   - `prod`: For production deployment with all services containerized
+
+4. For local development:
+   - Run `run-local.bat` to start dependencies with Docker and run the app locally
+   - This uses the `dev` profile which connects to containerized services on localhost
+
+5. For production deployment:
+   - Run `docker-compose -f docker-compose.prod.yaml up -d` to start all services
+   - This uses the `prod` profile which connects to containerized services within the Docker network
+
+Available configuration options include:
+- Database connection details (separate for dev/prod)
+- JWT authentication settings
+- Logging levels
+- External service integrations (Elasticsearch, RabbitMQ, Minio)
+
 ## Prerequisites
 
 - Java 17
@@ -20,7 +49,20 @@ HireSync is an AI-enhanced recruitment pipeline backend application built with S
 
 ## Local Development
 
-### Option 1: Without Docker
+### Option 1: Local App with Containerized Dependencies (Recommended)
+
+1. Make sure Docker is running
+2. Create your `.env` file from the `.env.example`
+3. Run the application:
+```
+run-local.bat
+```
+This will:
+- Start PostgreSQL and Minio in containers
+- Run the application locally using the dev profile
+- Connect to the containerized services via localhost ports
+
+### Option 2: Without Docker
 
 1. Configure PostgreSQL and update `application.yaml` with your database credentials
 2. Run the application:
@@ -28,12 +70,18 @@ HireSync is an AI-enhanced recruitment pipeline backend application built with S
 mvn spring-boot:run
 ```
 
-### Option 2: With Docker Compose
+### Option 3: Fully Containerized (Production-like)
 
-1. Build and run the application with Docker Compose:
+1. Make sure Docker is running
+2. Create your `.env` file from the `.env.example`
+3. Run the application:
 ```
-docker-compose up -d
+docker-compose -f docker-compose.prod.yaml up -d
 ```
+This will:
+- Start PostgreSQL, Minio, and the application in containers
+- Run everything in a Docker network
+- Use the production profile
 
 ## Deploying to Render
 

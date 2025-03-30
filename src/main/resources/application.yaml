@@ -2,11 +2,6 @@ server:
   port: ${PORT:8080}
   servlet:
     context-path: /api
-  tomcat:
-    max-threads: 200
-    min-spare-threads: 20
-    max-connections: 10000
-    accept-count: 100
 
 spring:
   main:
@@ -14,33 +9,26 @@ spring:
   application:
     name: hiresync-api
   datasource:
-    url: ${JDBC_DATABASE_URL:jdbc:postgresql://localhost:5544/hiresync_db}
-    username: ${JDBC_DATABASE_USERNAME:hiresync_user}
-    password: ${JDBC_DATABASE_PASSWORD:hiresync_password}
+    url: jdbc:postgresql://${DB_HOST:hiresync-postgres}:${DB_PORT:5432}/${DB_NAME:hiresync_db}
+    username: ${DB_USERNAME:hiresync_user}
+    password: ${DB_PASSWORD:hiresync_password}
     driver-class-name: org.postgresql.Driver
     hikari:
-      connection-timeout: 30000
       maximum-pool-size: ${DB_MAX_POOL_SIZE:10}
       minimum-idle: ${DB_MIN_IDLE:5}
-      idle-timeout: 600000
-      max-lifetime: 1800000
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:validate}
+      ddl-auto: ${JPA_DDL_AUTO:update}
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        jdbc.batch_size: 50
-        order_inserts: true
-        order_updates: true
-        connection.provider_disables_autocommit: true
     open-in-view: false
-  output:
-    ansi:
-      enabled: always
+  profiles:
+    active: local
 
+# JWT configuration
 jwt:
-  secret: ${JWT_SECRET:your-jwt-secret-key-should-be-at-least-256-bits-long}
+  secret: ${JWT_SECRET:default-dev-secret-key-replace-in-production}
   expiration: ${JWT_EXPIRATION:86400000}
 
 logging:
@@ -50,15 +38,21 @@ logging:
     org.hibernate.SQL: ${LOG_LEVEL_SQL:INFO}
   config: classpath:log4j2.xml
 
-# Production settings
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics
-  endpoint:
-    health:
-      show-details: when-authorized
-  health:
-    db:
-      enabled: true
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  jpa:
+    hibernate:
+      ddl-auto: validate
