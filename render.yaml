@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: hiresync-api-dev
+    env: docker
+    region: oregon
+    branch: dev
+    healthCheckPath: /api/health
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    numInstances: 1
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: PORT
+        value: 8080
+      - key: DB_HOST
+        fromDatabase:
+          name: hiresync-db-dev
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: hiresync-db-dev
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: hiresync-db-dev
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: hiresync-db-dev
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: hiresync-db-dev
+          property: password
+    autoDeploy: false
+
+databases:
+  - name: hiresync-db-dev
+    region: oregon
+    plan: starter
+    ipAllowList: [] 

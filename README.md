@@ -142,4 +142,45 @@ docker push yourusername/hiresync:latest
 
 Once deployed, API documentation is available at:
 - Locally: `http://localhost:8080/api/swagger-ui.html`
-- On Render: `https://your-service-name.onrender.com/api/swagger-ui.html` 
+- On Render: `https://your-service-name.onrender.com/api/swagger-ui.html`
+
+## CI/CD Pipeline
+
+HireSync uses GitHub Actions for continuous integration and continuous deployment to Render.
+
+### Pipeline Overview
+
+Our CI/CD pipeline automates the following processes:
+
+1. **Validation**: Runs code style checks and static analysis on each push and pull request.
+2. **Testing**: Executes unit tests with a containerized PostgreSQL database.
+3. **Build**: Compiles the application and builds the Docker image.
+4. **Deployment**: Automatically deploys to Render when changes are pushed to the `dev` branch.
+
+### GitHub Secrets
+
+To use the CI/CD pipeline, you need to set up the following secrets in your GitHub repository:
+
+- `RENDER_API_KEY`: Your Render API key for triggering deployments
+- `RENDER_DEV_SERVICE_ID`: The service ID for your development environment on Render
+
+### Branching Strategy
+
+- `dev`: Development branch, automatically deployed to the development environment
+- `main`: Production branch, requires pull request approval before merging
+
+### Setting Up Render Deployment
+
+1. Create a Render account and create a new web service
+2. Link it to your GitHub repository
+3. Set up environment variables in Render:
+   - `SPRING_PROFILES_ACTIVE=prod`
+   - Database connection details (see above)
+4. Obtain your Render API key and service ID
+5. Add these as secrets to your GitHub repository
+6. The pipeline will now automatically deploy to Render when you push to the `dev` branch
+
+### Monitoring Deployments
+
+- GitHub Actions: Check the "Actions" tab in your repository
+- Render Dashboard: Monitor deployment status and logs 
