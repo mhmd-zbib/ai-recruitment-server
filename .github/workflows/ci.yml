@@ -29,6 +29,9 @@ jobs:
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
         
+    - name: Apply code formatting with Spotless
+      run: mvn spotless:apply
+      
     - name: Code formatting check with Spotless
       run: mvn spotless:check
       
