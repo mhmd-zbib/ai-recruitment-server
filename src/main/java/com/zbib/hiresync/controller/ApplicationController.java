@@ -1,6 +1,8 @@
 package com.zbib.hiresync.controller;
 
-import com.zbib.hiresync.dto.*;
+import com.zbib.hiresync.dto.ApplicationFilter;
+import com.zbib.hiresync.dto.ApplicationListResponse;
+import com.zbib.hiresync.dto.ApplicationResponse;
 import com.zbib.hiresync.security.UserDetailsImpl;
 import com.zbib.hiresync.service.ApplicationService;
 import com.zbib.hiresync.validator.ApplicationValidator;

@@ -1,6 +1,9 @@
 package com.zbib.hiresync.controller;
 
-import com.zbib.hiresync.dto.*;
+import com.zbib.hiresync.dto.JobFilter;
+import com.zbib.hiresync.dto.JobListResponse;
+import com.zbib.hiresync.dto.JobRequest;
+import com.zbib.hiresync.dto.JobResponse;
 import com.zbib.hiresync.security.UserDetailsImpl;
 import com.zbib.hiresync.service.JobService;
 import jakarta.validation.Valid;

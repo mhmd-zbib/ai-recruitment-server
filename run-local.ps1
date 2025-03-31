@@ -5,7 +5,7 @@ Write-Host "Starting dependencies with Docker Compose.."
 docker-compose up -d
 
 # Set up environment variables from .env file
-$ENV_FILE = "src/main/resources/.env"
+$ENV_FILE = "/.env"
 if (Test-Path $ENV_FILE) {
     Write-Host "Loading environment variables from $ENV_FILE..."
     Get-Content $ENV_FILE | ForEach-Object {

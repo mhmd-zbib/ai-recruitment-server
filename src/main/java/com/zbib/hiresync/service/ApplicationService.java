@@ -4,7 +4,12 @@ import static com.zbib.hiresync.builder.ApplicationBuilder.buildApplication;
 import static com.zbib.hiresync.builder.ApplicationBuilder.buildApplicationResponse;
 
 import com.zbib.hiresync.builder.ApplicationBuilder;
-import com.zbib.hiresync.dto.*;
+import com.zbib.hiresync.dto.ApplicationFilter;
+import com.zbib.hiresync.dto.ApplicationListResponse;
+import com.zbib.hiresync.dto.ApplicationRequest;
+import com.zbib.hiresync.dto.ApplicationResponse;
+import com.zbib.hiresync.dto.JobApplicationFilter;
+import com.zbib.hiresync.dto.JobApplicationListResponse;
 import com.zbib.hiresync.entity.Application;
 import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.exceptions.ApplicationException;

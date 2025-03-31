@@ -5,7 +5,7 @@ echo "Starting dependencies with Docker Compose..."
 docker-compose up -d
 
 # Set up environment variables from .env file
-ENV_FILE="src/main/resources/.env"
+ENV_FILE="/.env"
 if [ -f "$ENV_FILE" ]; then
     echo "Loading environment variables from $ENV_FILE..."
     export $(grep -v '^#' $ENV_FILE | xargs)
