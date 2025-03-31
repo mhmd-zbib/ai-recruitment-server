@@ -62,11 +62,8 @@ We provide a unified shell script interface to run the application in different 
 chmod +x run.sh
 chmod +x scripts/*.sh
 
-# Start in local mode (auto-detects Docker, falls back to H2 if not available)
+# Start in local mode (requires Docker for PostgreSQL)
 ./run.sh local
-
-# Force using H2 database even if Docker is running
-./run.sh local --h2
 
 # Start in development mode (requires Docker)
 ./run.sh dev
@@ -225,25 +222,34 @@ chmod +x ./.git-hooks/install-hooks.sh
 
 ## Local Development
 
-### Option 1: Using connect-db.sh (Recommended)
+Local development always uses PostgreSQL in Docker for consistency between environments.
 
-This smart script automatically detects if Docker is running and configures the application accordingly:
+### Prerequisites for Local Development
 
-1. Make the script executable:
+1. Docker must be installed and running
+2. Copy the sample environment file:
    ```bash
-   chmod +x connect-db.sh
+   cp .env.example .env
    ```
+3. Edit the `.env` file with your configuration values if needed (defaults work out of the box)
 
-2. Run the application:
-   ```bash
-   ./connect-db.sh
-   ```
+### Starting Local Development
+
+To run the application in local development mode:
+
+```bash
+./run.sh local
+```
 
 This script will:
 - Check if Docker is running
-- If Docker is available, configure the application to use PostgreSQL and start the Docker container
-- If Docker is not available, configure the application to use H2 in-memory database
-- Start the application with the appropriate configuration
+- Configure the application to use PostgreSQL
+- Start the PostgreSQL Docker container
+- Start the application with the local profile
+
+The application will be available at:
+- API: http://localhost:8080/api
+- Swagger UI: http://localhost:8080/api/swagger-ui.html
 
 ### Option 2: Using a Specific Environment
 

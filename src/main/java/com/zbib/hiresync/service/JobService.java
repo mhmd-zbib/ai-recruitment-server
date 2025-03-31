@@ -17,14 +17,17 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class JobService {
 
   private final JobRepository jobRepository;
   private final UserService userService;
 
+  @Transactional
   public JobResponse createJob(JobRequest jobRequest, UUID userId) {
     User user = userService.getUserById(userId);
     Job job = JobBuilder.buildJobEntity(jobRequest, user);

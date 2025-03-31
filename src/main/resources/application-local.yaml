@@ -1,17 +1,19 @@
-# PostgreSQL database configuration for local development using Docker
+# Configuration for local development with PostgreSQL in Docker
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5544/hiresync_db
-    username: hiresync_user
-    password: hiresync_password
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5544}/${DB_NAME:hiresync_db}
+    username: ${DB_USERNAME:hiresync_user}
+    password: ${DB_PASSWORD:hiresync_password}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
 # Configure logging for local development
