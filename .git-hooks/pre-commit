@@ -1,0 +1,61 @@
+#!/bin/sh
+
+echo "Running pre-commit hooks..."
+
+# Stash any changes not part of this commit
+git stash -q --keep-index
+
+# Apply code formatting and lightweight checks only
+echo "Applying Spotless formatting..."
+mvn -q spotless:apply > /dev/null 2>&1
+SPOTLESS_APPLY_RESULT=$?
+
+if [ $SPOTLESS_APPLY_RESULT -ne 0 ]; then
+    echo "Spotless apply failed with an unexpected error."
+    git stash pop -q
+    exit 1
+fi
+
+echo "Running Spotless check..."
+mvn -q spotless:check > /dev/null 2>&1
+SPOTLESS_RESULT=$?
+
+echo "Running Checkstyle check..."
+mvn -q checkstyle:check > /dev/null 2>&1
+CHECKSTYLE_RESULT=$?
+
+echo "Running lightweight PMD check (critical rules only)..."
+mvn -q pmd:check -Drules=category/java/errorprone/bestpractices.xml/UnusedImports,category/java/errorprone/bestpractices.xml/UnnecessaryImport > /dev/null 2>&1
+PMD_RESULT=$?
+
+# Add any files that were reformatted by Spotless
+git add -u
+
+# Pop the stash
+git stash pop -q
+
+# Return the status
+if [ $SPOTLESS_RESULT -ne 0 ] || [ $CHECKSTYLE_RESULT -ne 0 ] || [ $PMD_RESULT -ne 0 ]; then
+    echo "Pre-commit checks failed!"
+    echo "Fix the issues before committing."
+    
+    if [ $SPOTLESS_RESULT -ne 0 ]; then
+        echo "Spotless check failed. Run 'mvn spotless:apply' to format code automatically."
+        echo "For more details, run: mvn spotless:check"
+    fi
+    
+    if [ $CHECKSTYLE_RESULT -ne 0 ]; then
+        echo "Checkstyle failed. Fix code style issues."
+        echo "For more details, run: mvn checkstyle:check"
+    fi
+    
+    if [ $PMD_RESULT -ne 0 ]; then
+        echo "PMD check failed. Fix unused or unnecessary imports."
+        echo "For more details, run: mvn pmd:check"
+    fi
+    
+    exit 1
+fi
+
+echo "All pre-commit checks passed!"
+exit 0 

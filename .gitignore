@@ -45,3 +45,6 @@ log/
 # Environment files
 .env
 !.env.example
+
+# Don't ignore git hooks directory
+!.git-hooks/

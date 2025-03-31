@@ -47,6 +47,51 @@ Available configuration options include:
 - PostgreSQL
 - Docker (optional)
 
+## Git Hooks
+
+This project uses Git hooks to ensure code quality before commits:
+
+### Automatic Setup (Recommended)
+
+The hooks are automatically installed when you run:
+```
+mvn initialize
+```
+
+This happens because we use the `githook-maven-plugin` which installs the hooks from the `.git-hooks` directory to your local `.git/hooks` directory.
+
+### What the Hooks Do
+
+#### Pre-commit Hook
+- Formats code with Spotless
+- Checks code style with Checkstyle
+- Runs PMD for static code analysis
+- Prevents committing code with style issues or unused imports
+
+#### Commit-msg Hook
+- Enforces [Conventional Commits](https://www.conventionalcommits.org/) format
+- Requires commit messages to follow the pattern: `type(scope): subject`
+- Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+- Examples:
+  - `feat(user): add login functionality`
+  - `fix(auth): resolve token validation issue`
+  - `docs(readme): update installation instructions`
+
+### Manual Setup (If Needed)
+
+If the hooks aren't working, you can install them manually:
+
+#### Windows:
+```
+.\.git-hooks\install-hooks.bat
+```
+
+#### Unix/Linux/MacOS:
+```
+chmod +x ./.git-hooks/install-hooks.sh
+./.git-hooks/install-hooks.sh
+```
+
 ## Local Development
 
 ### Option 1: Local App with Containerized Dependencies (Recommended)
