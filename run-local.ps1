@@ -1,7 +1,7 @@
 # PowerShell version of run-local.sh
 
 # Start only the dependencies in the background with Docker Compose
-Write-Host "Starting dependencies with Docker Compose..."
+Write-Host "Starting dependencies with Docker Compose.."
 docker-compose up -d
 
 # Set up environment variables from .env file

@@ -3,17 +3,14 @@ package com.zbib.hiresync.entity;
 import com.zbib.hiresync.enums.InterviewStatus;
 import com.zbib.hiresync.enums.InterviewType;
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-
-import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
 
 @Entity
 @Table(name = "interviews")
@@ -23,50 +20,48 @@ import java.util.UUID;
 @AllArgsConstructor
 public class Interview {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.UUID)
+  private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "application_id", nullable = false)
-    private Application application;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "job_id")
-    private Job job;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "application_id", nullable = false)
+  private Application application;
 
-    @Column(nullable = false)
-    private LocalDateTime scheduledStartTime;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "job_id")
+  private Job job;
 
-    @Column(nullable = false)
-    private LocalDateTime scheduledEndTime;
+  @Column(nullable = false)
+  private LocalDateTime scheduledStartTime;
 
-    @Column(length = 100)
-    private String location;
+  @Column(nullable = false)
+  private LocalDateTime scheduledEndTime;
 
-    @Column(length = 500)
-    private String meetingLink;
+  @Column(length = 100)
+  private String location;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private InterviewType type;
+  @Column(length = 500)
+  private String meetingLink;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private InterviewStatus status;
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false)
+  private InterviewType type;
 
-    @Column(length = 1000)
-    private String notes;
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false)
+  private InterviewStatus status;
 
-    @Column(length = 200)
-    private String calendarEventId;
+  @Column(length = 1000)
+  private String notes;
 
-    @Column(nullable = false)
-    private boolean reminderSent;
+  @Column(length = 200)
+  private String calendarEventId;
 
-    @CreationTimestamp
-    private LocalDateTime createdAt;
+  @Column(nullable = false)
+  private boolean reminderSent;
 
-    @UpdateTimestamp
-    private LocalDateTime updatedAt;
+  @CreationTimestamp private LocalDateTime createdAt;
+
+  @UpdateTimestamp private LocalDateTime updatedAt;
 }

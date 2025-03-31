@@ -17,38 +17,36 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil;
-    private final AuthenticationManager authenticationManager;
-    private final UserService userService;
+  private final UserRepository userRepository;
+  private final PasswordEncoder passwordEncoder;
+  private final JwtUtil jwtUtil;
+  private final AuthenticationManager authenticationManager;
+  private final UserService userService;
 
-    @Loggable(message = "User login process started")
-    public AuthResponse authenticate(AuthRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(),
-                        request.getPassword())
-        );
+  @Loggable(message = "User login process started")
+  public AuthResponse authenticate(AuthRequest request) {
+    authenticationManager.authenticate(
+        new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
-        UserDetails userDetails = userService.loadUserByUsername(request.getEmail());
-        String token = jwtUtil.generateToken(userDetails);
+    UserDetails userDetails = userService.loadUserByUsername(request.getEmail());
+    String token = jwtUtil.generateToken(userDetails);
 
-        AuthResponse response = new AuthResponse();
-        response.setToken(token);
-        return response;
-    }
+    AuthResponse response = new AuthResponse();
+    response.setToken(token);
+    return response;
+  }
 
-    public AuthResponse register(AuthRequest request) {
-        User user = new User();
-        user.setUsername(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        userRepository.save(user);
+  public AuthResponse register(AuthRequest request) {
+    User user = new User();
+    user.setUsername(request.getEmail());
+    user.setPassword(passwordEncoder.encode(request.getPassword()));
+    userRepository.save(user);
 
-        UserDetails userDetails = userService.loadUserByUsername(request.getEmail());
-        String token = jwtUtil.generateToken(userDetails);
+    UserDetails userDetails = userService.loadUserByUsername(request.getEmail());
+    String token = jwtUtil.generateToken(userDetails);
 
-        AuthResponse response = new AuthResponse();
-        response.setToken(token);
-        return response;
-    }
+    AuthResponse response = new AuthResponse();
+    response.setToken(token);
+    return response;
+  }
 }

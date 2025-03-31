@@ -1,9 +1,8 @@
 package com.zbib.hiresync.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.util.UUID;
+import lombok.*;
 
 @Getter
 @Setter
@@ -14,16 +13,14 @@ import java.util.UUID;
 @Table(name = "users")
 public class User {
 
-    @Id
-    @GeneratedValue
-    private UUID id;
+  @Id @GeneratedValue private UUID id;
 
-    @Column(unique = true, nullable = false, length = 50)
-    private String username;
+  @Column(unique = true, nullable = false, length = 50)
+  private String username;
 
-    @Column(nullable = false, length = 255)
-    private String password;
+  @Column(nullable = false, length = 255)
+  private String password;
 
-    @Column(nullable = false, length = 20)
-    private String role = "USER";
+  @Column(nullable = false, length = 20)
+  private String role = "USER";
 }

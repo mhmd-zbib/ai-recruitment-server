@@ -13,12 +13,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class JobFilter {
-    private String query;
-    private LocationType locationType;
-    private EmploymentType employmentType;
-    private JobStatus status;
-    private Integer minExperience;
-    private Integer maxExperience;
-    private Integer minSalary;
-    private Integer maxSalary;
+  private String query;
+  private LocationType locationType;
+  private EmploymentType employmentType;
+  private JobStatus status;
+  private Integer minExperience;
+  private Integer maxExperience;
+  private Integer minSalary;
+  private Integer maxSalary;
 }
