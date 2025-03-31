@@ -2,9 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "master", "dev" ]
   pull_request:
-    branches: [ "main", "dev" ]
+    branches: [ "master", "dev" ]
   workflow_dispatch:
 
 jobs:
@@ -31,11 +31,11 @@ jobs:
     - name: Make Scripts Executable
       run: |
         chmod +x mvnw
-        chmod +x scripts/ci-cd/verify.sh
-        chmod +x scripts/docker/build.sh
+        chmod +x scripts/verify.sh
+        chmod +x scripts/docker-build.sh
 
     - name: Code Style Verification
-      run: ./scripts/ci-cd/verify.sh --skip-tests
+      run: ./scripts/verify.sh --skip-tests
       
     - name: Build with Maven
       run: ./mvnw clean package -DskipTests
@@ -44,7 +44,7 @@ jobs:
       run: ./mvnw test
 
     - name: Build Docker Image
-      run: ./scripts/docker/build.sh --version=$GITHUB_SHA --fast
+      run: ./scripts/docker-build.sh --version=$GITHUB_SHA --fast
       if: github.event_name != 'pull_request'
 
     - name: Cache Maven packages

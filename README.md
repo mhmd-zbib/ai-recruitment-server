@@ -35,13 +35,13 @@ The project follows a clean, organized structure:
 hiresync/
 ├── .github/              # GitHub Actions workflows
 │   └── workflows/        # CI/CD pipeline definitions 
-├── scripts/              # Utility scripts
-│   ├── ci-cd/            # CI/CD related scripts
-│   ├── dev/              # Development environment scripts
-│   ├── docker/           # Docker build scripts
-│   ├── local/            # Local development scripts
-│   ├── prod/             # Production deployment scripts
-│   └── utils/            # Shared utility functions
+├── scripts/              # Utility scripts with flat organization
+│   ├── local-start.sh    # Local development script
+│   ├── dev-start.sh      # Development environment script
+│   ├── prod-deploy.sh    # Production deployment script
+│   ├── docker-build.sh   # Docker build script
+│   ├── verify.sh         # Code verification script
+│   └── db-utils.sh       # Database utility functions
 ├── src/                  # Source code
 │   ├── main/             # Main application code
 │   └── test/             # Test code
@@ -60,7 +60,7 @@ We provide a unified shell script interface to run the application in different 
 ```bash
 # Make scripts executable
 chmod +x run.sh
-chmod +x scripts/**/*.sh
+chmod +x scripts/*.sh
 
 # Start in local mode (auto-detects Docker, falls back to H2 if not available)
 ./run.sh local
@@ -76,9 +76,6 @@ chmod +x scripts/**/*.sh
 
 # Run code verification
 ./run.sh verify
-
-# Run tests
-./run.sh test
 ```
 
 ## Production Deployment
@@ -87,16 +84,92 @@ To deploy the application to production, use:
 
 ```bash
 # Deploy with Docker Compose
-./run.sh prod --docker
+./run.sh deploy --docker
 
 # Deploy as standalone JAR (requires environment variables)
-./run.sh prod --jar
+./run.sh deploy --jar
 ```
 
 Make sure to set the required environment variables for production deployment:
 - `JDBC_DATABASE_URL`
 - `JDBC_DATABASE_USERNAME` 
 - `JDBC_DATABASE_PASSWORD`
+
+## Deployment Strategy
+
+HireSync uses a multi-environment deployment strategy:
+
+### Development Environment
+
+- **Branch**: `dev`
+- **Platform**: Railway
+- **Database**: PostgreSQL (managed by Railway)
+- **Profile**: `dev`
+- **Features**: 
+  - Debug logging enabled
+  - Schema auto-update enabled
+  - Swagger UI enabled
+  - Comprehensive error details
+
+### Production Environment
+
+- **Branch**: `master`
+- **Platform**: Render
+- **Database**: PostgreSQL (managed by Render)
+- **Profile**: `prod`
+- **Features**:
+  - Minimal logging
+  - Schema validation only (no changes)
+  - Swagger UI disabled by default
+  - Limited error details for security
+
+## Deploying to Render (Production)
+
+1. Push your code to the `master` branch in GitHub
+2. The CI/CD pipeline will:
+   - Run all tests and quality checks
+   - Build and tag a Docker image
+   - Deploy to Render via webhook
+   - Create a GitHub release
+
+To set up Render manually:
+1. Create an account on [Render](https://render.com/)
+2. Click **New** and select **Web Service**
+3. Choose **Build and deploy from a Git repository**
+4. Connect your GitHub account and select your repository
+5. Configure the service:
+   - **Name**: hiresync-api
+   - **Region**: Choose the closest to your users
+   - **Branch**: master
+   - **Runtime**: Docker
+   - **Plan**: Choose appropriate plan for production
+6. Set environment variables:
+   - `SPRING_PROFILES_ACTIVE=prod`
+   - `JDBC_DATABASE_URL=postgres://...`
+   - `JDBC_DATABASE_USERNAME=...`
+   - `JDBC_DATABASE_PASSWORD=...`
+   - `JWT_SECRET=...` (Generate a secure random string)
+7. Configure a deploy webhook and add it to your GitHub Actions secrets as `RENDER_DEPLOY_HOOK`
+
+## Deploying to Railway (Development)
+
+1. Push your code to the `dev` branch in GitHub
+2. The CI/CD pipeline will:
+   - Run all tests and quality checks
+   - Build a Docker image with the commit SHA
+   - Deploy to Railway using the Railway CLI
+
+To set up Railway manually:
+1. Create an account on [Railway](https://railway.app/)
+2. Create a new project
+3. Add a PostgreSQL database service
+4. Add a new service from GitHub repository
+5. Configure environment variables:
+   - `SPRING_PROFILES_ACTIVE=dev`
+   - Connect to the PostgreSQL service variables
+   - `JWT_SECRET=...` (Generate a secure random string)
+6. Configure your Railway token in GitHub Actions secrets as `RAILWAY_TOKEN`
+7. Add the service name to GitHub Actions variables as `RAILWAY_SERVICE`
 
 ## Prerequisites
 

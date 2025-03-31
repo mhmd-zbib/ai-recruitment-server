@@ -3,7 +3,7 @@ name: CD Pipeline
 on:
   workflow_run:
     workflows: ["CI Pipeline"]
-    branches: [main, dev]
+    branches: [master, dev]
     types:
       - completed
   workflow_dispatch:
@@ -31,40 +31,19 @@ jobs:
       - name: Make Scripts Executable
         run: |
           chmod +x mvnw
-          chmod +x scripts/docker/build.sh
+          chmod +x scripts/docker-build.sh
       
       - name: Build Docker Image
-        run: ./scripts/docker/build.sh --version=$GITHUB_SHA --registry=${{ vars.DOCKER_REGISTRY }}/${{ github.repository_owner }} --push
+        run: ./scripts/docker-build.sh --version=$GITHUB_SHA --registry=${{ vars.DOCKER_REGISTRY }}/${{ github.repository_owner }} --push
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ vars.AWS_REGION }}
-        if: vars.DEPLOY_TO_AWS == 'true'
-      
-      - name: Deploy to AWS ECS
-        run: |
-          aws ecs update-service --cluster ${{ vars.ECS_CLUSTER }} \
-                               --service ${{ vars.ECS_SERVICE }} \
-                               --force-new-deployment
-        if: vars.DEPLOY_TO_AWS == 'true'
       
       - name: Deploy to Railway
         uses: bervProject/railway-deploy@main
         with:
           railway_token: ${{ secrets.RAILWAY_TOKEN }}
           service: ${{ vars.RAILWAY_SERVICE }}
-        if: vars.DEPLOY_TO_RAILWAY == 'true'
-      
-      - name: Deploy to Render
-        run: |
-          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
-        if: vars.DEPLOY_TO_RENDER == 'true'
       
       - name: Health Check
         run: |
@@ -75,7 +54,7 @@ jobs:
   deploy-prod:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }} || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'master' }} || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master')
     environment:
       name: production
       url: ${{ vars.PROD_APP_URL }}
@@ -94,38 +73,22 @@ jobs:
       - name: Make Scripts Executable
         run: |
           chmod +x mvnw
-          chmod +x scripts/docker/build.sh
+          chmod +x scripts/docker-build.sh
       
       - name: Build and Tag Release
         run: |
           VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
           echo "Building version: $VERSION"
-          ./scripts/docker/build.sh --version=$VERSION --registry=${{ vars.DOCKER_REGISTRY }}/${{ github.repository_owner }} --push
+          ./scripts/docker-build.sh --version=$VERSION --registry=${{ vars.DOCKER_REGISTRY }}/${{ github.repository_owner }} --push
           git tag -a "v$VERSION" -m "Release version $VERSION"
           git push origin "v$VERSION"
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
       
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ vars.AWS_REGION }}
-        if: vars.DEPLOY_TO_AWS == 'true'
-      
-      - name: Deploy to AWS ECS
-        run: |
-          aws ecs update-service --cluster ${{ vars.ECS_CLUSTER }} \
-                               --service ${{ vars.ECS_SERVICE }} \
-                               --force-new-deployment
-        if: vars.DEPLOY_TO_AWS == 'true'
-      
       - name: Deploy to Render
         run: |
           curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
-        if: vars.DEPLOY_TO_RENDER == 'true'
       
       - name: Create GitHub Release
         uses: actions/create-release@v1
