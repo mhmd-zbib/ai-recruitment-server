@@ -268,6 +268,10 @@
                             <sourceDirectory>.git-hooks</sourceDirectory>
                             <destinationDirectory>${project.basedir}/.git/hooks</destinationDirectory>
                             <skip>false</skip>
+                            <hooks>
+                                <pre-commit>pre-commit</pre-commit>
+                                <commit-msg>commit-msg</commit-msg>
+                            </hooks>
                         </configuration>
                     </execution>
                 </executions>

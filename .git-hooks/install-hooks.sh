@@ -13,7 +13,7 @@ cp -f "${SCRIPT_DIR}/pre-commit" "${SCRIPT_DIR}/../.git/hooks/"
 echo "Copying commit-msg hook..."
 cp -f "${SCRIPT_DIR}/commit-msg" "${SCRIPT_DIR}/../.git/hooks/"
 
-# Ensure the hooks are executable
+# Ensure the hooks are executable 
 echo "Making hooks executable..."
 chmod +x "${SCRIPT_DIR}/../.git/hooks/pre-commit"
 chmod +x "${SCRIPT_DIR}/../.git/hooks/commit-msg"
