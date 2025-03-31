@@ -4,8 +4,6 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: hiresync-app
-    env_file:
-      - ./src/main/resources/.env
     ports:
       - "${PORT:-8080}:8080"
     depends_on:
@@ -13,12 +11,32 @@ services:
         condition: service_healthy
     networks:
       - hiresync-network
-    # Environment variables defined here will override those in the .env file
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-hiresync_db}
+      - DB_USERNAME=${DB_USERNAME:-hiresync_user}
+      - DB_PASSWORD=${DB_PASSWORD:-hiresync_password}
       - SPRING_PROFILES_ACTIVE=prod
       - JPA_DDL_AUTO=validate
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRATION=${JWT_EXPIRATION:-86400000}
+      - LOG_LEVEL_ROOT=INFO
+      - LOG_LEVEL_APP=INFO
+      - LOG_LEVEL_SQL=ERROR
+      - LOG_LEVEL_SQL_PARAMS=INFO
+      - SPRINGDOC_ENABLED=true
+      - SWAGGER_UI_ENABLED=false
+      - JAVA_TOOL_OPTIONS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom
+    volumes:
+      - app-logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 
   postgres:
     extends:
@@ -30,4 +48,5 @@ networks:
     driver: bridge
 
 volumes:
-  postgres-data: 
+  postgres-data:
+  app-logs: 

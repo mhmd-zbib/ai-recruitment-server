@@ -2,7 +2,7 @@
 <Configuration monitorInterval="30">
     <Properties>
         <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight{%-5level} %highlight{[%c{1.}]}{cyan} %highlight{%msg}{bright} %style{%X{correlationId}}{magenta}%n%style{%X{httpMethod} %X{apiPath}}{blue}%style{%X{executionTime}}{yellow}%style{%X{errorInfo}}{red}</Property>
-        <Property name="JSON_PATTERN">{"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%level","service":"%c{1}","message":"%X{message}","request":%X{request},"response":%X{response},"apiPath":"%X{apiPath}","httpMethod":"%X{httpMethod}","correlationId":"%X{correlationId}","executionTime":"%X{executionTime}","clientIP":"%X{clientIP}","userAgent":"%X{userAgent}","errorInfo":%X{errorInfo},"stackTrace":"%exception{full}"}%n</Property>
+        <Property name="JSON_PATTERN">{"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%level","service":"%c{1}","message":"%replace{%X{message}}{(password|token|secret|key|credential)([^\"]*\":\"[^\"]*\")}{$1$2[REDACTED]}","request":"%replace{%X{request}}{(password|token|secret|key|credential)([^\"]*\":\"[^\"]*\")}{$1$2[REDACTED]}","response":"%replace{%X{response}}{(password|token|secret|key|credential)([^\"]*\":\"[^\"]*\")}{$1$2[REDACTED]}","apiPath":"%X{apiPath}","httpMethod":"%X{httpMethod}","correlationId":"%X{correlationId}","executionTime":"%X{executionTime}","clientIP":"%X{clientIP}","userAgent":"%X{userAgent}","errorInfo":"%X{errorInfo}","stackTrace":"%exception{full}"}%n</Property>
         <Property name="ERROR_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%c{1.}] %msg %X{correlationId}%n%X{httpMethod} %X{apiPath}%n%exception{full}</Property>
     </Properties>
     <Appenders>
@@ -35,17 +35,17 @@
     <Loggers>
         <!-- Reduce noise from Hibernate -->
         <Logger name="org.hibernate" level="WARN"/>
-        <Logger name="org.hibernate.SQL" level="DEBUG"/>
-        <Logger name="org.hibernate.type.descriptor.sql" level="TRACE"/>
+        <Logger name="org.hibernate.SQL" level="${env:LOG_LEVEL_SQL:-DEBUG}"/>
+        <Logger name="org.hibernate.type.descriptor.sql" level="${env:LOG_LEVEL_SQL_PARAMS:-INFO}"/>
         
         <!-- Spring Framework -->
         <Logger name="org.springframework" level="INFO"/>
         <Logger name="org.springframework.web" level="INFO"/>
         
         <!-- Application Logs -->
-        <Logger name="com.zbib.hiresync" level="DEBUG"/>
+        <Logger name="com.zbib.hiresync" level="${env:LOG_LEVEL_APP:-INFO}"/>
         
-        <Root level="INFO">
+        <Root level="${env:LOG_LEVEL_ROOT:-INFO}">
             <AppenderRef ref="ConsoleAppender"/>
             <AppenderRef ref="JsonFileAppender"/>
             <AppenderRef ref="ErrorFileAppender"/>

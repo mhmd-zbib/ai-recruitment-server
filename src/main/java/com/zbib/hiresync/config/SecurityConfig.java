@@ -41,7 +41,12 @@ public class SecurityConfig {
             authorize ->
                 authorize
                     .requestMatchers(
-                        "/v1/auth/**", "/public/**", "/error", "/swagger-ui/**", "/v3/api-docs/**")
+                        "/v1/auth/**",
+                        "/public/**",
+                        "/error",
+                        "/swagger-ui/**",
+                        "/v3/api-docs/**",
+                        "/actuator/**")
                     .permitAll()
                     .requestMatchers(HttpMethod.POST, "/jobs/{id}/applications")
                     .permitAll()

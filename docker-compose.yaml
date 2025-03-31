@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -17,6 +19,33 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  # For local development with API server running outside Docker
+  # Uncomment this service to run the API in Docker
+  # app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: hiresync-app-local
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - hiresync-network
+  #   environment:
+  #     - SPRING_PROFILES_ACTIVE=local
+  #     - DB_HOST=postgres
+  #     - DB_PORT=5432
+  #     - DB_NAME=hiresync_db
+  #     - DB_USERNAME=hiresync_user
+  #     - DB_PASSWORD=hiresync_password
+  #   volumes:
+  #     - ./:/app/src
+  #     - app-logs:/app/logs
+  #   restart: unless-stopped
 
 networks:
   hiresync-network:
@@ -24,3 +53,4 @@ networks:
 
 volumes:
   postgres-data:
+  app-logs:

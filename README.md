@@ -17,28 +17,86 @@ HireSync uses environment variables for configuration. A `.env` file is used to 
 
 1. Copy the sample environment file:
    ```
-   cp src/main/resources/.env.example src/main/resources/.env
+   cp .env.example .env
    ```
 
 2. Edit the `.env` file with your configuration values.
 
-3. The application supports two main environment profiles:
-   - `dev`: For local development with containerized dependencies
-   - `prod`: For production deployment with all services containerized
+3. The application supports three main environment profiles:
+   - `local`: For local development with Docker PostgreSQL database or H2 in-memory database
+   - `dev`: For development/staging environments
+   - `prod`: For production deployment
 
-4. For local development:
-   - Run `run-local.bat` to start dependencies with Docker and run the app locally
-   - This uses the `dev` profile which connects to containerized services on localhost
+## Project Structure
 
-5. For production deployment:
-   - Run `docker-compose -f docker-compose.prod.yaml up -d` to start all services
-   - This uses the `prod` profile which connects to containerized services within the Docker network
+The project follows a clean, organized structure:
 
-Available configuration options include:
-- Database connection details (separate for dev/prod)
-- JWT authentication settings
-- Logging levels
-- External service integrations (Elasticsearch, RabbitMQ, Minio)
+```
+hiresync/
+├── .github/              # GitHub Actions workflows
+│   └── workflows/        # CI/CD pipeline definitions 
+├── scripts/              # Utility scripts
+│   ├── ci-cd/            # CI/CD related scripts
+│   ├── dev/              # Development environment scripts
+│   ├── docker/           # Docker build scripts
+│   ├── local/            # Local development scripts
+│   ├── prod/             # Production deployment scripts
+│   └── utils/            # Shared utility functions
+├── src/                  # Source code
+│   ├── main/             # Main application code
+│   └── test/             # Test code
+├── .env.example          # Example environment variables
+├── docker-compose.yaml   # Docker Compose config for local development
+├── docker-compose.prod.yaml # Docker Compose config for production
+├── Dockerfile            # Main Dockerfile for production builds
+├── Dockerfile.fast       # Optimized Dockerfile for development
+└── run.sh                # Main entry script for all commands
+```
+
+## Running the Application
+
+We provide a unified shell script interface to run the application in different modes:
+
+```bash
+# Make scripts executable
+chmod +x run.sh
+chmod +x scripts/**/*.sh
+
+# Start in local mode (auto-detects Docker, falls back to H2 if not available)
+./run.sh local
+
+# Force using H2 database even if Docker is running
+./run.sh local --h2
+
+# Start in development mode (requires Docker)
+./run.sh dev
+
+# Build Docker image
+./run.sh docker
+
+# Run code verification
+./run.sh verify
+
+# Run tests
+./run.sh test
+```
+
+## Production Deployment
+
+To deploy the application to production, use:
+
+```bash
+# Deploy with Docker Compose
+./run.sh prod --docker
+
+# Deploy as standalone JAR (requires environment variables)
+./run.sh prod --jar
+```
+
+Make sure to set the required environment variables for production deployment:
+- `JDBC_DATABASE_URL`
+- `JDBC_DATABASE_USERNAME` 
+- `JDBC_DATABASE_PASSWORD`
 
 ## Prerequisites
 
@@ -94,25 +152,43 @@ chmod +x ./.git-hooks/install-hooks.sh
 
 ## Local Development
 
-### Option 1: Local App with Containerized Dependencies (Recommended)
+### Option 1: Using connect-db.sh (Recommended)
 
-1. Make sure Docker is running
-2. Create your `.env` file from the `.env.example`
-3. Run the application:
-```
-run-local.bat
-```
-This will:
-- Start PostgreSQL and Minio in containers
-- Run the application locally using the dev profile
-- Connect to the containerized services via localhost ports
+This smart script automatically detects if Docker is running and configures the application accordingly:
 
-### Option 2: Without Docker
+1. Make the script executable:
+   ```bash
+   chmod +x connect-db.sh
+   ```
 
-1. Configure PostgreSQL and update `application.yaml` with your database credentials
 2. Run the application:
-```
-mvn spring-boot:run
+   ```bash
+   ./connect-db.sh
+   ```
+
+This script will:
+- Check if Docker is running
+- If Docker is available, configure the application to use PostgreSQL and start the Docker container
+- If Docker is not available, configure the application to use H2 in-memory database
+- Start the application with the appropriate configuration
+
+### Option 2: Using a Specific Environment
+
+You can also specify which environment to use:
+
+```bash
+# Make scripts executable
+chmod +x connect-db.sh run-dev.sh run-prod.sh
+
+# For local environment (auto-detects Docker)
+./connect-db.sh --env=local
+
+# For development environment (with Docker PostgreSQL)
+./run-dev.sh
+
+# For production environment (with external database)
+# Make sure to set JDBC_DATABASE_URL, JDBC_DATABASE_USERNAME, and JDBC_DATABASE_PASSWORD
+./run-prod.sh
 ```
 
 ### Option 3: Fully Containerized (Production-like)
@@ -124,7 +200,7 @@ mvn spring-boot:run
 docker-compose -f docker-compose.prod.yaml up -d
 ```
 This will:
-- Start PostgreSQL, Minio, and the application in containers
+- Start PostgreSQL and the application in containers
 - Run everything in a Docker network
 - Use the production profile
 
@@ -191,41 +267,59 @@ Once deployed, API documentation is available at:
 
 ## CI/CD Pipeline
 
-HireSync uses GitHub Actions for continuous integration and continuous deployment to Render.
+HireSync uses GitHub Actions for continuous integration and continuous deployment with a multi-environment strategy.
 
 ### Pipeline Overview
 
-Our CI/CD pipeline automates the following processes:
+Our CI/CD pipeline consists of two parts:
 
-1. **Validation**: Runs code style checks and static analysis on each push and pull request.
-2. **Testing**: Executes unit tests with a containerized PostgreSQL database.
-3. **Build**: Compiles the application and builds the Docker image.
-4. **Deployment**: Automatically deploys to Render when changes are pushed to the `dev` branch.
+1. **Continuous Integration (CI)** - `.github/workflows/ci.yml`:
+   - Code checkout and dependency setup
+   - Code formatting with Spotless
+   - Style checks with Checkstyle and PMD
+   - Unit and integration tests
+   - Code quality analysis with SonarCloud
+   - Build and package the application
+   - Upload build artifacts
 
-### GitHub Secrets
+2. **Continuous Deployment (CD)** - `.github/workflows/cd.yml`:
+   - Branch-based deployment to different environments:
+     - `dev` branch → Railway (Development)
+     - `master` branch → Render (Production)
+   - Docker image building and pushing to Docker Hub
+   - Automated deployment to the appropriate platform
+   - Deployment verification with health checks
+   - Notifications of deployment status
+
+### Environment Strategy
+
+We use a multi-environment deployment strategy:
+
+- **Development (Railway)**
+  - Connected to the `dev` branch
+  - Automatic deployment on successful CI builds
+  - Used for feature testing and integration
+
+- **Production (Render)**
+  - Connected to the `master` branch
+  - Automatic deployment on successful CI builds
+  - Used for the live, customer-facing application
+
+### Required Secrets
 
 To use the CI/CD pipeline, you need to set up the following secrets in your GitHub repository:
 
-- `RENDER_API_KEY`: Your Render API key for triggering deployments
-- `RENDER_DEV_SERVICE_ID`: The service ID for your development environment on Render
+- Docker Hub credentials:
+  - `DOCKER_USERNAME`: Your Docker Hub username
+  - `DOCKER_PASSWORD`: Your Docker Hub password
 
-### Branching Strategy
+- Railway deployment:
+  - `RAILWAY_TOKEN`: API token for Railway
+  - `RAILWAY_APP_URL`: URL of your Railway application
 
-- `dev`: Development branch, automatically deployed to the development environment
-- `main`: Production branch, requires pull request approval before merging
+- Render deployment:
+  - `RENDER_DEPLOY_HOOK_URL`: Webhook URL for Render deployment
+  - `RENDER_APP_URL`: URL of your Render application
 
-### Setting Up Render Deployment
-
-1. Create a Render account and create a new web service
-2. Link it to your GitHub repository
-3. Set up environment variables in Render:
-   - `SPRING_PROFILES_ACTIVE=prod`
-   - Database connection details (see above)
-4. Obtain your Render API key and service ID
-5. Add these as secrets to your GitHub repository
-6. The pipeline will now automatically deploy to Render when you push to the `dev` branch
-
-### Monitoring Deployments
-
-- GitHub Actions: Check the "Actions" tab in your repository
-- Render Dashboard: Monitor deployment status and logs 
+- SonarCloud integration:
+  - `
