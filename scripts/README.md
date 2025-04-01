@@ -19,7 +19,8 @@ scripts/
 │   ├── lint-minimal.sh        # Run minimal linting checks
 │   └── quality-check.sh       # Run comprehensive quality checks
 └── utils/         # Utility functions
-    └── db-utils.sh            # Database utility functions
+    ├── db-utils.sh            # Database utility functions
+    └── health-check.sh        # Application health monitoring
 ```
 
 ## Usage
@@ -42,6 +43,9 @@ For example:
 
 # Run quality checks
 ./run.sh quality
+
+# Check application health status
+./run.sh health
 ```
 
 ## Script Guidelines

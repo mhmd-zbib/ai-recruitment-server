@@ -140,6 +140,12 @@ handle_test() {
   ./mvnw test -Dspring.profiles.active=test "$@"
 }
 
+handle_health() {
+  shift
+  echo -e "${GREEN}Running health check...${NC}"
+  bash "$SCRIPT_DIR/scripts/utils/health-check.sh" "$@"
+}
+
 show_help() {
   echo -e "Usage: ./run.sh [command] [options]"
   echo -e ""
@@ -152,6 +158,7 @@ show_help() {
   echo -e "  quality   Run quality checks"
   echo -e "  verify    Verify code and build"
   echo -e "  test      Run tests with test profile"
+  echo -e "  health    Check application health status"
   echo -e ""
   echo -e "Options:"
   echo -e "  --help       Show this help message"
@@ -179,6 +186,7 @@ case "$1" in
   quality)  handle_quality "$@" ;;
   verify)   handle_verify "$@" ;;
   test)     handle_test "$@" ;;
+  health)   handle_health "$@" ;;
   --help|-h|help) show_help ;;
   *)
     echo -e "${RED}Error: Unknown command '$1'${NC}"
