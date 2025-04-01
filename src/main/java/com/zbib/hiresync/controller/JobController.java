@@ -19,6 +19,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * REST controller for managing job resources. Provides endpoints for creating, retrieving, and
+ * listing job postings.
+ */
 @RestController
 @RequestMapping("/v1/jobs")
 @RequiredArgsConstructor
@@ -26,6 +30,13 @@ public class JobController {
 
   private final JobService jobService;
 
+  /**
+   * Creates a new job posting.
+   *
+   * @param jobRequest the job details to create
+   * @param userDetailsImpl the authenticated user creating the job
+   * @return the created job with HTTP status 201 (Created)
+   */
   @PostMapping
   public ResponseEntity<JobResponse> createJob(
       @Valid @RequestBody JobRequest jobRequest,
@@ -35,6 +46,14 @@ public class JobController {
     return new ResponseEntity<>(jobResponse, HttpStatus.CREATED);
   }
 
+  /**
+   * Retrieves a job posting by its ID. Access is restricted to the job owner through PreAuthorize
+   * annotation.
+   *
+   * @param userDetailsImpl the authenticated user
+   * @param id the ID of the job to retrieve
+   * @return the job posting with HTTP status 200 (OK)
+   */
   @GetMapping("/{id}")
   @PreAuthorize("@jobValidator.isJobOwner(#userDetailsImpl, #id)")
   public ResponseEntity<JobResponse> getJobById(
@@ -43,6 +62,14 @@ public class JobController {
     return ResponseEntity.ok(jobResponse);
   }
 
+  /**
+   * Retrieves all jobs for the authenticated user with optional filtering and pagination.
+   *
+   * @param userDetailsImpl the authenticated user
+   * @param filter criteria to filter the jobs
+   * @param pageable pagination information
+   * @return a page of job listings with HTTP status 200 (OK)
+   */
   @GetMapping
   public ResponseEntity<Page<JobListResponse>> getAllJobs(
       @AuthenticationPrincipal UserDetailsImpl userDetailsImpl,

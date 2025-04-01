@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <!-- Example suppression entries - update with actual suppressions as needed -->
+    
+    <!-- Suppress false positive for Spring Boot -->
+    <suppress>
+        <notes>Suppress CVE for Spring Boot that doesn't affect this application</notes>
+        <packageUrl regex="true">^pkg:maven/org\.springframework\.boot/spring-boot-starter.*$</packageUrl>
+        <cpe>cpe:/a:pivotal_software:spring_boot:3.4.3</cpe>
+        <cve>CVE-XXXX-XXXX</cve>
+    </suppress>
+    
+    <!-- Suppress false positive for H2 Database (only used in tests) -->
+    <suppress>
+        <notes>H2 is only used for testing, not in production</notes>
+        <packageUrl regex="true">^pkg:maven/com\.h2database/h2@.*$</packageUrl>
+        <vulnerabilityName regex="true">.*</vulnerabilityName>
+    </suppress>
+    
+    <!-- Add your own suppressions as needed after scanning -->
+</suppressions> 

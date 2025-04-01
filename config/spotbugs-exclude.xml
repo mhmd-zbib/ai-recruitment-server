@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter
+    xmlns="https://github.com/spotbugs/filter/3.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="https://github.com/spotbugs/filter/3.0.0 https://raw.githubusercontent.com/spotbugs/spotbugs/3.1.0/spotbugs/etc/findbugsfilter.xsd">
+
+    <!-- Exclude common false positives -->
+    
+    <!-- Exclude Lombok-generated code -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+        <Class name="~.*\.*dto\..*"/>
+    </Match>
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+        <Class name="~.*\.*entity\..*"/>
+    </Match>
+    
+    <!-- Ignore serialization warnings in DTOs -->
+    <Match>
+        <Bug pattern="SE_NO_SERIALVERSIONID"/>
+        <Class name="~.*\.*dto\..*"/>
+    </Match>
+    
+    <!-- Ignore JPA entity warnings -->
+    <Match>
+        <Bug pattern="JPA_TRANSACTION_ON_NON_PUBLIC_METHOD"/>
+        <Class name="~.*\.*service\..*"/>
+    </Match>
+    
+    <!-- Ignore test classes -->
+    <Match>
+        <Class name="~.*\.*Test"/>
+    </Match>
+    <Match>
+        <Class name="~.*\.*IT"/>
+    </Match>
+    
+    <!-- Nullable findings in controller parameters -->
+    <Match>
+        <Bug pattern="NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE"/>
+        <Class name="~.*\.*controller\..*"/>
+    </Match>
+</FindBugsFilter> 

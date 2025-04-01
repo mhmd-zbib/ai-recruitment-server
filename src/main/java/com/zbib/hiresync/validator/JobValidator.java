@@ -13,7 +13,9 @@ public class JobValidator {
   private final JobRepository jobRepository;
 
   public boolean isJobOwner(UserDetailsImpl user, UUID jobId) {
-    if (user == null || jobId == null) return false;
+    if (user == null || jobId == null) {
+      return false;
+    }
     UUID userId = user.getId();
     return jobRepository.existsByIdAndUserId(jobId, userId);
   }

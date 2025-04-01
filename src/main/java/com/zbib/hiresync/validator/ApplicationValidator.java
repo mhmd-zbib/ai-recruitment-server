@@ -13,7 +13,9 @@ public class ApplicationValidator {
   private final ApplicationRepository applicationRepository;
 
   public boolean isApplicationOwner(UserDetailsImpl user, UUID applicationId) {
-    if (user == null || applicationId == null) return false;
+    if (user == null || applicationId == null) {
+      return false;
+    }
     UUID userId = user.getId();
     return applicationRepository.existsByIdAndUserId(applicationId, userId);
   }

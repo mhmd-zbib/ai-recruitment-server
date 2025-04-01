@@ -17,6 +17,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * REST controller for managing application resources. Provides endpoints for retrieving, deleting,
+ * and listing applications.
+ */
 @RestController
 @RequestMapping("/v1/applications")
 @RequiredArgsConstructor
@@ -25,6 +29,14 @@ public class ApplicationController {
   private final ApplicationService applicationService;
   private final ApplicationValidator applicationValidator;
 
+  /**
+   * Retrieves an application by its ID. Access is restricted to the application owner through
+   * PreAuthorize annotation.
+   *
+   * @param userDetailsImpl the authenticated user
+   * @param id the ID of the application to retrieve
+   * @return the application with HTTP status 200 (OK)
+   */
   @GetMapping("/{id}")
   @PreAuthorize("@applicationValidator.isApplicationOwner(#userDetailsImpl, #id)")
   public ResponseEntity<ApplicationResponse> getApplicationById(
@@ -33,6 +45,14 @@ public class ApplicationController {
     return ResponseEntity.ok(applicationResponse);
   }
 
+  /**
+   * Deletes an application by its ID. Access is restricted to the application owner through
+   * PreAuthorize annotation.
+   *
+   * @param userDetailsImpl the authenticated user
+   * @param id the ID of the application to delete
+   * @return a success message with HTTP status 200 (OK)
+   */
   @DeleteMapping("/{id}")
   @PreAuthorize("@applicationValidator.isApplicationOwner(#userDetailsImpl, #id)")
   public ResponseEntity<String> deleteApplicationById(
@@ -41,6 +61,14 @@ public class ApplicationController {
     return ResponseEntity.ok("Application has been deleted successfully");
   }
 
+  /**
+   * Retrieves all applications for the authenticated user with optional filtering and pagination.
+   *
+   * @param userDetailsImpl the authenticated user
+   * @param filter criteria to filter the applications
+   * @param pageable pagination information
+   * @return a page of application listings with HTTP status 200 (OK)
+   */
   @GetMapping
   public ResponseEntity<Page<ApplicationListResponse>> getApplications(
       @AuthenticationPrincipal UserDetailsImpl userDetailsImpl,

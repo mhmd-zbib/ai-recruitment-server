@@ -16,6 +16,8 @@ import org.springframework.stereotype.Component;
 public class LogContextBuilder {
 
   private final ObjectMapper jacksonObjectMapper;
+  private static final String X_FORWARDED_FOR = "X-Forwarded-For";
+  private static final String USER_AGENT = "User-Agent";
 
   public Map<String, String> buildInitialContext(
       ProceedingJoinPoint joinPoint, HttpServletRequest request) {
@@ -28,8 +30,8 @@ public class LogContextBuilder {
     String message = getLoggableMessage(joinPoint);
 
     // Extract client information
-    String clientIP = getClientIp(request);
-    String userAgent = request.getHeader("User-Agent");
+    String clientIp = getClientIp(request);
+    String userAgent = request.getHeader(USER_AGENT);
 
     // Process request body
     String jsonRequest = formatRequestBody(joinPoint.getArgs());
@@ -41,7 +43,7 @@ public class LogContextBuilder {
     context.put("apiPath", apiPath);
     context.put("httpMethod", httpMethod);
     context.put("correlationId", correlationId);
-    context.put("clientIP", clientIP);
+    context.put("clientIp", clientIp);
     context.put("userAgent", userAgent);
 
     return context;
@@ -64,9 +66,9 @@ public class LogContextBuilder {
   }
 
   private String getClientIp(HttpServletRequest request) {
-    String xForwardedFor = request.getHeader("X-Forwarded-For");
-    if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-      return xForwardedFor.split(",")[0].trim();
+    String forwardedFor = request.getHeader(X_FORWARDED_FOR);
+    if (forwardedFor != null && !forwardedFor.isEmpty()) {
+      return forwardedFor.split(",")[0].trim();
     }
     return request.getRemoteAddr();
   }
@@ -78,8 +80,12 @@ public class LogContextBuilder {
 
       Loggable loggable = method.getAnnotation(Loggable.class);
 
-      if (loggable == null) loggable = method.getDeclaringClass().getAnnotation(Loggable.class);
-      if (loggable != null) return loggable.message();
+      if (loggable == null) {
+        loggable = method.getDeclaringClass().getAnnotation(Loggable.class);
+      }
+      if (loggable != null) {
+        return loggable.message();
+      }
 
       String className = method.getDeclaringClass().getSimpleName();
       String methodName = method.getName();

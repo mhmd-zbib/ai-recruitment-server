@@ -28,12 +28,12 @@ logging:
     org.hibernate.SQL: ERROR
     org.springframework.web: WARN
 
-# Disable documentation UI in production (unless enabled by env var)
+# Disable documentation UI in production
 springdoc:
   api-docs:
-    enabled: ${SPRINGDOC_ENABLED:false}
+    enabled: false
   swagger-ui:
-    enabled: ${SWAGGER_UI_ENABLED:false}
+    enabled: false
 
 # Server configuration
 server:

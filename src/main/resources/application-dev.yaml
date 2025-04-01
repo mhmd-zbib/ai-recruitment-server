@@ -29,12 +29,17 @@ logging:
     org.hibernate.type.descriptor.sql: TRACE
     org.springframework.web: INFO
 
-# Enable documentation UI in development
+# Enable documentation UI in development (with authentication)
 springdoc:
   api-docs:
     enabled: true
   swagger-ui:
     enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+    filter: true
+    display-request-duration: true
+  show-actuator: true
 
 # Server configuration
 server:

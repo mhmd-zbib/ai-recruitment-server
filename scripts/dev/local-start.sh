@@ -5,10 +5,10 @@
 
 # Get script directory for reliable sourcing
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Source the database utility functions
-source "$SCRIPT_DIR/db-utils.sh"
+source "$PROJECT_ROOT/scripts/utils/db-utils.sh"
 
 # Set colors for output
 GREEN='\033[0;32m'

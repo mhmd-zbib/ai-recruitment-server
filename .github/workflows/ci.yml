@@ -1,117 +1,84 @@
-name: CI Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "master", "dev" ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ "master", "dev" ]
-  workflow_dispatch:
+    branches: [ main, develop ]
 
 jobs:
   build:
-    name: Build and Test
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+    
+    services:
+      # PostgreSQL service for integration tests
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: hiresync_test
+          POSTGRES_USER: hiresync_user
+          POSTGRES_PASSWORD: hiresync_password
+        ports:
+          - 5544:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
       with:
         fetch-depth: 0
-
+        
     - name: Set up JDK 17
       uses: actions/setup-java@v3
       with:
         java-version: '17'
         distribution: 'temurin'
         cache: maven
-
-    - name: Make Scripts Executable
-      run: |
-        chmod +x mvnw
-        chmod +x scripts/verify.sh
-        chmod +x scripts/docker-build.sh
-
-    - name: Code Style Verification
-      run: ./scripts/verify.sh --skip-tests
-      
+        
     - name: Build with Maven
-      run: ./mvnw clean package -DskipTests
-
-    - name: Run Tests
-      run: ./mvnw test
-
-    - name: Build Docker Image
-      run: ./scripts/docker-build.sh --version=$GITHUB_SHA --fast
-      if: github.event_name != 'pull_request'
-
-    - name: Cache Maven packages
-      uses: actions/cache@v3
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2
-
-    - name: Upload Build Artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: hiresync-app
-        path: target/hiresync-*.jar
-        if-no-files-found: error
-
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    needs: build
-    
-    steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v3
-
-    - name: Set up JDK 17
-      uses: actions/setup-java@v3
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: maven
-
-    - name: Run OWASP Dependency-Check
-      run: ./mvnw dependency-check:check
-
-    - name: Run Spotbugs
-      run: ./mvnw spotbugs:check
-
-  sonarcloud:
-    name: SonarCloud Analysis
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    
-    steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-
-    - name: Set up JDK 17
-      uses: actions/setup-java@v3
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: maven
-
-    - name: Cache SonarCloud packages
-      uses: actions/cache@v3
-      with:
-        path: ~/.sonar/cache
-        key: ${{ runner.os }}-sonar
-        restore-keys: ${{ runner.os }}-sonar
-
+      run: mvn -B package --file pom.xml
+      
+    - name: Run code quality checks
+      run: |
+        # Apply Spotless formatting
+        mvn spotless:apply
+        
+        # Run Checkstyle
+        mvn checkstyle:check
+        
+        # Run PMD
+        mvn pmd:check
+        
+        # Run SpotBugs
+        mvn com.github.spotbugs:spotbugs-maven-plugin:check
+        
+    - name: Run tests with coverage
+      run: mvn test
+      
+    - name: Generate JaCoCo report
+      run: mvn jacoco:report
+      
     - name: SonarCloud Scan
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      run: ./mvnw -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=your-sonar-project-key
-      if: env.SONAR_TOKEN != '' 
+      run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+      if: env.SONAR_TOKEN != ''
+      
+    - name: Check for vulnerabilities
+      run: mvn org.owasp:dependency-check-maven:check
+      
+    - name: Archive code quality results
+      uses: actions/upload-artifact@v3
+      with:
+        name: code-quality-reports
+        path: |
+          target/site/
+          target/spotbugsXml.xml
+          target/checkstyle-result.xml
+          target/dependency-check-report.html
+          target/jacoco.xml
+        retention-days: 5 

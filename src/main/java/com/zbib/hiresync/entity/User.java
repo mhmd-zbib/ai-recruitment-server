@@ -1,26 +1,26 @@
 package com.zbib.hiresync.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import java.util.UUID;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
 @Entity
 @Table(name = "users")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class User {
-
   @Id @GeneratedValue private UUID id;
 
-  @Column(unique = true, nullable = false, length = 50)
   private String username;
-
-  @Column(nullable = false, length = 255)
+  private String email;
   private String password;
-
-  @Column(nullable = false, length = 20)
-  private String role = "USER";
+  private String role;
 }

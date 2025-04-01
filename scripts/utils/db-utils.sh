@@ -10,6 +10,11 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Get the Docker directory
+if [ -z "$DOCKER_DIR" ]; then
+  DOCKER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/docker"
+fi
+
 # Check if Docker is running
 check_docker() {
   if docker info > /dev/null 2>&1; then
@@ -24,13 +29,13 @@ check_docker() {
 # Start the PostgreSQL container
 start_postgres() {
   echo -e "${BLUE}Starting PostgreSQL container...${NC}"
-  docker-compose up -d postgres
+  docker-compose -f "$DOCKER_DIR/docker-compose.yaml" up -d postgres
   
   # Wait for the database to be ready
   echo -e "${YELLOW}Waiting for PostgreSQL to be ready...${NC}"
   attempt=0
   max_attempts=30
-  until docker-compose exec postgres pg_isready -U hiresync_user -d hiresync_db > /dev/null 2>&1 || [ $attempt -eq $max_attempts ]; do
+  until docker-compose -f "$DOCKER_DIR/docker-compose.yaml" exec postgres pg_isready -U hiresync_user -d hiresync_db > /dev/null 2>&1 || [ $attempt -eq $max_attempts ]; do
     attempt=$((attempt+1))
     echo -e "${YELLOW}Waiting for database to be ready... ($attempt/$max_attempts)${NC}"
     sleep 2
@@ -38,7 +43,7 @@ start_postgres() {
 
   if [ $attempt -eq $max_attempts ]; then
     echo -e "${RED}Error: PostgreSQL container did not become ready in time.${NC}"
-    echo -e "${YELLOW}Check docker-compose logs with: docker-compose logs postgres${NC}"
+    echo -e "${YELLOW}Check docker-compose logs with: docker-compose -f $DOCKER_DIR/docker-compose.yaml logs postgres${NC}"
     return 1
   fi
 
@@ -135,7 +140,9 @@ load_env_file() {
   if [ -f "$env_file" ]; then
     echo -e "${YELLOW}Loading environment variables from $env_file${NC}"
     # Export all variables from .env file
-    export $(grep -v '^#' "$env_file" | xargs)
+    set -a
+    source "$env_file"
+    set +a
     return 0
   else
     echo -e "${YELLOW}No .env file found. Using default environment variables.${NC}"

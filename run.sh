@@ -1,84 +1,188 @@
 #!/bin/bash
 
-# Helper script to run various commands for the HireSync application
+# HireSync Application Manager
+# A unified interface for all operations related to the HireSync application
+
+# Get script directory for reliable sourcing
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR" && pwd)"
 
 # Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
+YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
 NC='\033[0m' # No Color
-
-# Get script directory for reliable sourcing
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Print header
 echo -e "${BLUE}========================================${NC}"
-echo -e "${GREEN}HireSync Application Helper${NC}"
+echo -e "${GREEN}HireSync Application Manager${NC}"
 echo -e "${BLUE}========================================${NC}"
 
-# Show the menu if no arguments are given
-if [ $# -eq 0 ]; then
-  echo -e "${YELLOW}Available commands:${NC}"
-  echo -e "  ${GREEN}local${NC}    - Start application in local development mode"
-  echo -e "  ${GREEN}dev${NC}      - Start application in development mode"
-  echo -e "  ${GREEN}deploy${NC}   - Deploy application in production mode"
-  echo -e "  ${GREEN}verify${NC}   - Run code verification checks"
-  echo -e "  ${GREEN}docker${NC}   - Build Docker image"
-  echo -e "  ${GREEN}help${NC}     - Show this help message"
-  echo
-  echo -e "${YELLOW}Examples:${NC}"
-  echo -e "  ./run.sh local        # Start in local mode"
-  echo -e "  ./run.sh dev --clean  # Start in dev mode with clean build"
-  echo -e "  ./run.sh deploy --docker  # Deploy with Docker"
-  echo -e "  ./run.sh docker --version=1.0.0  # Build Docker image with version tag"
-  exit 0
-fi
+# Utility functions
+check_docker() {
+  if ! command -v docker >/dev/null 2>&1; then
+    echo -e "${RED}Error: Docker is not installed.${NC}"
+    return 1
+  fi
 
-# Process command
-COMMAND=$1
-shift # Remove the first argument, leaving the rest for the script
+  if ! docker info >/dev/null 2>&1; then
+    echo -e "${RED}Error: Docker is not running.${NC}"
+    return 1
+  fi
 
-case $COMMAND in
-  local)
-    echo -e "${PURPLE}Starting in local development mode...${NC}"
-    $SCRIPT_DIR/scripts/local-start.sh "$@"
-    ;;
-  dev)
-    echo -e "${PURPLE}Starting in development mode...${NC}"
-    $SCRIPT_DIR/scripts/dev-start.sh "$@"
-    ;;
-  deploy)
-    echo -e "${PURPLE}Deploying in production mode...${NC}"
-    $SCRIPT_DIR/scripts/prod-deploy.sh "$@"
-    ;;
-  verify)
-    echo -e "${PURPLE}Running code verification...${NC}"
-    $SCRIPT_DIR/scripts/verify.sh "$@"
-    ;;
-  docker)
-    echo -e "${PURPLE}Building Docker image...${NC}"
-    $SCRIPT_DIR/scripts/docker-build.sh "$@"
-    ;;
-  help)
-    echo -e "${YELLOW}Available commands:${NC}"
-    echo -e "  ${GREEN}local${NC}    - Start application in local development mode"
-    echo -e "  ${GREEN}dev${NC}      - Start application in development mode"
-    echo -e "  ${GREEN}deploy${NC}   - Deploy application in production mode"
-    echo -e "  ${GREEN}verify${NC}   - Run code verification checks"
-    echo -e "  ${GREEN}docker${NC}   - Build Docker image"
-    echo -e "  ${GREEN}help${NC}     - Show this help message"
-    echo
-    echo -e "${YELLOW}Examples:${NC}"
-    echo -e "  ./run.sh local        # Start in local mode"
-    echo -e "  ./run.sh dev --clean  # Start in dev mode with clean build"
-    echo -e "  ./run.sh deploy --docker  # Deploy with Docker"
-    echo -e "  ./run.sh docker --version=1.0.0  # Build Docker image with version tag"
-    ;;
+  return 0
+}
+
+load_env() {
+  if [ -f .env ]; then
+    echo -e "${GREEN}Loading environment variables from .env file...${NC}"
+    set -a
+    source ./.env
+    set +a
+  else
+    echo -e "${YELLOW}Warning: .env file not found, using default values.${NC}"
+    echo -e "${YELLOW}Consider creating an .env file from .env.example${NC}"
+  fi
+}
+
+# Command handlers
+handle_build() {
+  shift
+  load_env
+  
+  if [[ "$*" == *"--docker"* ]] && ! check_docker; then
+    echo -e "${YELLOW}Warning: Docker is required for Docker builds.${NC}"
+    echo -e "${YELLOW}Proceeding with standard build...${NC}"
+  fi
+  
+  # Pass the Docker directory to the build script
+  DOCKER_DIR="$PROJECT_ROOT/docker"
+  export DOCKER_DIR
+  bash "$SCRIPT_DIR/scripts/build/docker-build.sh" "$@"
+}
+
+handle_clean() {
+  shift
+  echo -e "${GREEN}Cleaning build artifacts...${NC}"
+  ./mvnw clean "$@"
+  
+  if [[ "$*" == *"--docker"* ]]; then
+    if check_docker; then
+      echo -e "${GREEN}Cleaning Docker artifacts...${NC}"
+      docker system prune -f
+    else
+      echo -e "${YELLOW}Warning: Docker is not available, skipping Docker cleanup.${NC}"
+    fi
+  fi
+  
+  if [ -d "$SCRIPT_DIR/logs" ]; then
+    echo -e "${GREEN}Cleaning logs directory...${NC}"
+    rm -rf "$SCRIPT_DIR/logs"/*
+  fi
+  
+  echo -e "${GREEN}Clean completed successfully.${NC}"
+}
+
+handle_deploy() {
+  shift
+  load_env
+  
+  if [[ "$*" == *"--docker"* ]] && ! check_docker; then
+    echo -e "${RED}Error: Docker is required for Docker deployments.${NC}"
+    exit 1
+  fi
+  
+  # Pass the Docker directory to the deploy script
+  DOCKER_DIR="$PROJECT_ROOT/docker"
+  export DOCKER_DIR
+  bash "$SCRIPT_DIR/scripts/deploy/prod-deploy.sh" "$@"
+}
+
+handle_dev() {
+  shift
+  load_env
+  
+  # Pass the Docker directory to the dev script
+  DOCKER_DIR="$PROJECT_ROOT/docker"
+  export DOCKER_DIR
+  bash "$SCRIPT_DIR/scripts/dev/dev-start.sh" "$@"
+}
+
+handle_local() {
+  shift
+  load_env
+  
+  if ! check_docker; then
+    echo -e "${RED}Error: Docker is required for local development.${NC}"
+    exit 1
+  fi
+  
+  # Pass the Docker directory to the local script
+  DOCKER_DIR="$PROJECT_ROOT/docker"
+  export DOCKER_DIR
+  bash "$SCRIPT_DIR/scripts/dev/local-start.sh" "$@"
+}
+
+handle_quality() {
+  shift
+  bash "$SCRIPT_DIR/scripts/quality/quality-check.sh" "$@"
+}
+
+handle_verify() {
+  shift
+  bash "$SCRIPT_DIR/scripts/build/verify.sh" "$@"
+}
+
+handle_test() {
+  shift
+  echo -e "${GREEN}Running tests with test profile...${NC}"
+  ./mvnw test -Dspring.profiles.active=test "$@"
+}
+
+show_help() {
+  echo -e "Usage: ./run.sh [command] [options]"
+  echo -e ""
+  echo -e "Commands:"
+  echo -e "  build     Build the application"
+  echo -e "  clean     Clean build artifacts"
+  echo -e "  deploy    Deploy the application"
+  echo -e "  dev       Start development environment"
+  echo -e "  local     Start local development"
+  echo -e "  quality   Run quality checks"
+  echo -e "  verify    Verify code and build"
+  echo -e "  test      Run tests with test profile"
+  echo -e ""
+  echo -e "Options:"
+  echo -e "  --help       Show this help message"
+  echo -e "  --verbose    Enable verbose output"
+  echo -e "  --debug      Enable debug mode"
+  echo -e "  --docker     Use Docker for the operation"
+  echo -e "  --version=X  Specify version for builds"
+  echo -e ""
+  echo -e "Examples:"
+  echo -e "  ./run.sh build --version=1.0.0"
+  echo -e "  ./run.sh deploy --docker"
+  echo -e "  ./run.sh dev"
+  echo -e "  ./run.sh local"
+  echo -e "  ./run.sh quality"
+  echo -e "  ./run.sh verify"
+}
+
+# Main command handler
+case "$1" in
+  build)    handle_build "$@" ;;
+  clean)    handle_clean "$@" ;;
+  deploy)   handle_deploy "$@" ;;
+  dev)      handle_dev "$@" ;;
+  local)    handle_local "$@" ;;
+  quality)  handle_quality "$@" ;;
+  verify)   handle_verify "$@" ;;
+  test)     handle_test "$@" ;;
+  --help|-h|help) show_help ;;
   *)
-    echo -e "${RED}Unknown command: ${COMMAND}${NC}"
-    echo -e "${YELLOW}Run ./run.sh help for available commands${NC}"
+    echo -e "${RED}Error: Unknown command '$1'${NC}"
+    echo -e "Run './run.sh --help' for usage information"
     exit 1
     ;;
 esac

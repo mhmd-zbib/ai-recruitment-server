@@ -26,59 +26,69 @@ public class OpenApiConfig {
 
   @Bean
   public OpenAPI openAPI() {
-    // Basic configuration for all environments
-    OpenAPI openAPI =
-        new OpenAPI()
-            .components(
-                new Components()
-                    .addSecuritySchemes(
-                        "bearerAuth",
-                        new SecurityScheme()
-                            .type(SecurityScheme.Type.HTTP)
-                            .scheme("bearer")
-                            .bearerFormat("JWT")
-                            .in(SecurityScheme.In.HEADER)
-                            .name("Authorization")))
-            .addSecurityItem(new SecurityRequirement().addList("bearerAuth"));
+    boolean isProdProfile = isActiveProfile("prod");
+    boolean isDevProfile = isActiveProfile("dev");
+    boolean isLocalProfile = isActiveProfile("local");
 
-    // Determine which profile is active
-    boolean isProdProfile = false;
+    OpenAPI openAPI = new OpenAPI();
+
+    // Create base information for all environments
+    Info info = createBaseInfo();
+
+    // Apply profile-specific configurations
+    if (isProdProfile) {
+      // For prod: Documentation is not shown (controlled in application-prod.yaml)
+      info.title(applicationName + " - Production")
+          .description("Production API - Documentation disabled");
+    } else if (isDevProfile) {
+      // For dev: Documentation with auth required
+      info.title(applicationName + " - Development")
+          .description("Development API with authentication required");
+
+      // Add security requirement for dev
+      openAPI
+          .components(createSecurityComponents())
+          .addSecurityItem(new SecurityRequirement().addList("bearerAuth"));
+    } else if (isLocalProfile) {
+      // For local: Documentation with no auth
+      info.title(applicationName + " - Local Development")
+          .description("Local development API with unrestricted documentation access");
+
+      // No security requirements for local
+    }
+
+    return openAPI.info(info);
+  }
+
+  private boolean isActiveProfile(String profileName) {
     for (String profile : environment.getActiveProfiles()) {
-      if ("prod".equals(profile)) {
-        isProdProfile = true;
-        break;
+      if (profileName.equals(profile)) {
+        return true;
       }
     }
+    return environment.getDefaultProfiles().length == 0 && "local".equals(profileName);
+  }
 
-    // Set title and description based on active profile
-    if (isProdProfile) {
-      openAPI.info(
-          new Info()
-              .title(applicationName + " - Production")
-              .version("1.0.0")
-              .description("Production API with authentication required for most endpoints")
-              .contact(
-                  new Contact()
-                      .name("HireSync Team")
-                      .email("info@hiresync.com")
-                      .url("https://hiresync.com"))
-              .license(
-                  new License().name("MIT License").url("https://opensource.org/licenses/MIT")));
-    } else {
-      openAPI.info(
-          new Info()
-              .title(applicationName + " - Development")
-              .version("1.0.0")
-              .description("Development API Documentation with all endpoints")
-              .contact(
-                  new Contact()
-                      .name("HireSync Team")
-                      .email("info@hiresync.com")
-                      .url("https://hiresync.com"))
-              .license(
-                  new License().name("MIT License").url("https://opensource.org/licenses/MIT")));
-    }
+  private Info createBaseInfo() {
+    return new Info()
+        .version("1.0.0")
+        .contact(
+            new Contact()
+                .name("HireSync Team")
+                .email("info@hiresync.com")
+                .url("https://hiresync.com"))
+        .license(new License().name("MIT License").url("https://opensource.org/licenses/MIT"));
+  }
 
-    return openAPI;
+  private Components createSecurityComponents() {
+    return new Components()
+        .addSecuritySchemes(
+            "bearerAuth",
+            new SecurityScheme()
+                .type(SecurityScheme.Type.HTTP)
+                .scheme("bearer")
+                .bearerFormat("JWT")
+                .in(SecurityScheme.In.HEADER)
+                .name("Authorization"));
   }
 }

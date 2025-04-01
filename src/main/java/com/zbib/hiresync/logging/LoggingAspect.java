@@ -5,7 +5,8 @@ import com.zbib.hiresync.exceptions.AppException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -17,9 +18,10 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Aspect
 @Component
-@Log4j2
 @RequiredArgsConstructor
 public class LoggingAspect {
+
+  private static final Logger log = LogManager.getLogger(LoggingAspect.class);
 
   private final ObjectMapper jacksonObjectMapper;
   private final HttpServletRequest request;

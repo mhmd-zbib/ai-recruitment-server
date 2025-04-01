@@ -28,6 +28,10 @@ echo "Running lightweight PMD check (critical rules only)..."
 mvn -q pmd:check -Drules=category/java/errorprone/bestpractices.xml/UnusedImports,category/java/errorprone/bestpractices.xml/UnnecessaryImport > /dev/null 2>&1
 PMD_RESULT=$?
 
+echo "Running SpotBugs for high-priority bugs only..."
+mvn -q com.github.spotbugs:spotbugs-maven-plugin:check -Dspotbugs.threshold=High -Dspotbugs.effort=Min > /dev/null 2>&1
+SPOTBUGS_RESULT=$?
+
 # Add any files that were reformatted by Spotless
 git add -u
 
@@ -35,7 +39,7 @@ git add -u
 git stash pop -q
 
 # Return the status
-if [ $SPOTLESS_RESULT -ne 0 ] || [ $CHECKSTYLE_RESULT -ne 0 ] || [ $PMD_RESULT -ne 0 ]; then
+if [ $SPOTLESS_RESULT -ne 0 ] || [ $CHECKSTYLE_RESULT -ne 0 ] || [ $PMD_RESULT -ne 0 ] || [ $SPOTBUGS_RESULT -ne 0 ]; then
     echo "Pre-commit checks failed!"
     echo "Fix the issues before committing."
     
@@ -52,6 +56,11 @@ if [ $SPOTLESS_RESULT -ne 0 ] || [ $CHECKSTYLE_RESULT -ne 0 ] || [ $PMD_RESULT -
     if [ $PMD_RESULT -ne 0 ]; then
         echo "PMD check failed. Fix unused or unnecessary imports."
         echo "For more details, run: mvn pmd:check"
+    fi
+    
+    if [ $SPOTBUGS_RESULT -ne 0 ]; then
+        echo "SpotBugs found critical bugs. Fix them before committing."
+        echo "For more details, run: mvn com.github.spotbugs:spotbugs-maven-plugin:check"
     fi
     
     exit 1
