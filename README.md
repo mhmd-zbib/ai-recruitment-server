@@ -10,7 +10,7 @@ HireSync is an AI-enhanced recruitment pipeline backend application built with S
 - Interview scheduling
 - Comprehensive logging
 - Error handling
-- Multi-environment support (local, dev, prod)
+- Multi-environment support (local, dev, test, prod)
 - Docker-based deployment
 - Automated CI/CD pipeline
 - Code quality enforcement
@@ -48,6 +48,35 @@ The application will be available at:
 - API: http://localhost:8080/api
 - Swagger UI: http://localhost:8080/api/swagger-ui.html
 
+## Commands
+
+Use the unified command interface to manage the application:
+
+```bash
+# On Unix/Linux/macOS
+./run.sh [command] [options]
+
+# On Windows
+run.cmd [command] [options]
+```
+
+Available commands:
+- `build`: Build the application
+- `clean`: Clean build artifacts
+- `deploy`: Deploy the application
+- `dev`: Start development environment
+- `local`: Start local development with Docker
+- `quality`: Run quality checks
+- `verify`: Verify code and build
+- `test`: Run tests with test profile
+- `test-env`: Start application with test environment
+- `health`: Check application health status
+
+For more details:
+```bash
+./run.sh --help
+```
+
 ## Project Structure
 
 ```
@@ -66,13 +95,14 @@ hiresync/
 ├── scripts/              # Utility scripts
 │   ├── build/           # Build-related scripts
 │   ├── deploy/          # Deployment scripts
-│   ├── dev/             # Development scripts
+│   ├── dev/             # Development environment scripts
 │   ├── quality/         # Quality check scripts
-│   └── utils/           # Utility functions
+│   ├── utils/           # Utility functions
+│   └── README.md        # Scripts documentation
 ├── src/                  # Source code
 │   ├── main/            # Main application code
 │   └── test/            # Test code
 ├── .env.example         # Example environment variables
-├── run.sh              # Main entry script
-└── run.cmd             # Main entry script (Windows)
+├── run.sh               # Main entry script (Unix/Linux/macOS)
+└── run.cmd              # Main entry script (Windows)
 ```
