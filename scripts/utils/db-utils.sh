@@ -26,16 +26,66 @@ check_docker() {
   fi
 }
 
+# Check if PostgreSQL container is already running
+is_postgres_running() {
+  if docker ps --format '{{.Names}}' | grep -q 'hiresync-postgres'; then
+    echo -e "${GREEN}PostgreSQL container is already running.${NC}"
+    return 0
+  else
+    return 1
+  fi
+}
+
 # Start the PostgreSQL container
 start_postgres() {
+  # First check if container is already running
+  if is_postgres_running; then
+    echo -e "${GREEN}Using existing PostgreSQL container.${NC}"
+    
+    # Verify the database is accessible
+    attempt=0
+    max_attempts=5
+    echo -e "${YELLOW}Verifying database connection...${NC}"
+    until docker exec hiresync-postgres pg_isready -U hiresync_user -d hiresync_db > /dev/null 2>&1 || [ $attempt -eq $max_attempts ]; do
+      attempt=$((attempt+1))
+      echo -e "${YELLOW}Checking database connection... ($attempt/$max_attempts)${NC}"
+      sleep 1
+    done
+    
+    if [ $attempt -lt $max_attempts ]; then
+      echo -e "${GREEN}Connection to PostgreSQL verified!${NC}"
+      return 0
+    else
+      echo -e "${YELLOW}Warning: Existing PostgreSQL container doesn't seem responsive.${NC}"
+      echo -e "${YELLOW}Attempting to restart the container...${NC}"
+      docker restart hiresync-postgres
+    fi
+  fi
+
   echo -e "${BLUE}Starting PostgreSQL container...${NC}"
-  docker-compose -f "$DOCKER_DIR/docker-compose.yaml" up -d postgres
+  
+  # Try to start the container, but handle error if it already exists
+  docker-compose -f "$DOCKER_DIR/docker-compose.yaml" up -d postgres 2>/dev/null || true
+  
+  # If the container exists but is not running, try to start it directly
+  if ! is_postgres_running; then
+    container_id=$(docker ps -a --filter "name=hiresync-postgres" --format "{{.ID}}")
+    if [ -n "$container_id" ]; then
+      echo -e "${YELLOW}Found existing container. Starting it...${NC}"
+      docker start $container_id
+    fi
+  fi
   
   # Wait for the database to be ready
   echo -e "${YELLOW}Waiting for PostgreSQL to be ready...${NC}"
   attempt=0
   max_attempts=30
-  until docker-compose -f "$DOCKER_DIR/docker-compose.yaml" exec postgres pg_isready -U hiresync_user -d hiresync_db > /dev/null 2>&1 || [ $attempt -eq $max_attempts ]; do
+  until docker exec hiresync-postgres pg_isready -U hiresync_user -d hiresync_db > /dev/null 2>&1 || [ $attempt -eq $max_attempts ]; do
+    # If container doesn't exist at all, try using docker-compose exec
+    if ! docker ps -a --filter "name=hiresync-postgres" --format "{{.ID}}" | grep -q .; then
+      docker-compose -f "$DOCKER_DIR/docker-compose.yaml" exec postgres pg_isready -U hiresync_user -d hiresync_db > /dev/null 2>&1 && break
+    fi
+    
     attempt=$((attempt+1))
     echo -e "${YELLOW}Waiting for database to be ready... ($attempt/$max_attempts)${NC}"
     sleep 2

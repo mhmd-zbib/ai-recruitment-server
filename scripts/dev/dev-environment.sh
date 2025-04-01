@@ -25,6 +25,8 @@ USE_DOCKER=true
 VERBOSE=false
 DEBUG=false
 DRY_RUN=false
+SKIP_DB_WAIT=false
+USE_EXISTING_DB=false
 
 # Print header
 echo -e "${BLUE}========================================${NC}"
@@ -38,6 +40,8 @@ show_help() {
   echo -e "Options:"
   echo -e "  --mode MODE       Environment mode: local, dev, or test (default: $MODE)"
   echo -e "  --no-docker       Skip Docker PostgreSQL setup"
+  echo -e "  --use-existing-db Use existing PostgreSQL database without checking"
+  echo -e "  --skip-db-wait    Skip waiting for PostgreSQL to be ready"
   echo -e "  --verbose         Enable verbose output"
   echo -e "  --debug           Enable debug mode"
   echo -e "  --dry-run         Show what would be done without making changes"
@@ -47,6 +51,7 @@ show_help() {
   echo -e "  $0                            # Start local development with Docker"
   echo -e "  $0 --mode dev                 # Start development environment"
   echo -e "  $0 --mode test --no-docker    # Start test environment without Docker"
+  echo -e "  $0 --use-existing-db          # Use existing PostgreSQL database"
   exit 0
 }
 
@@ -59,6 +64,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-docker)
       USE_DOCKER=false
+      shift
+      ;;
+    --use-existing-db)
+      USE_EXISTING_DB=true
+      shift
+      ;;
+    --skip-db-wait)
+      SKIP_DB_WAIT=true
       shift
       ;;
     --verbose)
@@ -105,6 +118,8 @@ if [ "$VERBOSE" = true ] || [ "$DRY_RUN" = true ]; then
   echo -e "${CYAN}Configuration:${NC}"
   echo -e "  ${CYAN}Mode:${NC} $MODE"
   echo -e "  ${CYAN}Use Docker:${NC} $USE_DOCKER"
+  echo -e "  ${CYAN}Use Existing DB:${NC} $USE_EXISTING_DB"
+  echo -e "  ${CYAN}Skip DB Wait:${NC} $SKIP_DB_WAIT"
   echo -e "  ${CYAN}Verbose:${NC} $VERBOSE"
   echo -e "  ${CYAN}Debug:${NC} $DEBUG"
   echo -e "  ${CYAN}Dry Run:${NC} $DRY_RUN"
@@ -130,13 +145,43 @@ setup_docker_postgres() {
   # Configure database for PostgreSQL
   configure_local_db true
 
+  # Handle existing database option
+  if [ "$USE_EXISTING_DB" = true ]; then
+    if is_postgres_running; then
+      echo -e "${GREEN}Using existing PostgreSQL database as requested.${NC}"
+      return 0
+    else
+      echo -e "${YELLOW}Warning: --use-existing-db option specified but no running PostgreSQL found.${NC}"
+      echo -e "${YELLOW}Will attempt to start PostgreSQL.${NC}"
+    fi
+  fi
+
   # Start PostgreSQL
   if [ "$DRY_RUN" = true ]; then
     echo -e "${YELLOW}DRY RUN: Would start PostgreSQL with Docker Compose${NC}"
   else
-    if ! start_postgres; then
-      echo -e "${RED}Failed to start PostgreSQL. Cannot proceed with local development.${NC}"
-      exit 1
+    # Skip waiting if requested
+    if [ "$SKIP_DB_WAIT" = true ]; then
+      echo -e "${YELLOW}Starting PostgreSQL without waiting (as requested)...${NC}"
+      docker-compose -f "$DOCKER_DIR/docker-compose.yaml" up -d postgres 2>/dev/null || true
+      
+      # If we have an existing container but it's not running, try to start it
+      if ! is_postgres_running; then
+        container_id=$(docker ps -a --filter "name=hiresync-postgres" --format "{{.ID}}")
+        if [ -n "$container_id" ]; then
+          echo -e "${YELLOW}Found existing container. Starting it...${NC}"
+          docker start $container_id
+        fi
+      fi
+      
+      echo -e "${YELLOW}Skipping database readiness check. Application may fail if database is not ready.${NC}"
+    else
+      if ! start_postgres; then
+        echo -e "${RED}Failed to start PostgreSQL. Cannot proceed with local development.${NC}"
+        echo -e "${YELLOW}You can try using the --use-existing-db option if the database is already running,${NC}"
+        echo -e "${YELLOW}or --skip-db-wait to proceed without waiting for the database.${NC}"
+        exit 1
+      fi
     fi
   fi
 }
@@ -186,6 +231,9 @@ spring:
     hikari:
       maximum-pool-size: 5
       minimum-idle: 1
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
   jpa:
     hibernate:
       ddl-auto: update
@@ -193,6 +241,8 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        connection:
+          provider_disables_autocommit: false
 
 # Configure logging for local development
 logging:
@@ -222,6 +272,9 @@ spring:
     hikari:
       maximum-pool-size: 10
       minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
   jpa:
     hibernate:
       ddl-auto: update
@@ -229,6 +282,8 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        connection:
+          provider_disables_autocommit: false
 
 # Configure logging for development
 logging:
