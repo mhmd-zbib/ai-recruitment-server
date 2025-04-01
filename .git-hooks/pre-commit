@@ -42,28 +42,41 @@ if [ -f "$PROJECT_ROOT/mvnw" ]; then
   MVN_CMD="$PROJECT_ROOT/mvnw"
 fi
 
-# 1. Run Spotless to check code formatting
-echo -e "${BLUE}Checking code formatting with Spotless...${NC}"
+# 1. Run Spotless to check code formatting, but only on staged files
+echo -e "${BLUE}Checking code formatting with Spotless on staged files...${NC}"
 if [ -f "$PROJECT_ROOT/pom.xml" ] && command_exists java; then
   cd "$PROJECT_ROOT"
-  if ! $MVN_CMD spotless:check -q; then
-    echo -e "${RED}Code formatting issues detected. Running auto-fix...${NC}"
-    if $MVN_CMD spotless:apply -q; then
+  
+  # Create a temporary file with the list of staged files
+  STAGED_FILES_LIST=$(mktemp)
+  echo "$STAGED_FILES" > "$STAGED_FILES_LIST"
+  
+  # Run spotless only on staged files
+  if ! $MVN_CMD spotless:check -q -DspotlessFiles="$STAGED_FILES_LIST"; then
+    echo -e "${RED}Code formatting issues detected in staged files. Running auto-fix...${NC}"
+    if $MVN_CMD spotless:apply -q -DspotlessFiles="$STAGED_FILES_LIST"; then
       echo -e "${GREEN}Code formatting fixed automatically. Please review and stage the changes.${NC}"
       echo -e "${YELLOW}Run: git add <files>${NC}"
+      # Clean up temporary file
+      rm -f "$STAGED_FILES_LIST"
       exit 1
     else
+      # Clean up temporary file
+      rm -f "$STAGED_FILES_LIST"
       echo -e "${RED}Failed to fix code formatting. Please fix manually.${NC}"
       exit 1
     fi
   fi
-  echo -e "${GREEN}Code formatting check passed.${NC}"
+  
+  # Clean up temporary file
+  rm -f "$STAGED_FILES_LIST"
+  echo -e "${GREEN}Code formatting check passed for staged files.${NC}"
 else
   echo -e "${YELLOW}Warning: Skipping Spotless checks (Maven or Java not available).${NC}"
 fi
 
-# 2. Check for sensitive information
-echo -e "${BLUE}Checking for sensitive information...${NC}"
+# 2. Check for sensitive information, already only checking staged files
+echo -e "${BLUE}Checking for sensitive information in staged files...${NC}"
 SENSITIVE_PATTERNS=(
   "[Pp]assword[\s]*=[\s]*['\"]?[^'\"]*['\"]?"
   "[Ss]ecret[\s]*=[\s]*['\"]?[^'\"]*['\"]?"
@@ -87,22 +100,38 @@ if [ "$CHECK_FAILED" = true ]; then
   echo -e "${YELLOW}Tip: Store sensitive information in environment variables or secure vaults.${NC}"
   exit 1
 fi
-echo -e "${GREEN}Sensitive information check passed.${NC}"
+echo -e "${GREEN}Sensitive information check passed for staged files.${NC}"
 
-# 3. Quick compilation check on modified Java files
+# 3. Quick compilation check only on modified Java files
 JAVA_FILES=$(echo "$STAGED_FILES" | grep -E '\.java$' || true)
 if [ -n "$JAVA_FILES" ] && command_exists java; then
-  echo -e "${BLUE}Running quick compilation check...${NC}"
+  echo -e "${BLUE}Running quick compilation check on staged Java files...${NC}"
   if [ -f "$PROJECT_ROOT/pom.xml" ]; then
     cd "$PROJECT_ROOT"
-    if ! $MVN_CMD compiler:compile -q; then
-      echo -e "${RED}Compilation failed. Please fix the issues before committing.${NC}"
+    
+    # Compile only the staged Java files
+    COMPILE_STATUS=0
+    for FILE in $JAVA_FILES; do
+      echo -e "${BLUE}Compiling $FILE...${NC}"
+      # Extract the package name from the file to determine the class name
+      PACKAGE=$(grep -E "^package" "$FILE" | sed -E 's/package\s+([^;]+);/\1/')
+      CLASS_NAME=$(basename "$FILE" .java)
+      FULL_CLASS="$PACKAGE.$CLASS_NAME"
+      
+      if ! $MVN_CMD compiler:compile -q -Dinclude="$FULL_CLASS"; then
+        echo -e "${RED}Compilation failed for $FILE.${NC}"
+        COMPILE_STATUS=1
+      fi
+    done
+    
+    if [ $COMPILE_STATUS -ne 0 ]; then
+      echo -e "${RED}Compilation checks failed. Please fix the issues before committing.${NC}"
       exit 1
     fi
-    echo -e "${GREEN}Compilation check passed.${NC}"
+    echo -e "${GREEN}Compilation check passed for staged Java files.${NC}"
   fi
 fi
 
 # All checks passed
-echo -e "${GREEN}All pre-commit checks passed!${NC}"
+echo -e "${GREEN}All pre-commit checks passed for staged files!${NC}"
 exit 0 
