@@ -12,9 +12,7 @@ scripts/
 ├── deploy/        # Deployment scripts
 │   └── prod-deploy.sh         # Deploy to production
 ├── dev/           # Development scripts
-│   ├── dev-start.sh           # Start in development mode
-│   ├── local-dev.sh           # Simplified local development script
-│   └── local-start.sh         # Start in local mode with Docker
+│   └── dev-environment.sh     # Unified development environment manager
 ├── quality/       # Quality check scripts
 │   ├── lint-minimal.sh        # Run minimal linting checks
 │   └── quality-check.sh       # Run comprehensive quality checks

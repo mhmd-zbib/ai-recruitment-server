@@ -106,7 +106,7 @@ handle_dev() {
   # Pass the Docker directory to the dev script
   DOCKER_DIR="$PROJECT_ROOT/docker"
   export DOCKER_DIR
-  bash "$SCRIPT_DIR/scripts/dev/dev-start.sh" "$@"
+  bash "$SCRIPT_DIR/scripts/dev/dev-environment.sh" --mode dev "$@"
 }
 
 handle_local() {
@@ -118,10 +118,10 @@ handle_local() {
     exit 1
   fi
   
-  # Pass the Docker directory to the local script
+  # Pass the Docker directory to the dev environment script
   DOCKER_DIR="$PROJECT_ROOT/docker"
   export DOCKER_DIR
-  bash "$SCRIPT_DIR/scripts/dev/local-start.sh" "$@"
+  bash "$SCRIPT_DIR/scripts/dev/dev-environment.sh" --mode local "$@"
 }
 
 handle_quality() {
@@ -138,6 +138,16 @@ handle_test() {
   shift
   echo -e "${GREEN}Running tests with test profile...${NC}"
   ./mvnw test -Dspring.profiles.active=test "$@"
+}
+
+handle_test_env() {
+  shift
+  load_env
+  
+  # Pass the Docker directory to the dev environment script
+  DOCKER_DIR="$PROJECT_ROOT/docker"
+  export DOCKER_DIR
+  bash "$SCRIPT_DIR/scripts/dev/dev-environment.sh" --mode test "$@"
 }
 
 handle_health() {
@@ -158,6 +168,7 @@ show_help() {
   echo -e "  quality   Run quality checks"
   echo -e "  verify    Verify code and build"
   echo -e "  test      Run tests with test profile"
+  echo -e "  test-env  Start application with test environment"
   echo -e "  health    Check application health status"
   echo -e ""
   echo -e "Options:"
@@ -186,6 +197,7 @@ case "$1" in
   quality)  handle_quality "$@" ;;
   verify)   handle_verify "$@" ;;
   test)     handle_test "$@" ;;
+  test-env) handle_test_env "$@" ;;
   health)   handle_health "$@" ;;
   --help|-h|help) show_help ;;
   *)
