@@ -1,89 +1,93 @@
 #!/bin/bash
 
-# commit-msg hook to enforce conventional commit message format
-# This hook validates that commit messages follow the Conventional Commits specification
+# Efficient commit-msg hook to validate commit messages
+# Enforces conventional commit format without external dependencies
 
-# ANSI color codes for better readability
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m' # No Color
+# ANSI color codes for better output
+GREEN="\033[0;32m"
+YELLOW="\033[0;33m"
+RED="\033[0;31m"
+BLUE="\033[0;34m"
+BOLD="\033[1m"
+NC="\033[0m"
 
-# Get the commit message (first argument given to the script)
+# Get the commit message file
 COMMIT_MSG_FILE=$1
 COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
 
-# Define valid types according to Conventional Commits specification
-TYPES=(
-  "feat"     # A new feature
-  "fix"      # A bug fix
-  "docs"     # Documentation only changes
-  "style"    # Changes that do not affect the meaning of the code
-  "refactor" # A code change that neither fixes a bug nor adds a feature
-  "perf"     # A code change that improves performance
-  "test"     # Adding missing tests or correcting existing tests
-  "build"    # Changes that affect the build system or external dependencies
-  "ci"       # Changes to CI configuration files and scripts
-  "chore"    # Other changes that don't modify src or test files
-  "revert"   # Reverts a previous commit
-)
-
-# Join types with "|" for the regex pattern
-TYPES_PATTERN=$(IFS="|"; echo "${TYPES[*]}")
-
-# Define the pattern for conventional commits
-# Format: type(scope): subject
-# Where type is one of the valid types, scope is optional, and subject is required
-PATTERN="^(${TYPES_PATTERN})(\([a-z0-9_\-\.]+\))?: .{1,100}$"
-
-# Check if the commit message matches the pattern
-if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
-    echo -e "${RED}${BOLD}ERROR: Invalid commit message format.${NC}\n"
-    echo -e "${YELLOW}Your commit message:${NC}"
-    echo -e "${CYAN}${COMMIT_MSG}${NC}\n"
-    echo -e "${YELLOW}Commits must follow the Conventional Commits format:${NC}"
-    echo -e "${GREEN}${BOLD}type(scope): subject${NC}"
-    echo -e "\nWhere:"
-    echo -e "  ${BOLD}type${NC}   = The type of change being made (required)"
-    echo -e "            Valid types: ${GREEN}${TYPES_PATTERN}${NC}"
-    echo -e "  ${BOLD}scope${NC}  = The scope of the change (optional)"
-    echo -e "            Examples: ${GREEN}auth${NC}, ${GREEN}api${NC}, ${GREEN}user${NC}, ${GREEN}database${NC}"
-    echo -e "  ${BOLD}subject${NC} = Short description of the change (required)"
-    echo -e "            Must be no more than 100 characters"
-    echo -e "            Should use imperative, present tense (e.g., \"add\" not \"added\")"
-    echo -e "            No period at the end"
-    echo -e "\n${YELLOW}Examples:${NC}"
-    echo -e "  ${GREEN}feat(auth): add user authentication flow${NC}"
-    echo -e "  ${GREEN}fix(api): resolve null pointer in user controller${NC}"
-    echo -e "  ${GREEN}docs: update README with setup instructions${NC}"
-    echo -e "  ${GREEN}refactor(database): improve query performance${NC}"
-    
-    exit 1
+# Skip checks for merge and automated commits
+if [[ "$COMMIT_MSG" =~ ^Merge\ branch.*$ ]] || \
+   [[ "$COMMIT_MSG" =~ ^Merge\ pull\ request.*$ ]] || \
+   [[ "$COMMIT_MSG" =~ ^Merge\ remote.*$ ]] || \
+   [[ "$COMMIT_MSG" =~ ^Revert\ .*$ ]] || \
+   [[ "$COMMIT_MSG" =~ ^Auto-commit:\ .*$ ]] || \
+   [[ "$COMMIT_MSG" =~ ^Automatic:\ .*$ ]] || \
+   [[ "$COMMIT_MSG" =~ ^CI:\ .*$ ]]; then
+  echo -e "${GREEN}Automated commit detected. Skipping validation.${NC}"
+  exit 0
 fi
 
-# Perform additional checks for commit message quality
-SUBJECT=$(echo "$COMMIT_MSG" | sed -n 's/^[^:]*: \(.*\)/\1/p')
-
-# Check if subject starts with capital letter (optional, can be disabled)
-if [[ "$SUBJECT" =~ ^[A-Z] ]]; then
-    echo -e "${YELLOW}WARNING: Subject should start with a lowercase letter.${NC}"
-    echo -e "${YELLOW}Consider changing:${NC} ${SUBJECT}"
-    echo -e "${YELLOW}to:${NC} $(echo "${SUBJECT:0:1}" | tr '[:upper:]' '[:lower:]')${SUBJECT:1}"
-    # Uncomment to enforce this rule strictly
-    # exit 1
+# Check for bypass flag
+if [ -n "$BYPASS_COMMIT_MSG_HOOK" ]; then
+  echo -e "${YELLOW}Bypassing commit message validation due to BYPASS_COMMIT_MSG_HOOK.${NC}"
+  exit 0
 fi
 
-# Check if subject ends with a period (should not)
-if [[ "$SUBJECT" =~ \.$  ]]; then
-    echo -e "${YELLOW}WARNING: Subject should not end with a period.${NC}"
-    echo -e "${YELLOW}Consider changing:${NC} ${SUBJECT}"
-    echo -e "${YELLOW}to:${NC} ${SUBJECT%?}"
-    # Uncomment to enforce this rule strictly
-    # exit 1
+# Performance optimization: Only check the first line for format compliance
+FIRST_LINE=$(head -n 1 "$COMMIT_MSG_FILE")
+
+# Regular expression for conventional commits
+# format: <type>[(scope)][!]: <description>
+VALID_TYPES="feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert"
+REGEX="^($VALID_TYPES)(\([a-z0-9 ,\-\_]+\))?(\!)?: .+$"
+
+if ! [[ "$FIRST_LINE" =~ $REGEX ]]; then
+  echo -e "${RED}${BOLD}ERROR: Commit message format is invalid${NC}"
+  echo -e "${YELLOW}Please use the conventional commit format:${NC}"
+  echo -e "  ${BLUE}<type>[(scope)][!]: <description>${NC}"
+  echo
+  echo -e "Valid types: ${BLUE}${VALID_TYPES//|/, }${NC}"
+  echo -e "Examples:"
+  echo -e "  ${GREEN}feat: add user authentication${NC}"
+  echo -e "  ${GREEN}fix(api): resolve null pointer in user query${NC}"
+  echo -e "  ${GREEN}docs: update README with setup instructions${NC}"
+  echo -e "  ${GREEN}refactor!: change user API response format${NC}"
+  echo
+  echo -e "${YELLOW}Your commit:${NC} ${RED}$FIRST_LINE${NC}"
+  exit 1
 fi
 
-# Success message
-echo -e "${GREEN}${BOLD}✓ Commit message format is valid.${NC}"
+# Quick check of commit message length
+if [ ${#FIRST_LINE} -gt 100 ]; then
+  echo -e "${YELLOW}WARNING: Commit headline is too long (${#FIRST_LINE} chars)${NC}"
+  echo -e "  Try to keep the first line under 72 characters"
+  # Continue anyway - this is just a warning
+fi
+
+# Check for body line length only if message has a body
+if [ $(wc -l < "$COMMIT_MSG_FILE") -gt 1 ]; then
+  # Optimization: Use grep to only check problematic lines, not all lines
+  TOO_LONG_LINES=$(grep -n "^..\{101,\}$" "$COMMIT_MSG_FILE" | head -n 3)
+  
+  if [ -n "$TOO_LONG_LINES" ]; then
+    echo -e "${YELLOW}WARNING: Some body lines are too long:${NC}"
+    echo "$TOO_LONG_LINES" | while read -r line; do
+      LINE_NUM=$(echo "$line" | cut -d: -f1)
+      echo -e "  Line $LINE_NUM exceeds 100 characters"
+    done
+    # Just a warning, don't block commit
+  fi
+fi
+
+# Check for explanatory text when using breaking changes
+if [[ "$FIRST_LINE" =~ ^.+\!: ]]; then
+  # Breaking change should have body that explains the change
+  if [ $(grep -c "^BREAKING CHANGE:" "$COMMIT_MSG_FILE") -eq 0 ]; then
+    echo -e "${YELLOW}WARNING: Breaking change marker (!) used without BREAKING CHANGE: explanation${NC}"
+    echo -e "  Consider adding a 'BREAKING CHANGE: <explanation>' line to the commit message"
+    # Just a warning, don't block commit
+  fi
+fi
+
+echo -e "${GREEN}Commit message format is valid.${NC}"
 exit 0 

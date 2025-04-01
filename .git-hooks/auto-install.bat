@@ -1,235 +1,140 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: Auto-installation script for Git hooks (Windows version)
-:: This script will:
-:: 1. Install the hooks immediately
-:: 2. Set up auto-installation on clone/pull for future uses
-:: 3. Configure Git to ensure hooks are maintained across the team
+:: Streamlined Git hooks installer for modern Git workflows (Windows version)
+:: Uses core.hooksPath for zero-overhead installation
 
 echo.
-echo === Automatic Git Hook Setup ===
+echo === Git Hooks Setup - Senior Engineering Edition ===
 echo.
 
-:: Get the directory of this script and the repository root
+:: Get the directory of this script and repository root
 set "SCRIPT_DIR=%~dp0"
 set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 set "REPO_ROOT=%SCRIPT_DIR%\.."
+set "HOOKS_DIR=%SCRIPT_DIR%"
 
-:: First, install the hooks immediately
-echo Installing Git hooks immediately...
-
-:: Get the Git directory
-for /f "tokens=*" %%a in ('git rev-parse --git-dir 2^>nul') do set "GIT_DIR=%%a"
-
-:: Fallback if git command fails
-if "!GIT_DIR!"=="" (
-    set "GIT_DIR=%REPO_ROOT%\.git"
+:: Check if hooks directory exists
+if not exist "%HOOKS_DIR%\pre-commit" (
+    echo Error: Git hooks directory not found or incomplete at:
+    echo %HOOKS_DIR%
+    exit /b 1
 )
 
-:: Ensure the destination directory exists
-set "HOOKS_DIR=!GIT_DIR!\hooks"
-if not exist "!HOOKS_DIR!" (
-    mkdir "!HOOKS_DIR!" 2>nul
-    if errorlevel 1 (
-        echo Error: Failed to create hooks directory at !HOOKS_DIR!
-        exit /b 1
+:: Check git version to ensure core.hooksPath is supported
+for /f "tokens=3" %%v in ('git --version') do set GIT_VERSION=%%v
+
+:: Compare versions
+call :compare_versions "%GIT_VERSION%" "2.9.0" result
+
+if %result% GEQ 0 (
+    :: Modern Git with hooksPath support
+    echo [92m✓ Git version %GIT_VERSION% supports modern hooks installation[0m
+    
+    :: Configure git to use the hooks directory directly
+    git config core.hooksPath "%HOOKS_DIR%"
+    
+    echo [92m✓ Hooks installed via core.hooksPath (zero performance overhead)[0m
+    
+    :: Also update config to avoid issues with line endings
+    git config core.autocrlf false
+    git config core.eol native
+    
+    :: Add git aliases for bypassing hooks when needed
+    git config --local alias.pushf "push --no-verify"
+    git config --local alias.commitf "commit --no-verify"
+    git config --local alias.bypass-hooks "!set GIT_BYPASS_HOOKS=true&& git"
+    
+    echo [92m✓ Added helpful git aliases:[0m
+    echo   [93mgit pushf[0m - Push without hook verification
+    echo   [93mgit commitf[0m - Commit without hook verification
+    echo   [93mgit bypass-hooks[0m - Run any git command bypassing hooks
+) else (
+    :: Fall back to traditional copy method for older Git versions
+    echo [93m⚠ Git version %GIT_VERSION% is older than 2.9.0[0m
+    echo [93mUsing compatibility mode (file copies) for hook installation[0m
+    
+    :: Get the Git hooks directory
+    for /f "tokens=*" %%a in ('git rev-parse --git-dir 2^>nul') do set "GIT_DIR=%%a"
+    if "!GIT_DIR!"=="" set "GIT_DIR=%REPO_ROOT%\.git"
+    
+    set "GIT_HOOKS_DIR=!GIT_DIR!\hooks"
+    if not exist "!GIT_HOOKS_DIR!" mkdir "!GIT_HOOKS_DIR!"
+    
+    :: List of hooks to install
+    set HOOKS=pre-commit commit-msg prepare-commit-msg pre-push post-checkout pre-rebase
+    
+    :: Install each hook
+    for %%h in (%HOOKS%) do (
+        if exist "%HOOKS_DIR%\%%h" (
+            copy /Y "%HOOKS_DIR%\%%h" "!GIT_HOOKS_DIR!\%%h" >nul
+            echo [92m✓ Installed %%h hook[0m
+        )
     )
 )
 
-:: List of hooks to install
-set HOOKS=pre-commit commit-msg prepare-commit-msg pre-push post-checkout pre-rebase
+:: Normalize line endings immediately using Git
+echo [94mNormalizing line endings...[0m
+git add --renormalize . >nul
 
-:: Install each hook
-for %%h in (%HOOKS%) do (
-    set "SOURCE=%SCRIPT_DIR%\%%h"
-    set "TARGET=!HOOKS_DIR!\%%h"
-    
-    if not exist "!SOURCE!" (
-        echo Warning: Hook %%h not found in %SCRIPT_DIR%
-        goto :continue
-    )
-    
-    echo Installing %%h hook...
-    
-    :: Copy the hook
-    copy /Y "!SOURCE!" "!TARGET!" >nul
-    if errorlevel 1 (
-        echo Error: Failed to copy %%h hook to !TARGET!
-        exit /b 1
-    )
-    
-    echo ✓ %%h installed successfully
-    
-    :continue
-)
-
-:: Set up post-merge hook to auto-update hooks on pull
-set "AUTO_UPDATE_HOOK=%REPO_ROOT%\.git\hooks\post-merge"
-echo Setting up auto-update on git pull...
-
-:: Create post-merge hook for auto-update on pull
-(
-    echo @echo off
-    echo :: Auto-update hooks when pulling from remote
-    echo.
-    echo :: Check if .git-hooks directory changed
-    echo for /f "tokens=*" %%%%a in ^('git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD ^| findstr ".git-hooks/"'^) do ^(
-    echo     set "HOOK_CHANGES=true"
-    echo ^)
-    echo.
-    echo if defined HOOK_CHANGES ^(
-    echo     echo.
-    echo     echo Git hooks have been updated in the repository.
-    echo     echo Auto-updating your local hooks...
-    echo.
-    echo     :: Get the directory of the repository
-    echo     for /f "tokens=*" %%%%a in ^('git rev-parse --show-toplevel'^) do set "REPO_ROOT=%%%%a"
-    echo.
-    echo     :: Run the hooks installation script
-    echo     if exist "!REPO_ROOT!\.git-hooks\auto-install.bat" ^(
-    echo         call "!REPO_ROOT!\.git-hooks\auto-install.bat"
-    echo     ^)
-    echo ^)
-) > "%AUTO_UPDATE_HOOK%"
-
-:: Create a post-checkout hook for initial clone
-set "POST_CHECKOUT_AUTO=%REPO_ROOT%\.git\hooks\post-checkout"
-if not exist "%POST_CHECKOUT_AUTO%" (
-    echo Setting up auto-install on first clone...
-    
-    :: Create post-checkout script
-    (
-        echo @echo off
-        echo setlocal enabledelayedexpansion
-        echo :: Auto-install hooks on initial clone
-        echo.
-        echo :: Arguments passed to hook by Git
-        echo set PREV_HEAD=%%1
-        echo.
-        echo :: Check if this is the initial clone ^(previous HEAD is all zeros^)
-        echo if "%%PREV_HEAD%%"=="0000000000000000000000000000000000000000" ^(
-        echo     echo.
-        echo     echo First checkout detected. Installing Git hooks...
-        echo.
-        echo     :: Get the directory of the repository
-        echo     for /f "tokens=*" %%%%a in ^('git rev-parse --show-toplevel'^) do set "REPO_ROOT=%%%%a"
-        echo.
-        echo     :: Run the hooks installation script
-        echo     if exist "!REPO_ROOT!\.git-hooks\auto-install.bat" ^(
-        echo         call "!REPO_ROOT!\.git-hooks\auto-install.bat"
-        echo     ^)
-        echo ^)
-        echo.
-        echo :: Execute the actual post-checkout hook if it exists separately
-        echo if exist "!REPO_ROOT!\.git\hooks\post-checkout.actual" ^(
-        echo     call "!REPO_ROOT!\.git\hooks\post-checkout.actual" %%*
-        echo ^)
-        echo.
-        echo endlocal
-    ) > "%POST_CHECKOUT_AUTO%"
-    
-    :: If a post-checkout hook already exists, rename it
-    if exist "%REPO_ROOT%\.git-hooks\post-checkout" (
-        copy "%REPO_ROOT%\.git-hooks\post-checkout" "%REPO_ROOT%\.git\hooks\post-checkout.actual" > nul
-    )
-)
-
-:: Set up template directory for automatic hook installation
-echo Setting up hook templates for future clones...
-set "GIT_TEMPLATE_DIR=%REPO_ROOT%\.git-template"
-if not exist "%GIT_TEMPLATE_DIR%\hooks" mkdir "%GIT_TEMPLATE_DIR%\hooks"
-
-:: Create template post-checkout hook that auto-installs
-(
-    echo @echo off
-    echo setlocal enabledelayedexpansion
-    echo :: Template hook to install project hooks on clone
-    echo.
-    echo :: Get the repository root
-    echo for /f "tokens=*" %%%%a in ^('git rev-parse --show-toplevel'^) do set "REPO_ROOT=%%%%a"
-    echo.
-    echo :: Check if this is the initial clone
-    echo if "%%1"=="0000000000000000000000000000000000000000" ^(
-    echo     echo First checkout detected. Installing project-specific hooks...
-    echo.
-    echo     :: Run the hooks installation script if it exists
-    echo     if exist "!REPO_ROOT!\.git-hooks\auto-install.bat" ^(
-    echo         call "!REPO_ROOT!\.git-hooks\auto-install.bat"
-    echo     ^)
-    echo ^)
-    echo.
-    echo :: Exit with success
-    echo exit /b 0
-    echo endlocal
-) > "%GIT_TEMPLATE_DIR%\hooks\post-checkout"
-
-:: Configure Git to use the template directory
-echo Configuring Git template directory...
-git config --local init.templateDir "%GIT_TEMPLATE_DIR%"
-
-:: Add reminder to README if it doesn't already exist
-echo Updating README.md to include auto-install instructions...
-if exist "%REPO_ROOT%\README.md" (
-    findstr /C:"Setup Git Hooks" "%REPO_ROOT%\README.md" > nul
-    if errorlevel 1 (
-        (
-            echo.
-            echo ## Setup Git Hooks
-            echo.
-            echo This repository uses Git hooks to ensure code quality and consistent commit messages.
-            echo Run the following command to automatically set up the hooks:
-            echo.
-            echo ```bash
-            echo # For Unix/Linux/macOS
-            echo bash .git-hooks/auto-install.sh
-            echo.
-            echo # For Windows
-            echo .\.git-hooks\auto-install.bat
-            echo ```
-            echo.
-        ) >> "%REPO_ROOT%\README.md"
-    )
-)
-
-:: Create a helper batch file to run bash scripts properly
-set "HELPER_DIR=%GIT_DIR%\hooks\helpers"
-if not exist "!HELPER_DIR!" mkdir "!HELPER_DIR!" 2>nul
-
-:: Create run-bash-script.bat helper
-set "HELPER_BAT=!HELPER_DIR!\run-bash-script.bat"
-(
-    echo @echo off
-    echo setlocal
-    echo.
-    echo :: Helper script to run bash scripts using Git Bash
-    echo.
-    echo :: Find bash from Git for Windows
-    echo for %%P in ^(bash.exe^) do set "BASH_PATH=%%~$PATH:P"
-    echo.
-    echo if "!BASH_PATH!"=="" ^(
-    echo     :: Try common Git installation paths
-    echo     if exist "C:\Program Files\Git\bin\bash.exe" ^(
-    echo         set "BASH_PATH=C:\Program Files\Git\bin\bash.exe"
-    echo     ^) else if exist "C:\Program Files ^(x86^)\Git\bin\bash.exe" ^(
-    echo         set "BASH_PATH=C:\Program Files ^(x86^)\Git\bin\bash.exe"
-    echo     ^)
-    echo ^)
-    echo.
-    echo if "!BASH_PATH!"=="" ^(
-    echo     echo Error: Git Bash not found. Please make sure Git is installed.
-    echo     exit /b 1
-    echo ^)
-    echo.
-    echo :: Run the script using bash
-    echo "!BASH_PATH!" %%*
-) > "!HELPER_BAT!"
+:: Make bat/cmd files executable on Windows
+attrib +x "%HOOKS_DIR%\*.bat" >nul 2>&1
+attrib +x "%HOOKS_DIR%\*.cmd" >nul 2>&1
 
 echo.
-echo ✅ Git hooks auto-installation has been set up successfully!
-echo Hooks will automatically install for new clones and stay updated on pulls.
-echo Note: Ask all team members to run this script once to enable these features.
+echo [92m✅ Git hooks successfully installed![0m
+echo.
+echo [93mAvailable environment variables to control hooks:[0m
+echo   [94mset GIT_BYPASS_HOOKS=true[0m - Bypass all hooks
+echo   [94mset SKIP_PUSH_HOOKS=true[0m - Skip pre-push hooks only
+echo   [94mset FORCE_CHECKS=true[0m - Force full checks even if unchanged
+echo   [94mset BYPASS_COMMIT_MSG_HOOK=true[0m - Skip commit message validation
 echo.
 
-endlocal
-exit /b 0 
+:: Provide quick usage guide
+echo [94mQuick Usage Guide:[0m
+echo   • Normal workflow: Just commit and push as usual
+echo   • Bypass hooks: [93mset GIT_BYPASS_HOOKS=true && git commit -m "message"[0m
+echo   • Skip for a single repo: [93mgit config --local hooks.enabled false[0m
+echo.
+
+goto :eof
+
+:compare_versions
+setlocal
+set "ver1=%~1"
+set "ver2=%~2"
+
+for /f "tokens=1,2,3 delims=." %%a in ("%ver1%") do (
+    set "v1_1=%%a"
+    set "v1_2=%%b"
+    set "v1_3=%%c"
+)
+
+for /f "tokens=1,2,3 delims=." %%a in ("%ver2%") do (
+    set "v2_1=%%a"
+    set "v2_2=%%b" 
+    set "v2_3=%%c"
+)
+
+if %v1_1% GTR %v2_1% (
+    endlocal & set "%~3=1" & goto :eof
+) else if %v1_1% LSS %v2_1% (
+    endlocal & set "%~3=-1" & goto :eof
+)
+
+if %v1_2% GTR %v2_2% (
+    endlocal & set "%~3=1" & goto :eof
+) else if %v1_2% LSS %v2_2% (
+    endlocal & set "%~3=-1" & goto :eof
+)
+
+if %v1_3% GTR %v2_3% (
+    endlocal & set "%~3=1" & goto :eof
+) else if %v1_3% LSS %v2_3% (
+    endlocal & set "%~3=-1" & goto :eof
+) else (
+    endlocal & set "%~3=0" & goto :eof
+)
+
+goto :eof 

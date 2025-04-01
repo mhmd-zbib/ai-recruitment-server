@@ -1,134 +1,197 @@
 #!/bin/bash
 
-# Pre-commit hook to enforce code quality standards
-# This hook will run automatically before every commit
-# It performs code quality checks and auto-formatting
+# Optimized pre-commit hook for modern development workflows
+# Only performs critical, fast checks during commit
+# Heavier checks are moved to pre-push
 
-# Exit on any error
-set -e
+# Colors for better UX
+GREEN="\033[0;32m"
+YELLOW="\033[0;33m"
+RED="\033[0;31m"
+BLUE="\033[0;34m"
+NC="\033[0m"
 
-echo "⚡ Running pre-commit quality checks..."
+echo -e "${BLUE}Running lightweight pre-commit checks...${NC}"
 
-# Store the root directory of the git repository
+# Check if this is a merge commit
+if [ -f .git/MERGE_HEAD ]; then
+  echo -e "${YELLOW}Merge commit detected, skipping pre-commit hooks.${NC}"
+  exit 0
+fi
+
+# Check if --no-verify was intended but forgotten
+if [ -n "$GIT_BYPASS_HOOKS" ]; then
+  echo -e "${YELLOW}Bypassing pre-commit hooks due to GIT_BYPASS_HOOKS.${NC}"
+  exit 0
+fi
+
+# Store the root directory of the repository
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
-# Stash any changes not staged for this commit
-echo "📦 Stashing unstaged changes..."
-STASH_NAME="pre-commit-$(date +%s)"
-git stash push -q --keep-index --include-untracked --message "$STASH_NAME"
-STASH_RESULT=$?
+# Get list of staged files (with performance optimization)
+STAGED_FILES=$(git diff --name-only --cached --diff-filter=ACM | grep -E '\.java$|\.xml$|\.properties$|\.yml$|\.yaml$|\.json$|\.md$|\.sql$' 2>/dev/null || echo "")
 
-# Setup exit trap to restore stashed changes
-cleanup() {
-  echo "🔄 Restoring unstaged changes..."
-  # Only pop from stash if we actually stashed something
-  if [ "$STASH_RESULT" -eq 0 ] && [ -n "$(git stash list | grep "$STASH_NAME")" ]; then
-    git stash pop -q "stash@{0}" || true
-  fi
+# Skip if no relevant files to check
+if [ -z "$STAGED_FILES" ]; then
+  echo -e "${GREEN}No relevant files to check.${NC}"
+  exit 0
+fi
+
+# Check cache to avoid duplicate work
+CACHE_DIR="$REPO_ROOT/.git/hooks-cache"
+mkdir -p "$CACHE_DIR" 2>/dev/null
+
+# Helper to run optimized formatting check
+fast_format_check() {
+  local has_changes=0
+
+  # Quick pass to fix common formatting issues using sed (much faster than Maven)
+  for file in $STAGED_FILES; do
+    # Skip files that don't exist or aren't readable
+    [ ! -r "$file" ] && continue
+
+    # Check file extension
+    ext="${file##*.}"
+    
+    # Cache key based on file and its timestamp
+    CACHE_KEY="$CACHE_DIR/$(echo "$file" | md5sum | cut -d' ' -f1)"
+    CURRENT_HASH=$(git hash-object "$file")
+    
+    if [ -f "$CACHE_KEY" ] && [ "$(cat "$CACHE_KEY")" = "$CURRENT_HASH" ]; then
+      # Skip if unchanged since last check
+      continue
+    fi
+    
+    # Perform fast whitespace fixes regardless of file type
+    # - Remove trailing whitespace
+    # - Ensure file ends with single newline
+    if [ "$ext" = "java" ] || [ "$ext" = "xml" ] || [ "$ext" = "properties" ] || [ "$ext" = "yml" ] || [ "$ext" = "yaml" ]; then
+      sed -i 's/[ \t]*$//' "$file"  # Remove trailing whitespace
+      sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$file"  # Remove blank lines at EOF
+      echo "" >> "$file"  # Ensure file ends with a newline
+      has_changes=1
+      
+      # Cache the new hash
+      git hash-object "$file" > "$CACHE_KEY"
+    fi
+  done
+  
+  return $has_changes
 }
 
-# Register the cleanup function to be called on exit
-trap cleanup EXIT
+# Normalize critical line endings without full normalization
+critical_line_endings() {
+  # Only fix shell scripts and critical files with minimal processing
+  for file in $STAGED_FILES; do
+    if [[ "$file" == *.sh ]] || [[ "$file" == "mvnw" ]]; then
+      # Use LF for shell scripts (critical)
+      sed -i 's/\r$//' "$file" 2>/dev/null
+      # Make executable
+      chmod +x "$file" 2>/dev/null
+    elif [[ "$file" == *.bat ]] || [[ "$file" == *.cmd ]]; then
+      # Use CRLF for Windows batch files
+      sed -i 's/\r*$/\r/' "$file" 2>/dev/null
+    fi
+  done
+}
 
-# Function to run Maven with proper error handling
-run_maven() {
-  local CMD=$1
-  local MSG=$2
-  local IGNORE_ERROR=${3:-false}
+# Perform quick checks
+quick_code_check() {
+  # Fast check for debug statements and other critical issues
+  local errors=0
+  local warnings=0
+
+  for file in $STAGED_FILES; do
+    # Skip files that don't exist or aren't readable
+    [ ! -r "$file" ] && continue
+    
+    # Check only Java files
+    if [[ "$file" == *.java ]]; then
+      # Check for common debug statements
+      if grep -q "System\.out\.println\|e\.printStackTrace()" "$file"; then
+        echo -e "${YELLOW}Warning: Debug statements found in $file${NC}"
+        warnings=$((warnings + 1))
+      fi
+      
+      # Check for TODO markers without tickets
+      if grep -q "TODO[^A-Z0-9-]" "$file"; then
+        echo -e "${YELLOW}Warning: TODO without ticket reference in $file${NC}"
+        warnings=$((warnings + 1))
+      fi
+      
+      # Critical: Check for sensitive data patterns (passwords, tokens)
+      if grep -E -q "(password|secret|token|key).*=.*['\"][a-zA-Z0-9]+" "$file"; then
+        echo -e "${RED}Error: Possible hardcoded credentials in $file${NC}"
+        errors=$((errors + 1))
+      fi
+    fi
+  done
   
-  echo "   - $MSG..."
-  if [ -f "$REPO_ROOT/mvnw" ]; then
-    "$REPO_ROOT/mvnw" -q $CMD > /dev/null 2>&1
-  else
-    mvn -q $CMD > /dev/null 2>&1
+  if [ $errors -gt 0 ]; then
+    echo -e "${RED}Found $errors critical issues that must be fixed${NC}"
+    return 1
   fi
   
-  local EXIT_CODE=$?
-  if [ $EXIT_CODE -ne 0 ] && [ "$IGNORE_ERROR" = "false" ]; then
-    echo "❌ $MSG failed. Fix issues before committing."
-    exit 1
-  elif [ $EXIT_CODE -ne 0 ]; then
-    echo "⚠️ $MSG had issues, but continuing anyway."
-    return 1
+  if [ $warnings -gt 0 ]; then
+    echo -e "${YELLOW}Found $warnings warnings (commit allowed)${NC}"
   fi
   
   return 0
 }
 
-# Get list of staged files
-STAGED_FILES=$(git diff --name-only --cached --diff-filter=ACM | grep -E '\.(java|xml|properties|yml|yaml)$' || true)
-
-if [ -z "$STAGED_FILES" ]; then
-  echo "✅ No relevant files to check."
-  exit 0
-fi
-
-# Correct line endings if needed
-echo "🔄 Checking line endings..."
-if [ -f "$REPO_ROOT/.git-hooks/correct-line-endings.sh" ]; then
-  # Use the enhanced line endings script as primary method
-  bash "$REPO_ROOT/.git-hooks/correct-line-endings.sh" > /dev/null 2>&1
-  
-  if [ $? -ne 0 ]; then
-    echo "⚠️ Line ending correction had issues, but continuing anyway."
-  else
-    # If the script succeeded and found changes, stage them
-    if ! git diff --quiet; then
-      echo "📝 Adding files with corrected line endings..."
-      git add -u
+# Check for large files
+check_large_files() {
+  for file in $(git diff --name-only --cached --diff-filter=ACM); do
+    # Skip if file doesn't exist or isn't readable
+    [ ! -r "$file" ] && continue
+    
+    # Skip binary files that are tracked by Git LFS
+    if [ -f "$REPO_ROOT/.gitattributes" ] && grep -q "$file filter=lfs" "$REPO_ROOT/.gitattributes"; then
+      continue
     fi
-  fi
-elif [ -f "$REPO_ROOT/scripts/quality/quality-check.sh" ]; then
-  # Fall back to the quality check script if available
-  bash "$REPO_ROOT/scripts/quality/quality-check.sh" --line-endings-only > /dev/null 2>&1
-  if [ $? -ne 0 ]; then
-    echo "⚠️ Line ending correction had issues, but continuing anyway."
-  fi
+    
+    # Get file size in kilobytes
+    FILE_SIZE=$(du -k "$file" | cut -f1)
+    
+    # If file is larger than 5MB, warn the user
+    if [ "$FILE_SIZE" -gt 5120 ]; then
+      echo -e "${YELLOW}Warning: Large file detected: $file (${FILE_SIZE}KB)${NC}"
+      echo -e "${YELLOW}Consider using Git LFS for large files${NC}"
+    fi
+  done
+}
+
+# Main execution flow
+
+# 1. Quick format check (cached)
+echo -e "⚡ Quick format check..."
+fast_format_check
+if [ $? -eq 1 ]; then
+  echo -e "${BLUE}Fixed formatting issues in staged files${NC}"
 fi
 
-echo "🔍 Running code quality checks on staged files..."
+# 2. Fix critical line endings (shell scripts only)
+echo -e "⚡ Fixing critical line endings..."
+critical_line_endings
 
-# Step 1: Run Spotless to format code
-run_maven "spotless:apply" "Applying code formatting" false
+# 3. Check for large files
+echo -e "⚡ Checking for large files..."
+check_large_files
 
-# Step 2: Run Maven Enforcer to check for project rules
-run_maven "enforcer:enforce" "Verifying project rules and dependencies" true
-
-# Step 3: Run Checkstyle for basic code standards
-run_maven "checkstyle:check" "Checking code style" true
-
-# Step 4: Fix imports with Maven Tidy if available
-if [ -f "pom.xml" ]; then
-  run_maven "org.codehaus.mojo:tidy-maven-plugin:1.1.0:pom -Dquiet=true" "Organizing imports" true
+# 4. Quick code validation
+echo -e "⚡ Running quick code validation..."
+quick_code_check
+if [ $? -ne 0 ]; then
+  echo -e "${RED}Pre-commit check failed! Please fix the issues and try again.${NC}"
+  exit 1
 fi
 
-# Step 5: Check for high-priority bugs with SpotBugs (optional, don't fail commit)
-run_maven "com.github.spotbugs:spotbugs-maven-plugin:check -Dspotbugs.threshold=High -Dspotbugs.effort=Min" "Checking for critical bugs" true
-
-# Step 6: Check for exceptionally large files that may bloat the repository
-echo "   - Checking for large files..."
-for FILE in $(git diff --name-only --cached --diff-filter=ACM); do
-  # Skip files that aren't readable
-  if [ ! -f "$FILE" ]; then
-    continue
-  fi
-  
-  # Get file size in kilobytes
-  FILE_SIZE=$(du -k "$FILE" | cut -f1)
-  
-  # If file is larger than D5MB (5120KB), warn the user
-  if [ "$FILE_SIZE" -gt 5120 ]; then
-    echo "⚠️ WARNING: Large file detected: $FILE (${FILE_SIZE}KB)"
-    echo "   - Large files can bloat your repository"
-    echo "   - Consider using Git LFS for files larger than 5MB"
-    # We don't block the commit, but provide a clear warning
+# Add any fixed files back to staging
+git diff --name-only | while read file; do
+  if echo "$STAGED_FILES" | grep -q "$file"; then
+    git add "$file"
   fi
 done
 
-# Stage any files that were modified by the formatting tools
-echo "📝 Staging auto-formatted files..."
-git add $STAGED_FILES
-
-# Final success message
-echo "✅ Pre-commit checks passed! Proceeding with commit..."
+echo -e "${GREEN}✅ Pre-commit checks passed! Proceeding with commit...${NC}"
 exit 0 

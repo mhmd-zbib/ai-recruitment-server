@@ -1,169 +1,186 @@
 #!/bin/bash
 
-# Script to correct line endings for all files in the repository
-# This ensures that the correct line endings are used based on file type
-# and platform requirements as defined in .gitattributes
+# Fast line ending normalization that minimizes unnecessary work
+# This script is optimized for speed and efficiency in large codebases
 
 # ANSI color codes for better readability
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}=== Correcting Line Endings ===${NC}"
-echo
+# Get the repository root
+REPO_ROOT=$(git rev-parse --show-toplevel)
 
-# Get the directory of this script and the repository root
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# Cache directory to avoid redundant work
+CACHE_DIR="$REPO_ROOT/.git/hooks-cache/line-endings"
+mkdir -p "$CACHE_DIR" 2>/dev/null
 
-echo -e "Working in repository: ${YELLOW}${REPO_ROOT}${NC}"
-echo
+# Check if this is the first run or forced
+FIRST_RUN=false
+if [ ! -f "$CACHE_DIR/last_run" ] || [ "$1" = "--force" ]; then
+  FIRST_RUN=true
+  mkdir -p "$CACHE_DIR" 2>/dev/null
+fi
 
-# Check if .gitattributes exists
-if [ ! -f "${REPO_ROOT}/.gitattributes" ]; then
-    echo -e "${YELLOW}Warning: .gitattributes file not found.${NC}"
-    echo -e "Creating default .gitattributes file with standard line ending rules..."
+# Function to log messages
+log() {
+  local LEVEL=$1
+  local MSG=$2
+  
+  case $LEVEL in
+    "INFO")
+      echo -e "${BLUE}$MSG${NC}"
+      ;;
+    "SUCCESS")
+      echo -e "${GREEN}✓ $MSG${NC}"
+      ;;
+    "WARN")
+      echo -e "${YELLOW}⚠ $MSG${NC}"
+      ;;
+    "ERROR")
+      echo -e "${RED}✗ $MSG${NC}"
+      ;;
+    *)
+      echo -e "$MSG"
+      ;;
+  esac
+}
+
+# Only show header for interactive runs or forced
+if [ -t 1 ] || [ "$1" = "--verbose" ] || [ "$1" = "--force" ]; then
+  log "INFO" "Normalizing line endings (optimized)..."
+fi
+
+# Check if .gitattributes exists, create default if needed
+if [ ! -f "$REPO_ROOT/.gitattributes" ]; then
+  if [ "$FIRST_RUN" = "true" ]; then
+    log "WARN" "Creating default .gitattributes file..."
     
-    cat > "${REPO_ROOT}/.gitattributes" << EOF
-# Set default behavior to automatically normalize line endings
+    cat > "$REPO_ROOT/.gitattributes" << EOF
+# Default line ending configuration
 * text=auto
 
-# Explicitly declare text files to always be normalized and converted
-# to native line endings on checkout
+# Unix line endings
+*.sh text eol=lf
+*.bash text eol=lf
+*.py text eol=lf
+mvnw text eol=lf
+gradlew text eol=lf
+
+# Windows line endings
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Text files
 *.java text
+*.xml text
+*.json text
+*.properties text
+*.yml text
+*.yaml text
+*.md text
+*.sql text
+*.txt text
 *.html text
 *.css text
 *.js text
 *.ts text
-*.json text
-*.xml text
-*.yml text
-*.yaml text
-*.properties text
-*.md text
-*.txt text
-*.sql text
-*.sh text eol=lf
-*.bat text eol=crlf
-*.cmd text eol=crlf
-mvnw text eol=lf
-*.py text
 
-# Binary files should not be modified
-*.png binary
-*.jpg binary
-*.jpeg binary
-*.gif binary
-*.ico binary
-*.pdf binary
+# Binary files
 *.jar binary
 *.war binary
 *.zip binary
 *.tar.gz binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
 EOF
     
-    echo -e "${GREEN}✓ Created default .gitattributes file${NC}"
-    echo
+    log "SUCCESS" "Created default .gitattributes file"
+    # Stage the new file
+    git add "$REPO_ROOT/.gitattributes" 2>/dev/null
+  fi
 fi
 
-# Make Git detect and convert CRLF/LF according to .gitattributes
-echo -e "${BLUE}Applying .gitattributes line ending rules...${NC}"
-git add --renormalize .
+# Cache key for tracking changes to .gitattributes
+GITATTR_HASH_FILE="$CACHE_DIR/gitattr_hash"
+CURRENT_GITATTR_HASH=""
 
-# Check if there are any files with changed line endings
-if git diff --name-only --exit-code; then
-    echo -e "${GREEN}✓ All files already have correct line endings.${NC}"
+if [ -f "$REPO_ROOT/.gitattributes" ]; then
+  CURRENT_GITATTR_HASH=$(git hash-object "$REPO_ROOT/.gitattributes" 2>/dev/null || echo "")
+fi
+
+# Check if .gitattributes has changed since last run
+GITATTR_CHANGED=false
+if [ -f "$GITATTR_HASH_FILE" ]; then
+  PREV_HASH=$(cat "$GITATTR_HASH_FILE")
+  if [ "$CURRENT_GITATTR_HASH" != "$PREV_HASH" ]; then
+    GITATTR_CHANGED=true
+  fi
 else
-    echo -e "${YELLOW}The following files had their line endings corrected:${NC}"
-    git diff --name-only | while read -r file; do
-        echo -e "  - ${file}"
-    done
-    echo
+  GITATTR_CHANGED=true
+fi
+
+# If first run, force full normalization
+if [ "$FIRST_RUN" = "true" ]; then
+  GITATTR_CHANGED=true
+fi
+
+# Only do expensive processing if needed
+if [ "$GITATTR_CHANGED" = "true" ]; then
+  # Apply .gitattributes line ending rules with Git
+  log "INFO" "Applying line ending rules..."
+  
+  # This is the primary, efficient way to normalize line endings
+  git add --renormalize . >/dev/null 2>&1
+
+  # Check if there are any files with changed line endings
+  CHANGED_FILES=$(git diff --name-only | wc -l)
+  
+  if [ "$CHANGED_FILES" -gt 0 ]; then
+    log "SUCCESS" "Normalized line endings in $CHANGED_FILES files"
     
-    # Check for potential merge conflicts involving line endings
-    if git ls-files -u | grep -q .; then
-        echo -e "${RED}Warning: Detected merge conflicts that may be related to line endings.${NC}"
-        echo -e "${YELLOW}Please resolve these conflicts before committing:${NC}"
-        git ls-files -u | cut -f 2 | sort -u | while read -r file; do
-            echo -e "  - ${RED}${file}${NC}"
-        done
-        echo
+    # Only show detailed list in verbose mode
+    if [ "$1" = "--verbose" ]; then
+      log "INFO" "Files with normalized line endings:"
+      git diff --name-only | while read -r file; do
+        echo "  - $file"
+      done
     fi
-    
-    echo -e "${YELLOW}Remember to commit these changes.${NC}"
-fi
-
-# Detect files with mixed line endings (files that have both CRLF and LF)
-echo
-echo -e "${BLUE}Checking for files with mixed line endings...${NC}"
-MIXED_ENDINGS_COUNT=0
-MIXED_ENDINGS_FILES=()
-
-# Only check text files, skip binary files
-find "${REPO_ROOT}" -type f -not -path "*/\.*" -not -path "*/node_modules/*" -not -path "*/target/*" |
-    while read -r file; do
-        # Skip known binary files to avoid processing them
-        if file "${file}" | grep -q "binary data"; then
-            continue
-        fi
-        
-        # Check if file has mixed line endings
-        if grep -q $'\r' "${file}" && grep -l -q -P "(?<!\r)\n" "${file}"; then
-            MIXED_ENDINGS_FILES+=("${file}")
-            MIXED_ENDINGS_COUNT=$((MIXED_ENDINGS_COUNT + 1))
-            
-            # Fix the mixed line endings based on file extension
-            if [[ "${file}" == *.sh ]] || [[ "${file}" == *.py ]] || [[ "${file}" == mvnw ]]; then
-                # Use LF for shell scripts, Python, and Maven wrapper
-                sed -i 's/\r$//' "${file}"
-                echo -e "  - ${YELLOW}${file}${NC} (converted to LF)"
-            elif [[ "${file}" == *.bat ]] || [[ "${file}" == *.cmd ]]; then
-                # Use CRLF for Windows batch files
-                sed -i 's/\r*$/\r/' "${file}"
-                echo -e "  - ${YELLOW}${file}${NC} (converted to CRLF)"
-            else
-                # Use native line endings for other text files
-                # On Unix, this will be LF; on Windows, this will be CRLF
-                if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "win32" ]]; then
-                    sed -i 's/\r*$/\r/' "${file}"
-                    echo -e "  - ${YELLOW}${file}${NC} (converted to CRLF - Windows detected)"
-                else
-                    sed -i 's/\r$//' "${file}"
-                    echo -e "  - ${YELLOW}${file}${NC} (converted to LF - Unix/macOS detected)"
-                fi
-            fi
-        fi
-    done
-
-if [ ${MIXED_ENDINGS_COUNT} -eq 0 ]; then
-    echo -e "${GREEN}✓ No files with mixed line endings detected.${NC}"
+  else
+    log "SUCCESS" "Line endings already normalized"
+  fi
+  
+  # Save the .gitattributes hash to avoid redundant processing
+  echo "$CURRENT_GITATTR_HASH" > "$GITATTR_HASH_FILE"
 else
-    echo -e "${YELLOW}Fixed ${MIXED_ENDINGS_COUNT} files with mixed line endings.${NC}"
-    echo -e "${YELLOW}Consider committing these changes.${NC}"
+  # Skip expensive processing
+  if [ -t 1 ] || [ "$1" = "--verbose" ]; then
+    log "INFO" "Skipping full normalization (.gitattributes unchanged)"
+  fi
 fi
 
-# Ensure all shell scripts are executable
-echo
-echo -e "${BLUE}Making shell scripts executable...${NC}"
-find "${REPO_ROOT}" -name "*.sh" -type f -exec chmod +x {} \;
-find "${REPO_ROOT}/.git-hooks" -type f -not -name "*.bat" -not -name "*.md" -exec chmod +x {} \;
-find "${REPO_ROOT}" -name "mvnw" -type f -exec chmod +x {} \;
-
-# Fix permissions for scripts in specific directories
-if [ -d "${REPO_ROOT}/scripts" ]; then
-    find "${REPO_ROOT}/scripts" -type f -name "*.sh" -exec chmod +x {} \;
-    echo -e "${GREEN}✓ Made scripts in 'scripts' directory executable${NC}"
+# Ensure shell scripts are executable (fast and important)
+if [ "$(uname)" = "Darwin" ] || [ "$(uname)" = "Linux" ]; then
+  # On macOS/Linux, only make important scripts executable
+  find "$REPO_ROOT" -maxdepth 3 -name "*.sh" -type f -not -path "*/node_modules/*" -not -path "*/target/*" -exec chmod +x {} \; 2>/dev/null
+  find "$REPO_ROOT/.git-hooks" -type f -not -name "*.bat" -not -name "*.cmd" -not -name "*.md" -exec chmod +x {} \; 2>/dev/null
+  find "$REPO_ROOT" -maxdepth 2 -name "mvnw" -type f -exec chmod +x {} \; 2>/dev/null
+  find "$REPO_ROOT" -maxdepth 2 -name "gradlew" -type f -exec chmod +x {} \; 2>/dev/null
 fi
 
-if [ -d "${REPO_ROOT}/bin" ]; then
-    find "${REPO_ROOT}/bin" -type f -not -name "*.bat" -not -name "*.cmd" -exec chmod +x {} \;
-    echo -e "${GREEN}✓ Made scripts in 'bin' directory executable${NC}"
-fi
+# Update timestamp of last run
+date +%s > "$CACHE_DIR/last_run"
 
-echo
-echo -e "${GREEN}✓ Line ending correction completed successfully.${NC}"
-echo -e "${GREEN}✓ All shell scripts are now executable.${NC}"
+# Only show success message in interactive mode
+if [ -t 1 ] || [ "$1" = "--verbose" ]; then
+  log "SUCCESS" "Line ending correction completed successfully"
+fi
 
 exit 0 

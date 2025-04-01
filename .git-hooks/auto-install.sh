@@ -1,206 +1,116 @@
 #!/bin/bash
 
-# Auto-installation script for Git hooks (Unix/Linux/macOS version)
-# This script will:
-# 1. Install the hooks immediately
-# 2. Set up auto-installation on clone/pull for future uses
-# 3. Configure Git to ensure hooks are maintained across the team
+# Streamlined git hooks installer for modern Git workflows
+# Uses core.hooksPath for zero-overhead installation
 
-echo
-echo "=== Automatic Git Hook Setup ==="
-echo
+# ANSI color codes for better readability
+GREEN="\033[0;32m"
+YELLOW="\033[0;33m"
+RED="\033[0;31m"
+BLUE="\033[0;34m"
+BOLD="\033[1m"
+NC="\033[0m"
 
-# Get the directory of this script and the repository root
+echo -e "${BLUE}${BOLD}=== Git Hooks Setup - Senior Engineering Edition ===${NC}"
+
+# Get the directory of this script and repository root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+HOOKS_DIR="$SCRIPT_DIR"
 
-# First, install the hooks immediately
-echo "Installing Git hooks immediately..."
-
-# Get the Git directory
-GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
-
-# Fallback if git command fails
-if [ -z "$GIT_DIR" ]; then
-    GIT_DIR="${REPO_ROOT}/.git"
+# Check if hooks directory is valid
+if [ ! -d "$HOOKS_DIR" ] || [ ! -f "$HOOKS_DIR/pre-commit" ]; then
+  echo -e "${RED}Error: Git hooks directory not found or incomplete at:${NC}"
+  echo -e "${RED}$HOOKS_DIR${NC}"
+  exit 1
 fi
 
-# Ensure the destination directory exists
-HOOKS_DIR="${GIT_DIR}/hooks"
-if [ ! -d "${HOOKS_DIR}" ]; then
-    mkdir -p "${HOOKS_DIR}" 2>/dev/null
-    if [ $? -ne 0 ]; then
-        echo "Error: Failed to create hooks directory at ${HOOKS_DIR}"
-        exit 1
+# Check git version to ensure core.hooksPath is supported
+GIT_VERSION=$(git --version | awk '{print $3}')
+if [ "$(printf '%s\n' "2.9.0" "$GIT_VERSION" | sort -V | head -n1)" = "2.9.0" ]; then
+  # Modern Git with hooksPath support
+  echo -e "${GREEN}✓ Git version $GIT_VERSION supports modern hooks installation${NC}"
+  
+  # Make all hooks executable
+  find "$HOOKS_DIR" -type f -not -name "*.md" -not -name "*.bat" -not -name "README*" -exec chmod +x {} \;
+  
+  # Configure git to use the hooks directory directly
+  git config core.hooksPath "$HOOKS_DIR"
+  
+  echo -e "${GREEN}✓ Hooks installed via core.hooksPath (zero performance overhead)${NC}"
+  
+  # Also update config to avoid issues with line endings
+  git config core.autocrlf false
+  git config core.eol native
+  
+  # Check if this is a shared project setup
+  if [ -f "$REPO_ROOT/.git/config" ]; then
+    echo -e "${BLUE}Setting up hooks for local repository...${NC}"
+    
+    # Update user's git configuration to simplify workflow
+    # Allow skipping hooks when needed
+    echo -e "${BLUE}Adding helpful git aliases...${NC}"
+    
+    # Add git aliases for bypassing hooks when needed
+    git config --local alias.pushf "push --no-verify"
+    git config --local alias.commitf "commit --no-verify"
+    git config --local alias.bypass-hooks "!export GIT_BYPASS_HOOKS=true; git"
+    
+    echo -e "${GREEN}✓ Added helpful git aliases:${NC}"
+    echo -e "  ${YELLOW}git pushf${NC} - Push without hook verification"
+    echo -e "  ${YELLOW}git commitf${NC} - Commit without hook verification"
+    echo -e "  ${YELLOW}git bypass-hooks <command>${NC} - Run any git command bypassing hooks"
+  fi
+else
+  # Fall back to traditional symlink method for older Git versions
+  echo -e "${YELLOW}⚠ Git version $GIT_VERSION is older than 2.9.0${NC}"
+  echo -e "${YELLOW}Using compatibility mode (symlinks) for hook installation${NC}"
+  
+  # Get the Git hooks directory
+  GIT_DIR=$(git rev-parse --git-dir)
+  GIT_HOOKS_DIR="$GIT_DIR/hooks"
+  
+  # Create hooks directory if it doesn't exist
+  mkdir -p "$GIT_HOOKS_DIR"
+  
+  # List of hooks to install
+  HOOKS="pre-commit commit-msg prepare-commit-msg pre-push post-checkout pre-rebase"
+  
+  # Install each hook as a symlink to this directory
+  for hook in $HOOKS; do
+    if [ -f "$HOOKS_DIR/$hook" ]; then
+      # Remove existing hook if it's a regular file or symlink
+      if [ -f "$GIT_HOOKS_DIR/$hook" ] || [ -L "$GIT_HOOKS_DIR/$hook" ]; then
+        rm -f "$GIT_HOOKS_DIR/$hook"
+      fi
+      
+      # Create the symlink
+      ln -sf "$HOOKS_DIR/$hook" "$GIT_HOOKS_DIR/$hook"
+      chmod +x "$HOOKS_DIR/$hook"
+      echo -e "${GREEN}✓ Installed $hook hook${NC}"
     fi
+  done
 fi
 
-# List of hooks to install
-HOOKS="pre-commit commit-msg prepare-commit-msg pre-push post-checkout pre-rebase"
-
-# Install each hook
-for hook in $HOOKS; do
-    SOURCE="${SCRIPT_DIR}/${hook}"
-    TARGET="${HOOKS_DIR}/${hook}"
-    
-    if [ ! -f "${SOURCE}" ]; then
-        echo "Warning: Hook ${hook} not found in ${SCRIPT_DIR}"
-        continue
-    fi
-    
-    echo "Installing ${hook} hook..."
-    
-    # Copy the hook
-    cp "${SOURCE}" "${TARGET}" 2>/dev/null
-    if [ $? -ne 0 ]; then
-        echo "Error: Failed to copy ${hook} hook to ${TARGET}"
-        exit 1
-    fi
-    
-    # Make it executable
-    chmod +x "${TARGET}" 2>/dev/null
-    if [ $? -ne 0 ]; then
-        echo "Error: Failed to make ${hook} hook executable"
-        exit 1
-    fi
-    
-    echo "✓ ${hook} installed successfully"
-done
-
-# Set up post-merge hook to auto-update hooks on pull
-AUTO_UPDATE_HOOK="${HOOKS_DIR}/post-merge"
-echo "Setting up auto-update on git pull..."
-
-# Create post-merge hook for auto-update on pull
-cat > "${AUTO_UPDATE_HOOK}" << 'EOF'
-#!/bin/bash
-# Auto-update hooks when pulling from remote
-
-# Check if .git-hooks directory changed
-if git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD | grep -q ".git-hooks/"; then
-    echo
-    echo "Git hooks have been updated in the repository."
-    echo "Auto-updating your local hooks..."
-    
-    # Get the directory of the repository
-    REPO_ROOT=$(git rev-parse --show-toplevel)
-    
-    # Run the hooks installation script
-    if [ -f "${REPO_ROOT}/.git-hooks/auto-install.sh" ]; then
-        bash "${REPO_ROOT}/.git-hooks/auto-install.sh"
-    fi
-fi
-EOF
-
-# Make the hook executable
-chmod +x "${AUTO_UPDATE_HOOK}"
-
-# Create a post-checkout hook for initial clone
-POST_CHECKOUT_AUTO="${HOOKS_DIR}/post-checkout"
-if [ ! -f "${POST_CHECKOUT_AUTO}" ]; then
-    echo "Setting up auto-install on first clone..."
-    
-    # Create post-checkout script
-    cat > "${POST_CHECKOUT_AUTO}" << 'EOF'
-#!/bin/bash
-# Auto-install hooks on initial clone
-
-# Arguments passed to hook by Git
-PREV_HEAD=$1
-NEW_HEAD=$2
-CHECKOUT_TYPE=$3
-
-# Check if this is the initial clone (previous HEAD is all zeros)
-if [ "$PREV_HEAD" = "0000000000000000000000000000000000000000" ]; then
-    echo
-    echo "First checkout detected. Installing Git hooks..."
-    
-    # Get the directory of the repository
-    REPO_ROOT=$(git rev-parse --show-toplevel)
-    
-    # Run the hooks installation script
-    if [ -f "${REPO_ROOT}/.git-hooks/auto-install.sh" ]; then
-        bash "${REPO_ROOT}/.git-hooks/auto-install.sh"
-    fi
-fi
-
-# Execute the actual post-checkout hook if it exists separately
-if [ -f "${REPO_ROOT}/.git/hooks/post-checkout.actual" ]; then
-    bash "${REPO_ROOT}/.git/hooks/post-checkout.actual" "$@"
-fi
-EOF
-    
-    # Make the hook executable
-    chmod +x "${POST_CHECKOUT_AUTO}"
-    
-    # If a post-checkout hook already exists, rename it
-    if [ -f "${REPO_ROOT}/.git-hooks/post-checkout" ]; then
-        cp "${REPO_ROOT}/.git-hooks/post-checkout" "${REPO_ROOT}/.git/hooks/post-checkout.actual"
-        chmod +x "${REPO_ROOT}/.git/hooks/post-checkout.actual"
-    fi
-fi
-
-# Set up template directory for automatic hook installation
-echo "Setting up hook templates for future clones..."
-GIT_TEMPLATE_DIR="${REPO_ROOT}/.git-template"
-mkdir -p "${GIT_TEMPLATE_DIR}/hooks" 2>/dev/null
-
-# Create template post-checkout hook that auto-installs
-cat > "${GIT_TEMPLATE_DIR}/hooks/post-checkout" << 'EOF'
-#!/bin/bash
-# Template hook to install project hooks on clone
-
-# Get the repository root
-REPO_ROOT=$(git rev-parse --show-toplevel)
-
-# Check if this is the initial clone
-if [ "$1" = "0000000000000000000000000000000000000000" ]; then
-    echo "First checkout detected. Installing project-specific hooks..."
-    
-    # Run the hooks installation script if it exists
-    if [ -f "${REPO_ROOT}/.git-hooks/auto-install.sh" ]; then
-        bash "${REPO_ROOT}/.git-hooks/auto-install.sh"
-    fi
-fi
-
-# Exit with success
-exit 0
-EOF
-
-# Make the template hook executable
-chmod +x "${GIT_TEMPLATE_DIR}/hooks/post-checkout"
-
-# Configure Git to use the template directory
-echo "Configuring Git template directory..."
-git config --local init.templateDir "${GIT_TEMPLATE_DIR}"
-
-# Add reminder to README if it doesn't already exist
-echo "Updating README.md to include auto-install instructions..."
-if [ -f "${REPO_ROOT}/README.md" ]; then
-    if ! grep -q "Setup Git Hooks" "${REPO_ROOT}/README.md"; then
-        cat >> "${REPO_ROOT}/README.md" << 'EOF'
-
-## Setup Git Hooks
-
-This repository uses Git hooks to ensure code quality and consistent commit messages.
-Run the following command to automatically set up the hooks:
-
-```bash
-# For Unix/Linux/macOS
-bash .git-hooks/auto-install.sh
-
-# For Windows
-.\.git-hooks\auto-install.bat
-```
-
-EOF
-    fi
-fi
+# Normalize line endings immediately
+echo -e "${BLUE}Normalizing line endings...${NC}"
+"$HOOKS_DIR/correct-line-endings.sh" --force
 
 echo
-echo "✅ Git hooks auto-installation has been set up successfully!"
-echo "Hooks will automatically install for new clones and stay updated on pulls."
-echo "Note: Ask all team members to run this script once to enable these features."
+echo -e "${GREEN}${BOLD}✅ Git hooks successfully installed!${NC}"
+echo
+echo -e "${YELLOW}Available environment variables to control hooks:${NC}"
+echo -e "  ${BLUE}GIT_BYPASS_HOOKS=true${NC} - Bypass all hooks"
+echo -e "  ${BLUE}SKIP_PUSH_HOOKS=true${NC} - Skip pre-push hooks only"
+echo -e "  ${BLUE}FORCE_CHECKS=true${NC} - Force full checks even if unchanged"
+echo -e "  ${BLUE}BYPASS_COMMIT_MSG_HOOK=true${NC} - Skip commit message validation"
+echo
+
+# Provide quick usage guide
+echo -e "${BLUE}${BOLD}Quick Usage Guide:${NC}"
+echo -e "  • Normal workflow: Just commit and push as usual"
+echo -e "  • Bypass hooks: ${YELLOW}GIT_BYPASS_HOOKS=true git commit -m 'msg'${NC}"
+echo -e "  • Skip for a single repo: ${YELLOW}git config --local hooks.enabled false${NC}"
 echo
 
 exit 0 
