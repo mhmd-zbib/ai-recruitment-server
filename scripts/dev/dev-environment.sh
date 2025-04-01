@@ -367,22 +367,45 @@ start_application() {
   if [ "$DRY_RUN" = true ]; then
     echo -e "${YELLOW}DRY RUN: Would execute: ./mvnw spring-boot:run -Dspring-boot.run.profiles=$profile $debug_opts${NC}"
   else
-    # Run the application
-    if [ -f mvnw ]; then
-      chmod +x mvnw
-      if [ "$DEBUG" = true ]; then
-        ./mvnw spring-boot:run -Dspring-boot.run.profiles="$profile" -Dspring-boot.run.jvmArguments="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005"
-      else
-        ./mvnw spring-boot:run -Dspring-boot.run.profiles="$profile"
-      fi
+    # Check for Maven wrapper in both current directory and project root
+    # Try relative path first (for when executed from a subdirectory)
+    local mvnw_path=""
+    local mvn_command="mvn"
+    
+    if [ -f "./mvnw" ]; then
+      mvnw_path="./mvnw"
+    elif [ -f "$PROJECT_ROOT/mvnw" ]; then
+      mvnw_path="$PROJECT_ROOT/mvnw"
+    fi
+    
+    # If mvnw exists, make it executable and use it
+    if [ -n "$mvnw_path" ]; then
+      # Make it executable - handle different OS cases
+      case "$(uname -s)" in
+        Linux*|Darwin*|CYGWIN*|MINGW*|MSYS*)
+          chmod +x "$mvnw_path" 2>/dev/null || true
+          ;;
+      esac
+      
+      # Use the detected mvnw path
+      mvn_command="$mvnw_path"
+      echo -e "${GREEN}Using Maven wrapper at $mvnw_path${NC}"
     else
-      echo -e "${RED}Error: Maven wrapper (mvnw) not found.${NC}"
-      echo -e "${YELLOW}Running with 'mvn' instead...${NC}"
-      if [ "$DEBUG" = true ]; then
-        mvn spring-boot:run -Dspring-boot.run.profiles="$profile" -Dspring-boot.run.jvmArguments="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005"
-      else
-        mvn spring-boot:run -Dspring-boot.run.profiles="$profile"
+      echo -e "${YELLOW}Maven wrapper (mvnw) not found. Using 'mvn' command instead...${NC}"
+      # Check if mvn is available
+      if ! command -v mvn >/dev/null 2>&1; then
+        echo -e "${RED}Error: Neither Maven wrapper nor 'mvn' command is available.${NC}"
+        echo -e "${RED}Please install Maven or generate a Maven wrapper using:${NC}"
+        echo -e "${YELLOW}  mvn -N io.takari:maven:wrapper${NC}"
+        exit 1
       fi
+    fi
+    
+    # Run with appropriate command and options
+    if [ "$DEBUG" = true ]; then
+      $mvn_command spring-boot:run -Dspring-boot.run.profiles="$profile" -Dspring-boot.run.jvmArguments="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005"
+    else
+      $mvn_command spring-boot:run -Dspring-boot.run.profiles="$profile"
     fi
   fi
 }

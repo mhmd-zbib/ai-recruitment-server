@@ -15,20 +15,56 @@ on:
         type: choice
         options:
           - development
+          - staging
           - production
 
 jobs:
-  deploy-dev:
-    name: Deploy to Development
+  validate:
+    name: Validate Deployment Criteria
     runs-on: ubuntu-latest
-    if: ${{ (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'dev') || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'development') }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    outputs:
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+      environment: ${{ steps.env.outputs.environment }}
+      
+    steps:
+      - name: Determine environment
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.workflow_run.head_branch }}" == "master" ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.workflow_run.head_branch }}" == "dev" ]]; then
+            echo "environment=development" >> $GITHUB_OUTPUT
+          else
+            echo "environment=unknown" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check deployment criteria
+        id: check
+        run: |
+          # Check if environment is valid for deployment
+          if [[ "${{ steps.env.outputs.environment }}" == "unknown" ]]; then
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+            echo "::warning::Skipping deployment for non-deployable branch"
+          else
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+            echo "Environment set to ${{ steps.env.outputs.environment }}"
+          fi
+  
+  deploy-development:
+    name: Deploy to Development
+    needs: validate
+    if: ${{ needs.validate.outputs.should_deploy == 'true' && needs.validate.outputs.environment == 'development' }}
+    runs-on: ubuntu-latest
     environment:
       name: development
       url: ${{ vars.DEV_APP_URL }}
     
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
         
@@ -50,9 +86,9 @@ jobs:
       
       - name: Make Scripts Executable
         run: |
+          chmod +x mvnw
           chmod +x run.sh
-          chmod +x scripts/build/docker-build.sh
-          chmod +x scripts/deploy/prod-deploy.sh
+          find scripts -name "*.sh" -type f -exec chmod +x {} \;
       
       - name: Create .env file
         run: |
@@ -90,21 +126,7 @@ jobs:
         run: |
           echo "Waiting for deployment to complete..."
           sleep 60
-          attempts=0
-          max_attempts=10
-          
-          until $(curl --output /dev/null --silent --fail ${{ vars.DEV_APP_URL }}/api/actuator/health) || [ $attempts -eq $max_attempts ]; do
-            attempts=$((attempts+1))
-            echo "Health check attempt $attempts of $max_attempts..."
-            sleep 30
-          done
-          
-          if [ $attempts -eq $max_attempts ]; then
-            echo "Health check failed after $max_attempts attempts"
-            exit 1
-          fi
-          
-          echo "Health check successful. Deployment verified."
+          ./scripts/utils/health-check.sh --url ${{ vars.DEV_APP_URL }} --retries 10 --delay 30
       
       - name: Send Deployment Notification
         if: always()
@@ -115,17 +137,18 @@ jobs:
           SLACK_TITLE: "Development Deployment ${{ job.status }}"
           SLACK_MESSAGE: "Deployment to Development environment ${{ job.status }}"
   
-  deploy-prod:
-    name: Deploy to Production
+  deploy-staging:
+    name: Deploy to Staging
+    needs: validate
+    if: ${{ needs.validate.outputs.should_deploy == 'true' && needs.validate.outputs.environment == 'staging' }}
     runs-on: ubuntu-latest
-    if: ${{ (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'master') || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production') }}
     environment:
-      name: production
-      url: ${{ vars.PROD_APP_URL }}
+      name: staging
+      url: ${{ vars.STAGING_APP_URL }}
     
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
         
@@ -147,17 +170,103 @@ jobs:
       
       - name: Make Scripts Executable
         run: |
+          chmod +x mvnw
           chmod +x run.sh
-          chmod +x scripts/build/docker-build.sh
-          chmod +x scripts/deploy/prod-deploy.sh
+          find scripts -name "*.sh" -type f -exec chmod +x {} \;
       
       - name: Create .env file
         run: |
-          echo "SPRING_PROFILES_ACTIVE=prod" > .env
+          echo "SPRING_PROFILES_ACTIVE=staging" > .env
           echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
-          echo "JDBC_DATABASE_URL=${{ secrets.PROD_DB_URL }}" >> .env
-          echo "JDBC_DATABASE_USERNAME=${{ secrets.PROD_DB_USERNAME }}" >> .env
-          echo "JDBC_DATABASE_PASSWORD=${{ secrets.PROD_DB_PASSWORD }}" >> .env
+          echo "JDBC_DATABASE_URL=${{ secrets.STAGING_DB_URL }}" >> .env
+          echo "JDBC_DATABASE_USERNAME=${{ secrets.STAGING_DB_USERNAME }}" >> .env
+          echo "JDBC_DATABASE_PASSWORD=${{ secrets.STAGING_DB_PASSWORD }}" >> .env
+      
+      - name: Verify Code
+        run: |
+          ./run.sh verify
+      
+      - name: Run Tests
+        run: |
+          ./run.sh test
+      
+      - name: Build Docker Image
+        run: |
+          BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          VCS_REF=$(git rev-parse --short HEAD)
+          VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)-rc
+          
+          ./scripts/build/docker-build.sh --version=$VERSION \
+            --registry=${{ vars.DOCKER_REGISTRY }}/${{ github.repository_owner }} \
+            --push
+      
+      - name: Deploy to Staging
+        uses: bervProject/railway-deploy@main
+        with:
+          railway_token: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+          service: ${{ vars.RAILWAY_STAGING_SERVICE }}
+      
+      - name: Health Check
+        run: |
+          echo "Waiting for deployment to complete..."
+          sleep 60
+          ./scripts/utils/health-check.sh --url ${{ vars.STAGING_APP_URL }} --retries 10 --delay 30
+      
+      - name: Send Deployment Notification
+        if: always()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: "Staging Deployment ${{ job.status }}"
+          SLACK_MESSAGE: "Deployment to Staging environment ${{ job.status }}"
+  
+  deploy-production:
+    name: Deploy to Production
+    needs: validate
+    if: ${{ needs.validate.outputs.should_deploy == 'true' && needs.validate.outputs.environment == 'production' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.PROD_APP_URL }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+        
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Make Scripts Executable
+        run: |
+          chmod +x mvnw
+          chmod +x run.sh
+          find scripts -name "*.sh" -type f -exec chmod +x {} \;
+      
+      - name: Create .env file (secure method)
+        run: |
+          {
+            echo "SPRING_PROFILES_ACTIVE=prod"
+            echo "JWT_SECRET=${{ secrets.JWT_SECRET }}"
+            echo "JDBC_DATABASE_URL=${{ secrets.PROD_DB_URL }}"
+            echo "JDBC_DATABASE_USERNAME=${{ secrets.PROD_DB_USERNAME }}"
+            echo "JDBC_DATABASE_PASSWORD=${{ secrets.PROD_DB_PASSWORD }}"
+          } > .env
       
       - name: Verify Code
         run: |
@@ -210,27 +319,13 @@ jobs:
             
             ### Changes in this release:
             
-            - See [commit history](https://github.com/${{ github.repository }}/commits/master) for details
+            - See [commit history](https://github.com/${{ github.repository }}/commits/main) for details
       
       - name: Health Check
         run: |
           echo "Waiting for deployment to complete..."
           sleep 120
-          attempts=0
-          max_attempts=15
-          
-          until $(curl --output /dev/null --silent --fail ${{ vars.PROD_APP_URL }}/api/actuator/health) || [ $attempts -eq $max_attempts ]; do
-            attempts=$((attempts+1))
-            echo "Health check attempt $attempts of $max_attempts..."
-            sleep 30
-          done
-          
-          if [ $attempts -eq $max_attempts ]; then
-            echo "Health check failed after $max_attempts attempts"
-            exit 1
-          fi
-          
-          echo "Health check successful. Deployment verified."
+          ./scripts/utils/health-check.sh --url ${{ vars.PROD_APP_URL }} --retries 15 --delay 30
       
       - name: Send Deployment Notification
         if: always()

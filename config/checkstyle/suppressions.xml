@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+          "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+          "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<suppressions>
+    <!-- Suppress checks for test files -->
+    <suppress files=".*[/\\]src[/\\]test[/\\].*" checks="JavadocMethod"/>
+    <suppress files=".*[/\\]src[/\\]test[/\\].*" checks="JavadocType"/>
+    <suppress files=".*[/\\]src[/\\]test[/\\].*" checks="JavadocVariable"/>
+    <suppress files=".*[/\\]src[/\\]test[/\\].*" checks="MagicNumber"/>
+    <suppress files=".*[/\\]src[/\\]test[/\\].*" checks="MethodLength"/>
+    <suppress files=".*[/\\]src[/\\]test[/\\].*" checks="VisibilityModifier"/>
+    <suppress files=".*[/\\]src[/\\]test[/\\].*" checks="MissingJavadocMethod"/>
+    
+    <!-- Suppress Javadoc checks for simple getters/setters -->
+    <suppress files=".*" checks="JavadocMethod" 
+              id="javadocOnSettersAndGetters"
+              message="^Missing Javadoc method documentation.*$"
+              lines="0-9999"/>
+              
+    <!-- Suppress checks for Data Transfer Objects -->
+    <suppress files=".*Dto\.java$" checks="VisibilityModifier"/>
+    <suppress files=".*Dto\.java$" checks="JavadocMethod"/>
+    <suppress files=".*Dto\.java$" checks="JavadocVariable"/>
+    
+    <!-- Suppress checks for Entity classes -->
+    <suppress files=".*[/\\]entity[/\\].*\.java$" checks="VisibilityModifier"/>
+    <suppress files=".*[/\\]entity[/\\].*\.java$" checks="HiddenField"/>
+    
+    <!-- Suppress checks for generated code -->
+    <suppress files=".*[/\\]target[/\\].*" checks="[a-zA-Z0-9]*"/>
+    
+    <!-- Suppress checks for Spring configuration classes -->
+    <suppress files=".*Configuration\.java$" checks="VisibilityModifier"/>
+    <suppress files=".*Config\.java$" checks="VisibilityModifier"/>
+    
+    <!-- Suppress checks for controller classes -->
+    <suppress files=".*Controller\.java$" checks="ParameterNumber"/>
+    
+    <!-- Suppress checks for exception classes -->
+    <suppress files=".*Exception\.java$" checks="MissingJavadocMethod"/>
+    
+    <!-- Suppress some checks for utility classes -->
+    <suppress files=".*Utils?\.java$" checks="HideUtilityClassConstructor"/>
+</suppressions> 

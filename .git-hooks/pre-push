@@ -1,0 +1,114 @@
+#!/bin/bash
+
+# Pre-push hook to run verification before pushing
+# This ensures that no code with obvious issues is pushed to the repository
+
+# ANSI color codes for better readability
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+echo -e "${BLUE}${BOLD}=== Running Pre-Push Verification ===${NC}"
+
+# Store the root directory of the git repository
+REPO_ROOT=$(git rev-parse --show-toplevel)
+
+# Check for quick mode flag
+QUICK_MODE=false
+if git config --get hooks.pre-push.quick >/dev/null; then
+  if [ "$(git config --get hooks.pre-push.quick)" = "true" ]; then
+    QUICK_MODE=true
+    echo -e "${YELLOW}Running in quick mode (skipping comprehensive checks)${NC}"
+    echo -e "${YELLOW}To disable quick mode: git config hooks.pre-push.quick false${NC}"
+  fi
+fi
+
+# Get branch being pushed to
+REMOTE="$1"
+REMOTE_REF="$2"
+REMOTE_BRANCH=${REMOTE_REF#refs/heads/}
+
+# Skip verification for certain branches if needed
+SKIP_BRANCHES="dependabot/.* hotfix/.*"
+for PATTERN in $SKIP_BRANCHES; do
+  if [[ "$REMOTE_BRANCH" =~ $PATTERN ]]; then
+    echo -e "${YELLOW}Skipping verification for $REMOTE_BRANCH (matches $PATTERN)${NC}"
+    echo -e "${YELLOW}If this is incorrect, run verification manually: ./run.sh verify${NC}"
+    exit 0
+  fi
+fi
+
+# Function to run Maven with proper error handling
+run_maven() {
+  local CMD=$1
+  local MSG=$2
+  local IGNORE_ERROR=${3:-false}
+  
+  echo -e "${BLUE}$MSG...${NC}"
+  
+  if [ -f "$REPO_ROOT/mvnw" ]; then
+    "$REPO_ROOT/mvnw" -q $CMD
+  else
+    mvn -q $CMD
+  fi
+  
+  local EXIT_CODE=$?
+  if [ $EXIT_CODE -ne 0 ]; then
+    if [ "$IGNORE_ERROR" = "false" ]; then
+      echo -e "${RED}${BOLD}✘ $MSG failed${NC}"
+      echo -e "${YELLOW}Fix the issues or use --no-verify to skip this check (not recommended)${NC}"
+      return 1
+    else
+      echo -e "${YELLOW}⚠️ $MSG had issues, but continuing anyway${NC}"
+    fi
+  else
+    echo -e "${GREEN}✓ $MSG passed${NC}"
+  fi
+  
+  return 0
+}
+
+# If in quick mode, just run basic tests
+if [ "$QUICK_MODE" = true ]; then
+  # Run quick compile and unit tests
+  run_maven "compile test -DskipITs=true" "Quick compilation and tests" || exit 1
+else
+  # Run comprehensive verification
+  echo -e "${BLUE}Running comprehensive verification - this may take a while...${NC}"
+  
+  # Step 1: Enforce project rules
+  run_maven "enforcer:enforce" "Dependency and project rule validation" || exit 1
+  
+  # Step 2: Check code formatting
+  run_maven "spotless:check" "Code style verification" || exit 1
+  
+  # Step 3: Compile the code
+  run_maven "compile" "Code compilation" || exit 1
+  
+  # Step 4: Run unit tests
+  run_maven "test -DskipITs=true" "Unit tests" || exit 1
+  
+  # Step 5: Run static code analysis if not skipped
+  if [ "$(git config --get hooks.pre-push.skipAnalysis)" != "true" ]; then
+    run_maven "pmd:check -Dskip.pmd=false" "Static code analysis" true
+    
+    # Step 6: Run SpotBugs analysis
+    run_maven "com.github.spotbugs:spotbugs-maven-plugin:check" "Bug pattern detection" true
+    
+    # Step 7: Run OWASP dependency check for security vulnerabilities (if enabled)
+    if [ "$(git config --get hooks.pre-push.security)" = "true" ]; then
+      run_maven "org.owasp:dependency-check-maven:check -DskipProvidedScope=true -DskipTestScope=true" "Security vulnerability scan" true
+    fi
+  fi
+  
+  # Step 8: Check test coverage if enabled
+  if [ "$(git config --get hooks.pre-push.coverage)" = "true" ]; then
+    run_maven "verify jacoco:check" "Test coverage verification" true
+  fi
+fi
+
+echo -e "${GREEN}${BOLD}✅ Pre-push verification passed! Proceeding with push...${NC}"
+exit 0 

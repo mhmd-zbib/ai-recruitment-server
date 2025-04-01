@@ -41,4 +41,47 @@
         <Bug pattern="NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE"/>
         <Class name="~.*\.*controller\..*"/>
     </Match>
+    
+    <!-- Spring Boot configuration classes -->
+    <Match>
+        <Class name="~.*\.*config\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    
+    <!-- Spring Boot main application class -->
+    <Match>
+        <Class name="~.*Application"/>
+    </Match>
+    
+    <!-- Exclude additional common patterns -->
+    <Match>
+        <!-- Ignore unread fields in model classes -->
+        <Bug pattern="URF_UNREAD_FIELD"/>
+        <Class name="~.*\.(dto|entity|model)\..*"/>
+    </Match>
+    
+    <!-- Spring Framework specifics -->
+    <Match>
+        <Bug pattern="UWF_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR"/>
+        <Field name="~.*Repository$|.*Service$|.*Component$|.*RestController$|.*Controller$"/>
+    </Match>
+    
+    <!-- Common design patterns that trigger warnings -->
+    <Match>
+        <!-- Builder pattern often uses method call in constructor -->
+        <Bug pattern="MC_METHOD_CALL_IN_CONSTRUCTOR"/>
+        <Method name="&lt;init&gt;"/>
+    </Match>
+    
+    <!-- Security exceptions often need suppression -->
+    <Match>
+        <Bug pattern="THROWS_METHOD_THROWS_CLAUSE_BASIC_EXCEPTION,THROWS_METHOD_THROWS_CLAUSE_THROWABLE"/>
+        <Class name="~.*\.*security\..*"/>
+    </Match>
+    
+    <!-- Utility classes -->
+    <Match>
+        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+        <Class name="~.*Util(s|ity)?$"/>
+    </Match>
 </FindBugsFilter> 

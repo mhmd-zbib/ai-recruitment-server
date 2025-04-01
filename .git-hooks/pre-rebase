@@ -1,0 +1,98 @@
+#!/bin/bash
+
+# pre-rebase hook to prevent risky rebases
+# This hook restricts rebasing of shared branches to prevent workflow disruption
+
+# ANSI color codes for better readability
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+# Get the upstream branch (the branch we're rebasing onto)
+UPSTREAM_BRANCH="$1"
+# Get the branch being rebased
+REBASING_BRANCH="${2:-HEAD}"  # Defaults to HEAD if not provided
+
+# Determine if we're rebasing the current branch
+if [ "$REBASING_BRANCH" = "HEAD" ]; then
+    REBASING_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null)
+fi
+
+echo -e "${BLUE}${BOLD}=== Pre-Rebase Check ===${NC}"
+echo -e "${BLUE}Checking if it's safe to rebase ${BOLD}$REBASING_BRANCH${NC}${BLUE} onto ${BOLD}$UPSTREAM_BRANCH${NC}"
+
+# Protected branches that should not be rebased unless forced
+PROTECTED_BRANCHES=("main" "master" "develop" "staging" "release/*")
+
+# Function to check if a branch matches any protected branch pattern
+is_protected() {
+    local branch=$1
+    for pattern in "${PROTECTED_BRANCHES[@]}"; do
+        # Use pattern matching for prefix patterns like "release/*"
+        if [[ $pattern == *"*" ]]; then
+            # Convert glob pattern to regex pattern
+            regex_pattern="${pattern//\*/.*}"
+            if [[ $branch =~ $regex_pattern ]]; then
+                return 0
+            fi
+        # Direct match for exact branch names
+        elif [ "$branch" = "$pattern" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Check if the branch being rebased is protected
+if is_protected "$REBASING_BRANCH"; then
+    # Get the override flag value, if set
+    FORCE_REBASE=$(git config --get hooks.allowProtectedRebase || echo "false")
+    
+    if [ "$FORCE_REBASE" != "true" ]; then
+        echo -e "${RED}${BOLD}✘ ERROR: Attempting to rebase a protected branch: $REBASING_BRANCH${NC}"
+        echo -e "${YELLOW}Protected branches should not be rebased as they may be shared with other developers.${NC}"
+        echo -e "${YELLOW}This can cause problems for everyone working on this branch.${NC}"
+        echo -e ""
+        echo -e "${BLUE}Options:${NC}"
+        echo -e "  1. Create a new branch from $REBASING_BRANCH and rebase that instead"
+        echo -e "     ${GREEN}git checkout -b my-feature-rebased $REBASING_BRANCH${NC}"
+        echo -e "     ${GREEN}git rebase $UPSTREAM_BRANCH${NC}"
+        echo -e ""
+        echo -e "  2. If you're absolutely sure about rebasing $REBASING_BRANCH, you can override this check:"
+        echo -e "     ${GREEN}git config hooks.allowProtectedRebase true${NC}"
+        echo -e "     Then try your rebase again. (Don't forget to turn it off after!)"
+        echo -e "     ${GREEN}git config hooks.allowProtectedRebase false${NC}"
+        echo -e ""
+        exit 1
+    else
+        echo -e "${YELLOW}${BOLD}⚠️ WARNING: Force-rebasing a protected branch: $REBASING_BRANCH${NC}"
+        echo -e "${YELLOW}This is generally not recommended. Please be careful when pushing.${NC}"
+    fi
+fi
+
+# Additional check: has this branch been pushed to a remote?
+if git branch -r | grep -q "origin/$REBASING_BRANCH"; then
+    echo -e "${YELLOW}${BOLD}⚠️ WARNING: Branch $REBASING_BRANCH exists on remote${NC}"
+    echo -e "${YELLOW}Rebasing a published branch may require a force-push and can cause issues for collaborators.${NC}"
+    echo -e "${YELLOW}Consider creating a new branch for your rebased changes instead.${NC}"
+    
+    # Check if force push is required
+    git config --get receive.denyNonFastForwards &>/dev/null || \
+    git config --get push.default &>/dev/null
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${YELLOW}You will likely need to force-push after rebasing:${NC}"
+        echo -e "${GREEN}git push --force-with-lease origin $REBASING_BRANCH${NC}"
+        echo -e "${YELLOW}Using --force-with-lease is safer than --force as it prevents overwriting others' changes.${NC}"
+    fi
+    
+    # Pause to make sure the user sees this warning
+    echo -e "${YELLOW}Press Enter to continue with rebase or Ctrl+C to abort${NC}"
+    read -r
+fi
+
+echo -e "${GREEN}${BOLD}✓ Proceeding with rebase...${NC}"
+exit 0 

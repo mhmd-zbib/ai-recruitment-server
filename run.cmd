@@ -1,26 +1,113 @@
 @echo off
 setlocal enabledelayedexpansion
 
-REM HireSync Application Manager
-REM A unified interface for all operations related to the HireSync application
+::==============================================================================
+:: HireSync Application Manager
+:: Version: 1.0.0
+::
+:: Description:
+::   A unified interface for all operations related to the HireSync application.
+::   Manages build, deployment, local development, testing, and utilities.
+::
+:: Author: HireSync Team
+:: License: Proprietary
+::==============================================================================
 
-REM Get script directory for reliable sourcing
+:: Get script directory for reliable sourcing
 set "SCRIPT_DIR=%~dp0"
 set "PROJECT_ROOT=%SCRIPT_DIR:~0,-1%"
 
-REM Color definitions
-set "RED=\033[0;31m"
-set "GREEN=\033[0;32m"
-set "YELLOW=\033[0;33m"
-set "BLUE=\033[0;34m"
-set "NC=\033[0m"
-
-REM Print header
+:: Print header
 echo ========================================
 echo HireSync Application Manager
 echo ========================================
 
-REM Check if Docker is installed and running
+goto :main
+
+::==============================================================================
+:: Function definitions
+::==============================================================================
+
+:: Find bash executable for script running
+:find_bash
+where bash >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    set "BASH_CMD=bash"
+    exit /b 0
+)
+
+if exist "C:\Program Files\Git\bin\bash.exe" (
+    set "BASH_CMD=C:\Program Files\Git\bin\bash.exe"
+    exit /b 0
+) else if exist "C:\Program Files (x86)\Git\bin\bash.exe" (
+    set "BASH_CMD=C:\Program Files (x86)\Git\bin\bash.exe"
+    exit /b 0
+) else (
+    where wsl >nul 2>&1
+    if %ERRORLEVEL% EQU 0 (
+        set "BASH_CMD=wsl bash"
+        exit /b 0
+    )
+)
+
+echo Warning: Bash is not available. Some commands may not work.
+echo Consider installing Git Bash, WSL, or Cygwin.
+exit /b 1
+
+:: Run a bash script with the best available bash
+:run_bash_script
+set "script_path=%~1"
+set "script_args=%~2"
+
+call :find_bash
+if %ERRORLEVEL% EQU 0 (
+    %BASH_CMD% "%script_path%" %script_args%
+    exit /b %ERRORLEVEL%
+) else (
+    echo Error: Cannot execute bash script. Bash is not available.
+    exit /b 1
+)
+
+:: Display help information
+:show_help
+echo Usage: run.cmd [command] [options]
+echo.
+echo Commands:
+echo   build     Build the application
+echo   clean     Clean build artifacts
+echo   db        Manage the database container (start^|stop^|restart^|status)
+echo   deploy    Deploy the application
+echo   dev       Start development environment
+echo   local     Start local development
+echo   quality   Run quality checks
+echo   lint      Run auto-fix linting (corrects issues automatically)
+echo   verify    Verify code and build
+echo   test      Run tests with test profile
+echo   test-env  Start application with test environment
+echo   health    Check application health status
+echo.
+echo Options:
+echo   --help                 Show this help message
+echo   --verbose              Enable verbose output
+echo   --debug                Enable debug mode
+echo   --docker               Use Docker for the operation
+echo   --no-docker            Skip using Docker (for dev/local/test-env)
+echo   --use-existing-db      Use existing PostgreSQL database
+echo   --skip-db-wait         Skip waiting for PostgreSQL to be ready
+echo   --version=X            Specify version for builds
+echo.
+echo Examples:
+echo   run.cmd build --version=1.0.0
+echo   run.cmd deploy --docker
+echo   run.cmd dev
+echo   run.cmd local
+echo   run.cmd db start
+echo   run.cmd quality
+echo   run.cmd lint
+echo   run.cmd verify
+exit /b
+
+:: Check if Docker is installed and running
 :check_docker
 docker info >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
@@ -29,7 +116,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 exit /b 0
 
-REM Check if PostgreSQL container is running
+:: Check if PostgreSQL container is running
 :is_postgres_running
 docker ps --format "{{.Names}}" | findstr /C:"hiresync-postgres" >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
@@ -39,7 +126,7 @@ if %ERRORLEVEL% EQU 0 (
     exit /b 1
 )
 
-REM Load environment variables
+:: Load environment variables
 :load_env
 if exist "%PROJECT_ROOT%\.env" (
     echo Loading environment variables from .env file...
@@ -52,14 +139,17 @@ if exist "%PROJECT_ROOT%\.env" (
 )
 exit /b 0
 
-REM Command handlers
+::==============================================================================
+:: Command handlers
+::==============================================================================
+
+:: Handle build command
 :handle_build
 call :load_env
 set "args=%*"
 set "args=!args:*build =!"
 
 if "!args!" == "!args:--docker=!" (
-    REM No docker flag
     set USE_DOCKER=false
 ) else (
     call :check_docker
@@ -70,16 +160,17 @@ if "!args!" == "!args:--docker=!" (
     set USE_DOCKER=true
 )
 
-REM Pass the Docker directory to the build script
 set "DOCKER_DIR=%PROJECT_ROOT%\docker"
-bash "%SCRIPT_DIR%scripts\build\docker-build.sh" %args%
+call :run_bash_script "%SCRIPT_DIR%scripts\build\docker-build.sh" "%args%"
 exit /b %ERRORLEVEL%
 
+:: Handle clean command - removes build artifacts
 :handle_clean
 set "args=%*"
 set "args=!args:*clean =!"
 echo Cleaning build artifacts...
-call .\mvnw clean %args%
+
+call %mvn_command% clean %args%
 
 if not "!args!" == "!args:--docker=!" (
     call :check_docker
@@ -99,6 +190,7 @@ if exist "%SCRIPT_DIR%logs" (
 echo Clean completed successfully.
 exit /b 0
 
+:: Handle deploy command
 :handle_deploy
 call :load_env
 set "args=%*"
@@ -112,30 +204,28 @@ if not "!args!" == "!args:--docker=!" (
     )
 )
 
-REM Pass the Docker directory to the deploy script
 set "DOCKER_DIR=%PROJECT_ROOT%\docker"
-bash "%SCRIPT_DIR%scripts\deploy\prod-deploy.sh" %args%
+call :run_bash_script "%SCRIPT_DIR%scripts\deploy\prod-deploy.sh" "%args%"
 exit /b %ERRORLEVEL%
 
+:: Handle development environment command
 :handle_dev
 call :load_env
 set "args=%*"
 set "args=!args:*dev =!"
 
-REM Pass the Docker directory to the dev script
 set "DOCKER_DIR=%PROJECT_ROOT%\docker"
-
-REM Auto-detect if PostgreSQL is already running
 call :is_postgres_running
 if !ERRORLEVEL! EQU 0 (
     echo Detected PostgreSQL container is already running.
     echo Auto-adding --use-existing-db flag.
-    bash "%SCRIPT_DIR%scripts\dev\dev-environment.sh" --mode dev --use-existing-db %args%
+    call :run_bash_script "%SCRIPT_DIR%scripts\dev\dev-environment.sh" "--mode dev --use-existing-db %args%"
 ) else (
-    bash "%SCRIPT_DIR%scripts\dev\dev-environment.sh" --mode dev %args%
+    call :run_bash_script "%SCRIPT_DIR%scripts\dev\dev-environment.sh" "--mode dev %args%"
 )
 exit /b %ERRORLEVEL%
 
+:: Handle local development command
 :handle_local
 call :load_env
 set "args=%*"
@@ -147,89 +237,84 @@ if !ERRORLEVEL! NEQ 0 (
     exit /b 1
 )
 
-REM Pass the Docker directory to the dev environment script
 set "DOCKER_DIR=%PROJECT_ROOT%\docker"
-
-REM Auto-detect if PostgreSQL is already running
 call :is_postgres_running
 if !ERRORLEVEL! EQU 0 (
     echo Detected PostgreSQL container is already running.
     echo Auto-adding --use-existing-db flag.
-    bash "%SCRIPT_DIR%scripts\dev\dev-environment.sh" --mode local --use-existing-db %args%
+    call :run_bash_script "%SCRIPT_DIR%scripts\dev\dev-environment.sh" "--mode local --use-existing-db %args%"
 ) else (
-    bash "%SCRIPT_DIR%scripts\dev\dev-environment.sh" --mode local %args%
+    call :run_bash_script "%SCRIPT_DIR%scripts\dev\dev-environment.sh" "--mode local %args%"
 )
 exit /b %ERRORLEVEL%
 
+:: Handle quality check command
 :handle_quality
 set "args=%*"
 set "args=!args:*quality =!"
-bash "%SCRIPT_DIR%scripts\quality\quality-check.sh" %args%
+call :run_bash_script "%SCRIPT_DIR%scripts\quality\quality-check.sh" "%args%"
 exit /b %ERRORLEVEL%
 
+:: Handle linting command - autofix code style issues
 :handle_lint
 set "args=%*"
 set "args=!args:*lint =!"
 echo Running auto-fix linting...
 
-REM Always apply auto-formatting first
-if exist ".\mvnw" (
-    call .\mvnw spotless:apply -q
-) else (
-    call mvn spotless:apply -q
-)
-
-REM Run the lint-minimal script which now auto-fixes issues
-bash "%SCRIPT_DIR%scripts\quality\lint-minimal.sh" %args%
+call %mvn_command% spotless:apply -q
+call :run_bash_script "%SCRIPT_DIR%scripts\quality\quality-check.sh" "--quick --auto-fix %args%"
 
 echo Linting and auto-fixing completed!
 exit /b 0
 
+:: Handle verification command
 :handle_verify
 set "args=%*"
 set "args=!args:*verify =!"
-bash "%SCRIPT_DIR%scripts\build\verify.sh" %args%
+call :run_bash_script "%SCRIPT_DIR%scripts\build\verify.sh" "%args%"
 exit /b %ERRORLEVEL%
 
+:: Handle test command
 :handle_test
 set "args=%*"
 set "args=!args:*test =!"
 echo Running tests with test profile...
-call .\mvnw test -Dspring.profiles.active=test %args%
+
+call %mvn_command% test -Dspring.profiles.active=test %args%
 exit /b %ERRORLEVEL%
 
+:: Handle test environment command
 :handle_test_env
 call :load_env
 set "args=%*"
 set "args=!args:*test-env =!"
 
-REM Pass the Docker directory to the dev environment script
 set "DOCKER_DIR=%PROJECT_ROOT%\docker"
 
-REM Auto-detect if PostgreSQL is already running
 call :is_postgres_running
 if !ERRORLEVEL! EQU 0 (
-    REM Check if --no-docker option is specified
     echo %args% | findstr /C:"--no-docker" >nul 2>&1
     if !ERRORLEVEL! NEQ 0 (
         echo Detected PostgreSQL container is already running.
         echo Auto-adding --use-existing-db flag.
-        bash "%SCRIPT_DIR%scripts\dev\dev-environment.sh" --mode test --use-existing-db %args%
+        call :run_bash_script "%SCRIPT_DIR%scripts\dev\dev-environment.sh" "--mode test --use-existing-db %args%"
     ) else (
-        bash "%SCRIPT_DIR%scripts\dev\dev-environment.sh" --mode test %args%
+        call :run_bash_script "%SCRIPT_DIR%scripts\dev\dev-environment.sh" "--mode test %args%"
     )
 ) else (
-    bash "%SCRIPT_DIR%scripts\dev\dev-environment.sh" --mode test %args%
+    call :run_bash_script "%SCRIPT_DIR%scripts\dev\dev-environment.sh" "--mode test %args%"
 )
 exit /b %ERRORLEVEL%
 
+:: Handle health check command
 :handle_health
 set "args=%*"
 set "args=!args:*health =!"
 echo Running health check...
-bash "%SCRIPT_DIR%scripts\utils\health-check.sh" %args%
+call :run_bash_script "%SCRIPT_DIR%scripts\utils\health-check.sh" "%args%"
 exit /b %ERRORLEVEL%
 
+:: Handle database management command
 :handle_db
 set "subcommand=%2"
 set "args=%*"
@@ -239,7 +324,7 @@ set "args=!args:*%subcommand% =!"
 if "%subcommand%"=="start" (
     echo Starting PostgreSQL database...
     set "DOCKER_DIR=%PROJECT_ROOT%\docker"
-    bash -c "source '%SCRIPT_DIR%scripts\utils\db-utils.sh' && start_postgres"
+    call :run_bash_script "-c" "source '%SCRIPT_DIR%scripts\utils\db-utils.sh' && start_postgres"
     exit /b %ERRORLEVEL%
 ) else if "%subcommand%"=="stop" (
     echo Stopping PostgreSQL database...
@@ -297,62 +382,98 @@ if "%subcommand%"=="start" (
     exit /b 1
 )
 
-:show_help
-echo Usage: run.cmd [command] [options]
-echo.
-echo Commands:
-echo   build     Build the application
-echo   clean     Clean build artifacts
-echo   db        Manage the database container (start^|stop^|restart^|status)
-echo   deploy    Deploy the application
-echo   dev       Start development environment
-echo   local     Start local development
-echo   quality   Run quality checks
-echo   lint      Run auto-fix linting (corrects issues automatically)
-echo   verify    Verify code and build
-echo   test      Run tests with test profile
-echo   test-env  Start application with test environment
-echo   health    Check application health status
-echo.
-echo Options:
-echo   --help                 Show this help message
-echo   --verbose              Enable verbose output
-echo   --debug                Enable debug mode
-echo   --docker               Use Docker for the operation
-echo   --no-docker            Skip using Docker (for dev/local/test-env)
-echo   --use-existing-db      Use existing PostgreSQL database
-echo   --skip-db-wait         Skip waiting for PostgreSQL to be ready
-echo   --version=X            Specify version for builds
-echo.
-echo Examples:
-echo   run.cmd build --version=1.0.0
-echo   run.cmd deploy --docker
-echo   run.cmd dev
-echo   run.cmd local
-echo   run.cmd db start
-echo   run.cmd quality
-echo   run.cmd lint
-echo   run.cmd verify
-exit /b 0
+::==============================================================================
+:: Main Entry Point
+::==============================================================================
+:main
+:: Check for Maven/Maven wrapper
+set "mvn_command=mvn"
 
-REM Main command handler
-if "%1" == "" goto :show_help
-if "%1" == "--help" goto :show_help
-if "%1" == "-h" goto :show_help
-if "%1" == "help" goto :show_help
+if exist "%PROJECT_ROOT%\mvnw.cmd" (
+    set "mvn_command=%PROJECT_ROOT%\mvnw.cmd"
+) else if exist "%PROJECT_ROOT%\mvnw" (
+    set "mvn_command=%PROJECT_ROOT%\mvnw"
+) else if exist ".\mvnw.cmd" (
+    set "mvn_command=.\mvnw.cmd"
+) else if exist ".\mvnw" (
+    set "mvn_command=.\mvnw"
+) else (
+    where mvn >nul 2>&1
+    if !ERRORLEVEL! NEQ 0 (
+        echo Error: Neither Maven wrapper nor 'mvn' command is available.
+        echo Please install Maven or generate a Maven wrapper using:
+        echo mvn -N io.takari:maven:wrapper
+        exit /b 1
+    )
+    echo Warning: Maven wrapper not found. Using 'mvn' command instead...
+)
 
-if "%1" == "build" goto :handle_build
-if "%1" == "clean" goto :handle_clean
-if "%1" == "db" goto :handle_db
-if "%1" == "deploy" goto :handle_deploy
-if "%1" == "dev" goto :handle_dev
-if "%1" == "local" goto :handle_local
-if "%1" == "quality" goto :handle_quality
-if "%1" == "lint" goto :handle_lint
-if "%1" == "verify" goto :handle_verify
-if "%1" == "test" goto :handle_test
-if "%1" == "test-env" goto :handle_test_env
-if "%1" == "health" goto :handle_health
+:: Process command
+if "%1"=="" (
+    call :show_help
+    exit /b 0
+)
+if "%1"=="--help" (
+    call :show_help
+    exit /b 0
+)
+if "%1"=="-h" (
+    call :show_help
+    exit /b 0
+)
+if "%1"=="help" (
+    call :show_help
+    exit /b 0
+)
+
+if "%1"=="build" (
+    call :handle_build %*
+    exit /b %ERRORLEVEL%
+)
+if "%1"=="clean" (
+    call :handle_clean %*
+    exit /b %ERRORLEVEL%
+)
+if "%1"=="db" (
+    call :handle_db %*
+    exit /b %ERRORLEVEL%
+)
+if "%1"=="deploy" (
+    call :handle_deploy %*
+    exit /b %ERRORLEVEL%
+)
+if "%1"=="dev" (
+    call :handle_dev %*
+    exit /b %ERRORLEVEL%
+)
+if "%1"=="local" (
+    call :handle_local %*
+    exit /b %ERRORLEVEL%
+)
+if "%1"=="quality" (
+    call :handle_quality %*
+    exit /b %ERRORLEVEL%
+)
+if "%1"=="lint" (
+    call :handle_lint %*
+    exit /b %ERRORLEVEL%
+)
+if "%1"=="verify" (
+    call :handle_verify %*
+    exit /b %ERRORLEVEL%
+)
+if "%1"=="test" (
+    call :handle_test %*
+    exit /b %ERRORLEVEL%
+)
+if "%1"=="test-env" (
+    call :handle_test_env %*
+    exit /b %ERRORLEVEL%
+)
+if "%1"=="health" (
+    call :handle_health %*
+    exit /b %ERRORLEVEL%
+)
 
 echo Error: Unknown command '%1'
 echo Run 'run.cmd --help' for usage information

@@ -1,25 +1,44 @@
 #!/bin/bash
-
+#==============================================================================
 # HireSync Application Manager
-# A unified interface for all operations related to the HireSync application
+# Version: 1.0.0
+#
+# Description:
+#   A unified interface for all operations related to the HireSync application.
+#   Manages build, deployment, local development, testing, and utilities.
+#
+# Author: HireSync Team
+# License: Proprietary
+#==============================================================================
+
+# Exit on any error, undefined variable, and prevent accidental pipe errors
+set -euo pipefail
 
 # Get script directory for reliable sourcing
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR" && pwd)"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR" && pwd)"
 
+#==============================================================================
 # Color definitions
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+#==============================================================================
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[0;33m'
+readonly BLUE='\033[0;34m'
+readonly NC='\033[0m' # No Color
 
+#==============================================================================
 # Print header
+#==============================================================================
 echo -e "${BLUE}========================================${NC}"
 echo -e "${GREEN}HireSync Application Manager${NC}"
 echo -e "${BLUE}========================================${NC}"
 
+#==============================================================================
 # Utility functions
+#==============================================================================
+
+# Verify Docker is installed and running
 check_docker() {
   if ! command -v docker >/dev/null 2>&1; then
     echo -e "${RED}Error: Docker is not installed.${NC}"
@@ -34,14 +53,34 @@ check_docker() {
   return 0
 }
 
-is_postgres_running() {
-  if docker ps --format '{{.Names}}' | grep -q 'hiresync-postgres'; then
+# Locate and verify Maven installation
+check_maven() {
+  # Check in sequence: project wrapper, local wrapper, system Maven
+  if [ -f "$PROJECT_ROOT/mvnw" ]; then
+    chmod +x "$PROJECT_ROOT/mvnw" 2>/dev/null || true
+    echo "$PROJECT_ROOT/mvnw"
+    return 0
+  elif [ -f "./mvnw" ]; then
+    chmod +x "./mvnw" 2>/dev/null || true
+    echo "./mvnw"
+    return 0
+  elif command -v mvn >/dev/null 2>&1; then
+    echo "mvn"
     return 0
   else
+    echo -e "${RED}Error: Neither Maven wrapper nor 'mvn' command is available.${NC}"
+    echo -e "${RED}Please install Maven or generate a Maven wrapper using:${NC}"
+    echo -e "${YELLOW}  mvn -N io.takari:maven:wrapper${NC}"
     return 1
   fi
 }
 
+# Check if PostgreSQL container is running
+is_postgres_running() {
+  docker ps --format '{{.Names}}' | grep -q 'hiresync-postgres'
+}
+
+# Load environment variables from .env file
 load_env() {
   if [ -f .env ]; then
     echo -e "${GREEN}Loading environment variables from .env file...${NC}"
@@ -54,7 +93,11 @@ load_env() {
   fi
 }
 
+#==============================================================================
 # Command handlers
+#==============================================================================
+
+# Handle build command
 handle_build() {
   shift
   load_env
@@ -64,16 +107,22 @@ handle_build() {
     echo -e "${YELLOW}Proceeding with standard build...${NC}"
   fi
   
-  # Pass the Docker directory to the build script
-  DOCKER_DIR="$PROJECT_ROOT/docker"
-  export DOCKER_DIR
+  export DOCKER_DIR="$PROJECT_ROOT/docker"
   bash "$SCRIPT_DIR/scripts/build/docker-build.sh" "$@"
 }
 
+# Handle clean command - removes build artifacts
 handle_clean() {
   shift
   echo -e "${GREEN}Cleaning build artifacts...${NC}"
-  ./mvnw clean "$@"
+  
+  local mvn_cmd
+  mvn_cmd=$(check_maven)
+  if [ $? -ne 0 ]; then
+    return 1
+  fi
+  
+  $mvn_cmd clean "$@"
   
   if [[ "$*" == *"--docker"* ]]; then
     if check_docker; then
@@ -92,6 +141,7 @@ handle_clean() {
   echo -e "${GREEN}Clean completed successfully.${NC}"
 }
 
+# Handle deploy command
 handle_deploy() {
   shift
   load_env
@@ -101,21 +151,16 @@ handle_deploy() {
     exit 1
   fi
   
-  # Pass the Docker directory to the deploy script
-  DOCKER_DIR="$PROJECT_ROOT/docker"
-  export DOCKER_DIR
+  export DOCKER_DIR="$PROJECT_ROOT/docker"
   bash "$SCRIPT_DIR/scripts/deploy/prod-deploy.sh" "$@"
 }
 
+# Handle development environment command
 handle_dev() {
   shift
   load_env
+  export DOCKER_DIR="$PROJECT_ROOT/docker"
   
-  # Pass the Docker directory to the dev script
-  DOCKER_DIR="$PROJECT_ROOT/docker"
-  export DOCKER_DIR
-  
-  # Add auto detection for existing db
   if is_postgres_running; then
     echo -e "${GREEN}Detected PostgreSQL container is already running.${NC}"
     echo -e "${GREEN}Auto-adding --use-existing-db flag.${NC}"
@@ -125,6 +170,7 @@ handle_dev() {
   fi
 }
 
+# Handle local development command
 handle_local() {
   shift
   load_env
@@ -134,11 +180,8 @@ handle_local() {
     exit 1
   fi
   
-  # Pass the Docker directory to the dev environment script
-  DOCKER_DIR="$PROJECT_ROOT/docker"
-  export DOCKER_DIR
+  export DOCKER_DIR="$PROJECT_ROOT/docker"
   
-  # Auto-detect if PostgreSQL is already running
   if is_postgres_running; then
     echo -e "${GREEN}Detected PostgreSQL container is already running.${NC}"
     echo -e "${GREEN}Auto-adding --use-existing-db flag.${NC}"
@@ -148,46 +191,57 @@ handle_local() {
   fi
 }
 
+# Handle quality check command
 handle_quality() {
   shift
   bash "$SCRIPT_DIR/scripts/quality/quality-check.sh" "$@"
 }
 
+# Handle linting command - autofix code style issues
 handle_lint() {
   shift
   echo -e "${GREEN}Running auto-fix linting...${NC}"
   
-  # Always apply auto-formatting first
-  if [ -f ./mvnw ]; then
-    ./mvnw spotless:apply -q
-  else
-    mvn spotless:apply -q
+  local mvn_cmd
+  mvn_cmd=$(check_maven)
+  if [ $? -ne 0 ]; then
+    return 1
   fi
   
+  # Always apply auto-formatting first
+  $mvn_cmd spotless:apply -q
+  
   # Run the lint-minimal script which now auto-fixes issues
-  bash "$SCRIPT_DIR/scripts/quality/lint-minimal.sh" "$@"
+  bash "$SCRIPT_DIR/scripts/quality/quality-check.sh" --quick --auto-fix "$@"
   
   echo -e "${GREEN}Linting and auto-fixing completed!${NC}"
 }
 
+# Handle verification command
 handle_verify() {
   shift
   bash "$SCRIPT_DIR/scripts/build/verify.sh" "$@"
 }
 
+# Handle test command
 handle_test() {
   shift
   echo -e "${GREEN}Running tests with test profile...${NC}"
-  ./mvnw test -Dspring.profiles.active=test "$@"
+  
+  local mvn_cmd
+  mvn_cmd=$(check_maven)
+  if [ $? -ne 0 ]; then
+    return 1
+  fi
+  
+  $mvn_cmd test -Dspring.profiles.active=test "$@"
 }
 
+# Handle test environment command
 handle_test_env() {
   shift
   load_env
-  
-  # Pass the Docker directory to the dev environment script
-  DOCKER_DIR="$PROJECT_ROOT/docker"
-  export DOCKER_DIR
+  export DOCKER_DIR="$PROJECT_ROOT/docker"
   
   # Check if PostgreSQL is needed and already running for test env
   if is_postgres_running && [[ ! "$*" == *"--no-docker"* ]]; then
@@ -199,20 +253,48 @@ handle_test_env() {
   fi
 }
 
+# Handle health check command
 handle_health() {
   shift
   echo -e "${GREEN}Running health check...${NC}"
   bash "$SCRIPT_DIR/scripts/utils/health-check.sh" "$@"
 }
 
+# Handle git hooks installation
+handle_githooks() {
+  shift
+  echo -e "${GREEN}Installing Git hooks...${NC}"
+  
+  if [ -d "$SCRIPT_DIR/.git-hooks" ]; then
+    if [[ "$*" == *"--windows"* ]]; then
+      # Use cmd.exe to run the Windows batch script on Windows
+      cmd.exe /c "$SCRIPT_DIR/.git-hooks/auto-install.bat"
+    else
+      # Use bash to run the shell script
+      bash "$SCRIPT_DIR/.git-hooks/auto-install.sh"
+    fi
+    
+    if [ $? -eq 0 ]; then
+      echo -e "${GREEN}Git hooks installed successfully.${NC}"
+    else
+      echo -e "${RED}Error: Failed to install Git hooks.${NC}"
+      exit 1
+    fi
+  else
+    echo -e "${RED}Error: Git hooks directory not found.${NC}"
+    echo -e "${YELLOW}Expected at: $SCRIPT_DIR/.git-hooks${NC}"
+    exit 1
+  fi
+}
+
+# Handle database management command
 handle_db() {
   shift
   case "$1" in
     start)
       shift
       echo -e "${GREEN}Starting PostgreSQL database...${NC}"
-      DOCKER_DIR="$PROJECT_ROOT/docker"
-      export DOCKER_DIR
+      export DOCKER_DIR="$PROJECT_ROOT/docker"
       source "$SCRIPT_DIR/scripts/utils/db-utils.sh"
       start_postgres
       ;;
@@ -263,45 +345,53 @@ handle_db() {
   esac
 }
 
+# Display help information
 show_help() {
-  echo -e "Usage: ./run.sh [command] [options]"
-  echo -e ""
-  echo -e "Commands:"
-  echo -e "  build     Build the application"
-  echo -e "  clean     Clean build artifacts"
-  echo -e "  db        Manage the database container (start|stop|restart|status)"
-  echo -e "  deploy    Deploy the application"
-  echo -e "  dev       Start development environment"
-  echo -e "  local     Start local development"
-  echo -e "  quality   Run quality checks"
-  echo -e "  lint      Run auto-fix linting (corrects issues automatically)"
-  echo -e "  verify    Verify code and build"
-  echo -e "  test      Run tests with test profile"
-  echo -e "  test-env  Start application with test environment"
-  echo -e "  health    Check application health status"
-  echo -e ""
-  echo -e "Options:"
-  echo -e "  --help                 Show this help message"
-  echo -e "  --verbose              Enable verbose output"
-  echo -e "  --debug                Enable debug mode"
-  echo -e "  --docker               Use Docker for the operation"
-  echo -e "  --no-docker            Skip using Docker (for dev/local/test-env)"
-  echo -e "  --use-existing-db      Use existing PostgreSQL database"
-  echo -e "  --skip-db-wait         Skip waiting for PostgreSQL to be ready"
-  echo -e "  --version=X            Specify version for builds"
-  echo -e ""
-  echo -e "Examples:"
-  echo -e "  ./run.sh build --version=1.0.0"
-  echo -e "  ./run.sh deploy --docker"
-  echo -e "  ./run.sh dev"
-  echo -e "  ./run.sh local"
-  echo -e "  ./run.sh db start"
-  echo -e "  ./run.sh quality"
-  echo -e "  ./run.sh lint"
-  echo -e "  ./run.sh verify"
+  cat << EOF
+Usage: ./run.sh [command] [options]
+
+Commands:
+  build     Build the application
+  clean     Clean build artifacts
+  db        Manage the database container (start|stop|restart|status)
+  deploy    Deploy the application
+  dev       Start development environment
+  local     Start local development
+  quality   Run quality checks
+  lint      Run auto-fix linting (corrects issues automatically)
+  verify    Verify code and build
+  test      Run tests with test profile
+  test-env  Start application with test environment
+  health    Check application health status
+  githooks  Install Git hooks for development workflow
+
+Options:
+  --help                 Show this help message
+  --verbose              Enable verbose output
+  --debug                Enable debug mode
+  --docker               Use Docker for the operation
+  --no-docker            Skip using Docker (for dev/local/test-env)
+  --use-existing-db      Use existing PostgreSQL database
+  --skip-db-wait         Skip waiting for PostgreSQL to be ready
+  --version=X            Specify version for builds
+  --windows              Use Windows-specific scripts (for githooks)
+
+Examples:
+  ./run.sh build --version=1.0.0
+  ./run.sh deploy --docker
+  ./run.sh dev
+  ./run.sh local
+  ./run.sh db start
+  ./run.sh quality
+  ./run.sh lint
+  ./run.sh verify
+  ./run.sh githooks
+EOF
 }
 
+#==============================================================================
 # Main command handler
+#==============================================================================
 case "$1" in
   build)    handle_build "$@" ;;
   clean)    handle_clean "$@" ;;
@@ -315,6 +405,7 @@ case "$1" in
   test)     handle_test "$@" ;;
   test-env) handle_test_env "$@" ;;
   health)   handle_health "$@" ;;
+  githooks) handle_githooks "$@" ;;
   --help|-h|help) show_help ;;
   *)
     echo -e "${RED}Error: Unknown command '$1'${NC}"

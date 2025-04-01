@@ -1,10 +1,11 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ master, dev ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ master, dev ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -13,7 +14,7 @@ jobs:
     services:
       # PostgreSQL service for integration tests
       postgres:
-        image: postgres:15-alpine
+        image: postgres:16-alpine
         env:
           POSTGRES_DB: hiresync_test
           POSTGRES_USER: hiresync_user
@@ -27,7 +28,8 @@ jobs:
           --health-retries 5
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
         
@@ -37,40 +39,83 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         cache: maven
+    
+    - name: Cache Maven packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+    
+    - name: Make scripts executable
+      run: |
+        chmod +x mvnw
+        find scripts -name "*.sh" -type f -exec chmod +x {} \;
+        find .git-hooks -name "*.sh" -type f -exec chmod +x {} \;
         
+    - name: Set Git global config for CI
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+    
+    - name: Fix line endings
+      run: |
+        # Run the improved line ending correction script
+        bash .git-hooks/correct-line-endings.sh
+        
+        # Check if any files were modified and need to be committed
+        if ! git diff --quiet; then
+          echo "::warning::Line ending issues detected and fixed. Consider merging these fixes into your branch."
+        fi
+    
     - name: Build with Maven
-      run: mvn -B package --file pom.xml
+      run: ./mvnw -B package --file pom.xml -DskipTests
       
     - name: Run code quality checks
       run: |
-        # Apply Spotless formatting
-        mvn spotless:apply
+        # Run quality checks
+        bash scripts/quality/quality-check.sh --quick
         
-        # Run Checkstyle
-        mvn checkstyle:check
-        
-        # Run PMD
-        mvn pmd:check
-        
-        # Run SpotBugs
-        mvn com.github.spotbugs:spotbugs-maven-plugin:check
-        
-    - name: Run tests with coverage
-      run: mvn test
+    - name: Run unit tests
+      run: ./mvnw test
+      
+    - name: Run integration tests
+      run: ./mvnw verify -Dspring.profiles.active=test
       
     - name: Generate JaCoCo report
-      run: mvn jacoco:report
+      run: ./mvnw jacoco:report
+    
+    - name: Check test coverage
+      run: ./mvnw jacoco:check
       
     - name: SonarCloud Scan
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+      run: ./mvnw -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
       if: env.SONAR_TOKEN != ''
       
     - name: Check for vulnerabilities
-      run: mvn org.owasp:dependency-check-maven:check
+      run: ./mvnw org.owasp:dependency-check-maven:check
+
+    - name: Build Docker image
+      run: |
+        # Make Docker build script executable
+        chmod +x scripts/build/docker-build.sh
+        
+        # Build Docker image without pushing
+        scripts/build/docker-build.sh --version=ci-test
       
+    - name: Archive artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: hiresync-artifacts
+        path: |
+          target/*.jar
+          !target/*-sources.jar
+          !target/*-javadoc.jar
+        retention-days: 5
+        
     - name: Archive code quality results
       uses: actions/upload-artifact@v3
       with:

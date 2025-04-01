@@ -1,35 +1,89 @@
-#!/bin/sh
+#!/bin/bash
 
-# Colors for output
+# commit-msg hook to enforce conventional commit message format
+# This hook validates that commit messages follow the Conventional Commits specification
+
+# ANSI color codes for better readability
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 # Get the commit message (first argument given to the script)
 COMMIT_MSG_FILE=$1
 COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
 
+# Define valid types according to Conventional Commits specification
+TYPES=(
+  "feat"     # A new feature
+  "fix"      # A bug fix
+  "docs"     # Documentation only changes
+  "style"    # Changes that do not affect the meaning of the code
+  "refactor" # A code change that neither fixes a bug nor adds a feature
+  "perf"     # A code change that improves performance
+  "test"     # Adding missing tests or correcting existing tests
+  "build"    # Changes that affect the build system or external dependencies
+  "ci"       # Changes to CI configuration files and scripts
+  "chore"    # Other changes that don't modify src or test files
+  "revert"   # Reverts a previous commit
+)
+
+# Join types with "|" for the regex pattern
+TYPES_PATTERN=$(IFS="|"; echo "${TYPES[*]}")
+
 # Define the pattern for conventional commits
 # Format: type(scope): subject
-# Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
-PATTERN="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9-]+\))?: .{1,100}"
+# Where type is one of the valid types, scope is optional, and subject is required
+PATTERN="^(${TYPES_PATTERN})(\([a-z0-9_\-\.]+\))?: .{1,100}$"
 
 # Check if the commit message matches the pattern
 if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
-    echo "${RED}ERROR: Commit message format is invalid.${NC}"
-    echo "${YELLOW}Please use the conventional commit format:${NC}"
-    echo "${GREEN}  type(scope): subject${NC}"
-    echo ""
-    echo "${YELLOW}Example: ${GREEN}feat(user): add login functionality${NC}"
-    echo "${YELLOW}Example: ${GREEN}fix(auth): resolve token validation issue${NC}"
-    echo ""
-    echo "${YELLOW}Valid types are:${NC} feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
-    echo "${YELLOW}The scope is optional but encouraged.${NC}"
-    echo "${YELLOW}The subject should be no more than 100 characters.${NC}"
+    echo -e "${RED}${BOLD}ERROR: Invalid commit message format.${NC}\n"
+    echo -e "${YELLOW}Your commit message:${NC}"
+    echo -e "${CYAN}${COMMIT_MSG}${NC}\n"
+    echo -e "${YELLOW}Commits must follow the Conventional Commits format:${NC}"
+    echo -e "${GREEN}${BOLD}type(scope): subject${NC}"
+    echo -e "\nWhere:"
+    echo -e "  ${BOLD}type${NC}   = The type of change being made (required)"
+    echo -e "            Valid types: ${GREEN}${TYPES_PATTERN}${NC}"
+    echo -e "  ${BOLD}scope${NC}  = The scope of the change (optional)"
+    echo -e "            Examples: ${GREEN}auth${NC}, ${GREEN}api${NC}, ${GREEN}user${NC}, ${GREEN}database${NC}"
+    echo -e "  ${BOLD}subject${NC} = Short description of the change (required)"
+    echo -e "            Must be no more than 100 characters"
+    echo -e "            Should use imperative, present tense (e.g., \"add\" not \"added\")"
+    echo -e "            No period at the end"
+    echo -e "\n${YELLOW}Examples:${NC}"
+    echo -e "  ${GREEN}feat(auth): add user authentication flow${NC}"
+    echo -e "  ${GREEN}fix(api): resolve null pointer in user controller${NC}"
+    echo -e "  ${GREEN}docs: update README with setup instructions${NC}"
+    echo -e "  ${GREEN}refactor(database): improve query performance${NC}"
+    
     exit 1
 fi
 
-# Success
-echo "${GREEN}Commit message format is valid.${NC}"
+# Perform additional checks for commit message quality
+SUBJECT=$(echo "$COMMIT_MSG" | sed -n 's/^[^:]*: \(.*\)/\1/p')
+
+# Check if subject starts with capital letter (optional, can be disabled)
+if [[ "$SUBJECT" =~ ^[A-Z] ]]; then
+    echo -e "${YELLOW}WARNING: Subject should start with a lowercase letter.${NC}"
+    echo -e "${YELLOW}Consider changing:${NC} ${SUBJECT}"
+    echo -e "${YELLOW}to:${NC} $(echo "${SUBJECT:0:1}" | tr '[:upper:]' '[:lower:]')${SUBJECT:1}"
+    # Uncomment to enforce this rule strictly
+    # exit 1
+fi
+
+# Check if subject ends with a period (should not)
+if [[ "$SUBJECT" =~ \.$  ]]; then
+    echo -e "${YELLOW}WARNING: Subject should not end with a period.${NC}"
+    echo -e "${YELLOW}Consider changing:${NC} ${SUBJECT}"
+    echo -e "${YELLOW}to:${NC} ${SUBJECT%?}"
+    # Uncomment to enforce this rule strictly
+    # exit 1
+fi
+
+# Success message
+echo -e "${GREEN}${BOLD}✓ Commit message format is valid.${NC}"
 exit 0 
