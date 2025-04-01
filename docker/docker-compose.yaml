@@ -1,17 +1,25 @@
 version: '3.8'
 
+# Base configuration for all environments
 services:
+  # Database service
   postgres:
     image: postgres:16-alpine
     container_name: hiresync-postgres
+    restart: unless-stopped
     ports:
-      - "${DB_PORT:-5544}:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"  # Only expose locally for security
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # Mount init scripts for first-time setup
+      - ${INIT_SCRIPTS_DIR:-../db}:/docker-entrypoint-initdb.d
     environment:
-      - POSTGRES_DB=${DB_NAME:-hiresync_db}
-      - POSTGRES_USER=${DB_USERNAME:-hiresync_user}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-hiresync_password}
+      POSTGRES_DB: ${DB_NAME:-hiresync_db}
+      POSTGRES_USER: ${DB_USERNAME:-hiresync_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-hiresync_password}
+      # Environment variables for schema initialization
+      PGSQL_APP_READ_PASSWORD: ${READ_PASSWORD:-read_password}
+      PGSQL_APP_WRITE_PASSWORD: ${WRITE_PASSWORD:-write_password}
     networks:
       - hiresync-network
     healthcheck:
@@ -19,37 +27,84 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    command: >
+      -c 'max_connections=200'
+      -c 'shared_buffers=128MB'
+      -c 'effective_cache_size=512MB'
+      -c 'work_mem=16MB'
+      -c 'maintenance_work_mem=128MB'
 
-  # For local development with API server running outside Docker
+  # Application service
   app:
+    image: ${IMAGE_NAME:-hiresync}:${IMAGE_TAG:-latest}
     build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: hiresync-app-local
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+        - APP_VERSION=${APP_VERSION:-0.0.1-SNAPSHOT}
+    container_name: hiresync-app
+    restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "127.0.0.1:${APP_PORT:-8080}:8080"  # Only expose locally for security
+      - "127.0.0.1:${DEBUG_PORT:-5005}:5005"  # Remote debugging (dev only)
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - hiresync-network
     environment:
-      - SPRING_PROFILES_ACTIVE=local
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=hiresync_db
-      - DB_USERNAME=hiresync_user
-      - DB_PASSWORD=hiresync_password
+      # Application config
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      
+      # Database connection
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-hiresync_db}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-hiresync_user}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-hiresync_password}
+      
+      # JVM configuration
+      DEBUG_ENABLED: ${DEBUG_ENABLED:-false}
+      DEBUG_PORT: ${DEBUG_PORT:-5005}
+      JAVA_OPTS: "${JAVA_OPTS:--Xms256m -Xmx1024m -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/app/logs/}"
+      
+      # Application settings
+      APP_LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      TZ: ${TZ:-UTC}
+      JWT_SECRET: ${JWT_SECRET:-}
+      
+      # Additional environment variables can be provided via .env file
     volumes:
-      - ./:/app/src
       - app-logs:/app/logs
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
 
+# Shared networks
 networks:
   hiresync-network:
     driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16
 
+# Persistent volumes
 volumes:
   postgres-data:
+    name: hiresync-postgres-data
   app-logs:
+    name: hiresync-app-logs

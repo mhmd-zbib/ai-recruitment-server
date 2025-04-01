@@ -1,47 +1,84 @@
-services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: hiresync-app
-    ports:
-      - "${PORT:-8080}:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - hiresync-network
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=${DB_NAME:-hiresync_db}
-      - DB_USERNAME=${DB_USERNAME:-hiresync_user}
-      - DB_PASSWORD=${DB_PASSWORD:-hiresync_password}
-      - SPRING_PROFILES_ACTIVE=prod
-      - JPA_DDL_AUTO=validate
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_EXPIRATION=${JWT_EXPIRATION:-86400000}
-      - LOG_LEVEL_ROOT=INFO
-      - LOG_LEVEL_APP=INFO
-      - LOG_LEVEL_SQL=ERROR
-      - LOG_LEVEL_SQL_PARAMS=INFO
-      - SPRINGDOC_ENABLED=true
-      - SWAGGER_UI_ENABLED=false
-      - JAVA_TOOL_OPTIONS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom
-    volumes:
-      - app-logs:/app/logs
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/actuator/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 40s
+version: '3.8'
 
+# Production-specific overrides
+services:
+  # Use managed database in production
   postgres:
-    extends:
-      file: docker-compose.yaml
-      service: postgres
+    ports: []  # Remove port exposure in production
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '2G'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # No init scripts mounted in production - DB should be managed separately
+    command: >
+      -c 'max_connections=300'
+      -c 'shared_buffers=256MB'
+      -c 'effective_cache_size=1GB'
+      -c 'work_mem=32MB'
+      -c 'maintenance_work_mem=256MB'
+      -c 'synchronous_commit=on'
+      -c 'wal_level=replica'
+      -c 'log_statement=ddl'
+      -c 'log_duration=off'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  # Production app config 
+  app:
+    image: ${REGISTRY:-ghcr.io}/${REPO_OWNER:-zbib}/${IMAGE_NAME:-hiresync}:${IMAGE_TAG:-latest}
+    ports:
+      - "${APP_PORT:-8080}:8080"  # Public port exposure via proxy
+    environment:
+      # Set PRODUCTION mode explicitly 
+      SPRING_PROFILES_ACTIVE: prod
+      
+      # Disable debug mode in production
+      DEBUG_ENABLED: "false"
+      
+      # Production JVM settings
+      JAVA_OPTS: "-Xms512m -Xmx2048m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/app/logs/"
+      
+      # Additional production settings
+      APP_LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    deploy:
+      replicas: ${APP_REPLICAS:-2}
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: '4'
+          memory: '4G'
+    healthcheck:
+      interval: 60s
+      timeout: 15s
+      retries: 5
+      start_period: 90s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200m"
+        max-file: "10"
+
+# Configure volume backup
+volumes:
+  postgres-data:
+    name: ${VOLUME_PREFIX:-hiresync-prod}-postgres-data
+  app-logs:
+    name: ${VOLUME_PREFIX:-hiresync-prod}-app-logs
 
 networks:
   hiresync-network:

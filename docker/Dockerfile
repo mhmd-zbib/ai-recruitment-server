@@ -1,84 +1,70 @@
+# Build stage
 FROM eclipse-temurin:17-jdk-alpine AS build
+WORKDIR /app
 
-WORKDIR /workspace/app
+# Install build dependencies and set up non-root user
+RUN apk add --no-cache maven curl && \
+    addgroup -S appgroup && \
+    adduser -S appuser -G appgroup && \
+    mkdir -p /app/logs && \
+    chown -R appuser:appgroup /app
 
-# Add labels
-LABEL org.opencontainers.image.source="https://github.com/moezbib/hiresync"
-LABEL org.opencontainers.image.description="HireSync Recruitment API"
-LABEL org.opencontainers.image.licenses="MIT"
-LABEL org.opencontainers.image.vendor="HireSync"
-LABEL org.opencontainers.image.title="HireSync API Server"
+# Copy Maven configuration first for better layer caching
+COPY --chown=appuser:appgroup pom.xml mvnw* ./
+COPY --chown=appuser:appgroup .mvn ./.mvn
 
-# Build arguments for versioning
-ARG VERSION="1.0.0"
-ARG BUILD_DATE
-ARG VCS_REF
-
-# Additional labels for image metadata
-LABEL org.opencontainers.image.version="${VERSION}"
-LABEL org.opencontainers.image.created="${BUILD_DATE}"
-LABEL org.opencontainers.image.revision="${VCS_REF}"
-
-# Copy only the maven wrapper and pom.xml first to leverage Docker cache
-COPY .mvn/ .mvn/
-COPY mvnw mvnw.cmd ./
-COPY pom.xml ./
-
-# Make the maven wrapper executable
-RUN chmod +x ./mvnw
-
-# Download dependencies as a separate step to take advantage of Docker's caching
-# This step will be cached as long as the pom.xml file doesn't change
+# Download dependencies as a separate layer
 RUN ./mvnw dependency:go-offline -B
 
 # Copy source code
-COPY src ./src
+COPY --chown=appuser:appgroup src ./src
+COPY --chown=appuser:appgroup config ./config
+COPY --chown=appuser:appgroup db ./db
+
+# Switch to non-root user for build
+USER appuser
 
 # Build the application
 RUN ./mvnw package -DskipTests
-RUN mkdir -p target/dependency && (cd target/dependency; jar -xf ../*.jar)
 
 # Runtime stage
-FROM eclipse-temurin:17-jre-alpine AS runtime
-
-# Add non-root user for security
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
-# Set working directory
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
-# Copy application from build stage
-ARG DEPENDENCY=/workspace/app/target/dependency
-COPY --from=build ${DEPENDENCY}/BOOT-INF/lib /app/lib
-COPY --from=build ${DEPENDENCY}/META-INF /app/META-INF
-COPY --from=build ${DEPENDENCY}/BOOT-INF/classes /app
+# Add labels for better maintainability
+LABEL maintainer="HireSync Team" \
+      description="HireSync AI Recruitment Platform" \
+      version="1.0"
 
-# Install curl for health checks and any security patches
-RUN apk --no-cache add curl tzdata && \
-    apk upgrade --no-cache && \
-    rm -rf /var/cache/apk/* && \
+# Install runtime dependencies and create non-root user
+RUN apk add --no-cache curl tzdata && \
+    addgroup -S appgroup && \
+    adduser -S appuser -G appgroup && \
     mkdir -p /app/logs && \
-    chown -R appuser:appgroup /app/logs
+    chown -R appuser:appgroup /app
 
-# Set timezone and other environment variables
-ENV TZ=UTC \
-    SPRING_PROFILES_ACTIVE=prod \
-    JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:MinRAMPercentage=50.0 -XX:+UseG1GC -XX:+UseStringDeduplication -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+# Copy the application
+COPY --from=build --chown=appuser:appgroup /app/target/*.jar /app/app.jar
+COPY --chown=appuser:appgroup db/init.sql /app/db/
+COPY --chown=appuser:appgroup docker/entrypoint.sh /app/
 
-# Define additional runtime environment variables
-ARG VERSION="1.0.0"
-ENV APP_VERSION=${VERSION}
+# Ensure scripts are executable
+RUN chmod +x /app/entrypoint.sh
 
-# Change ownership to non-root user and switch to that user
-RUN chown -R appuser:appgroup /app
+# Switch to non-root user
 USER appuser
 
-# Define health check with improved parameters
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:8080/api/actuator/health || exit 1
-
-# Expose port
+# Expose ports
 EXPOSE 8080
+EXPOSE 5005
 
-# Run the application with exec form for proper signal handling
-ENTRYPOINT ["java", "-cp", "app:app/lib/*", "com.zbib.hiresync.HireSyncApplication"] 
+# Set sensible JVM defaults
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Xms256m -Xmx1024m -XX:+UseG1GC" \
+    SPRING_PROFILES_ACTIVE="prod" \
+    TZ="UTC"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+ENTRYPOINT ["/app/entrypoint.sh"] 

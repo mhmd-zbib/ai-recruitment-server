@@ -1,44 +1,35 @@
 #!/bin/bash
+#
+# pre-push hook for HireSync project
+# Performs essential checks before pushing to remote
 
-# Optimized pre-push hook for modern development workflows
-# Performs heavier checks before pushing to remote
-# Designed for senior-level engineering teams
+set -eo pipefail
 
-# Colors for better UX
+# Colors for output
 GREEN="\033[0;32m"
 YELLOW="\033[0;33m"
 RED="\033[0;31m"
 BLUE="\033[0;34m"
-CYAN="\033[0;36m"
 NC="\033[0m"
 
-echo -e "${BLUE}Running pre-push quality checks...${NC}"
+echo -e "${BLUE}========== HireSync Pre-Push Hook ==========${NC}"
 
 # Get repository root
 REPO_ROOT=$(git rev-parse --show-toplevel)
-CACHE_DIR="$REPO_ROOT/.git/hooks-cache"
-mkdir -p "$CACHE_DIR" 2>/dev/null
+cd "$REPO_ROOT"
 
 # Parse arguments from Git
 read local_ref local_sha remote_ref remote_sha
 
 # Check for bypass flag
-if [ -n "$GIT_BYPASS_HOOKS" ] || [ -n "$SKIP_PUSH_HOOKS" ]; then
-  echo -e "${YELLOW}Bypassing pre-push hooks due to environment flag.${NC}"
+if [ -n "$GIT_BYPASS_HOOKS" ] || [ -n "$SKIP_HOOKS" ]; then
+  echo -e "${YELLOW}Bypassing pre-push hooks (not recommended)${NC}"
   exit 0
 fi
 
-# Get target branch name
+# Get branch names
 TARGET_BRANCH=${remote_ref#refs/heads/}
 CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null)
-
-# Only run intensive checks for important branches
-if [[ "$TARGET_BRANCH" == "master" || "$TARGET_BRANCH" == "dev" || "$TARGET_BRANCH" == "develop" || 
-      "$TARGET_BRANCH" == "main" || "$TARGET_BRANCH" =~ ^release/.*$ ]]; then
-  IMPORTANT_BRANCH=true
-else
-  IMPORTANT_BRANCH=false
-fi
 
 # Skip for branch deletions
 if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
@@ -46,169 +37,30 @@ if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
   exit 0
 fi
 
-# Identify changes since remote
+# Identify if target is a protected branch
+if [[ "$TARGET_BRANCH" == "main" || "$TARGET_BRANCH" == "master" || "$TARGET_BRANCH" == "dev" || "$TARGET_BRANCH" =~ ^release/.*$ ]]; then
+  PROTECTED_BRANCH=true
+  echo -e "${BLUE}Pushing to protected branch: ${TARGET_BRANCH}${NC}"
+else
+  PROTECTED_BRANCH=false
+fi
+
+# Get changed files
 if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
-  # New branch, check all commits
-  echo -e "${BLUE}New branch, checking all commits...${NC}"
-  FILES_CHANGED=$(git diff --name-only --diff-filter=ACMR $(git merge-base $local_sha main 2>/dev/null || git merge-base $local_sha master 2>/dev/null || echo HEAD~20) $local_sha)
+  # New branch, check against main/master
+  BASE_COMMIT=$(git merge-base $local_sha main 2>/dev/null || git merge-base $local_sha master 2>/dev/null || echo HEAD~20)
+  CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR $BASE_COMMIT $local_sha)
 else
   # Existing branch, check only new commits
-  echo -e "${BLUE}Checking commits being pushed...${NC}"
-  FILES_CHANGED=$(git diff --name-only --diff-filter=ACMR $remote_sha..$local_sha)
+  CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR $remote_sha..$local_sha)
 fi
 
 # Filter for relevant files
-JAVA_FILES=$(echo "$FILES_CHANGED" | grep -E '\.java$' || echo "")
-CONFIG_FILES=$(echo "$FILES_CHANGED" | grep -E '\.xml$|\.properties$|\.yml$|\.yaml$' || echo "")
-SQL_FILES=$(echo "$FILES_CHANGED" | grep -E '\.sql$' || echo "")
-ALL_CODE_FILES=$(echo "$FILES_CHANGED" | grep -E '\.java$|\.xml$|\.properties$|\.yml$|\.yaml$|\.json$|\.md$|\.sql$' || echo "")
+CODE_FILES=$(echo "$CHANGED_FILES" | grep -E '\.(java|xml|yml|yaml|properties|sql)$' || echo "")
 
-if [[ -z "$ALL_CODE_FILES" ]]; then
-  echo -e "${GREEN}No code files modified, skipping code quality checks.${NC}"
+if [ -z "$CODE_FILES" ]; then
+  echo -e "${GREEN}No code files changed, skipping checks.${NC}"
   exit 0
-fi
-
-# Save a hash of files checked to avoid redundant checks
-PUSH_HASH=$(echo "$ALL_CODE_FILES" | sort | md5sum | cut -d' ' -f1)
-LAST_PUSH_HASH_FILE="$CACHE_DIR/last_push_hash"
-
-if [ -f "$LAST_PUSH_HASH_FILE" ] && [ "$(cat "$LAST_PUSH_HASH_FILE")" = "$PUSH_HASH" ] && [ "${FORCE_CHECKS}" != "true" ]; then
-  # Identical set of files was already checked
-  if [[ "$IMPORTANT_BRANCH" != "true" ]]; then
-    echo -e "${CYAN}These files were recently verified, skipping checks.${NC}"
-    echo -e "${CYAN}(Set FORCE_CHECKS=true to force checking)${NC}"
-    exit 0
-  fi
-  echo -e "${CYAN}Pushing to important branch, running checks even though files were recently verified.${NC}"
-fi
-
-# Helper function for Maven execution
-run_maven() {
-  local CMD=$1
-  local MSG=$2
-  local REQUIRED=${3:-false}
-  
-  echo -e "   ${CYAN}→ ${MSG}...${NC}"
-
-  MAVEN_OUT=$(mktemp)
-  if [ -f "$REPO_ROOT/mvnw" ]; then
-    $REPO_ROOT/mvnw -q $CMD > $MAVEN_OUT 2>&1
-  else 
-    mvn -q $CMD > $MAVEN_OUT 2>&1
-  fi
-  
-  EXIT_CODE=$?
-  if [ $EXIT_CODE -ne 0 ]; then
-    if [[ "$REQUIRED" == "true" ]]; then
-      echo -e "${RED}Required check failed: ${MSG}${NC}"
-      echo -e "${YELLOW}Error output:${NC}"
-      tail -n 20 $MAVEN_OUT
-      rm $MAVEN_OUT
-      return 1
-    else
-      echo -e "${YELLOW}Warning: ${MSG} had issues, but continuing anyway.${NC}"
-      echo -e "${YELLOW}See log for details: $MAVEN_OUT${NC}"
-      return 0
-    fi
-  fi
-  
-  rm $MAVEN_OUT
-  return 0
-}
-
-# Run in parallel for improved performance
-run_parallel_tasks() {
-  local PIDS=()
-
-  # Run fast checks first
-  echo -e "${BLUE}Running code quality checks...${NC}"
-  
-  # Spotless (formatting) - important, but relatively fast
-  run_maven "spotless:check" "Checking code formatting" false &
-  PIDS+=($!)
-
-  # Normalize line endings for all staged files
-  echo -e "${CYAN}→ Normalizing line endings...${NC}"
-  if [ -f "$REPO_ROOT/.git-hooks/correct-line-endings.sh" ]; then
-    bash "$REPO_ROOT/.git-hooks/correct-line-endings.sh" > /dev/null 2>&1 &
-    PIDS+=($!)
-  fi
-  
-  # Wait for first batch to complete
-  for PID in "${PIDS[@]}"; do
-    wait $PID
-  done
-  
-  # Clear PIDs array for next batch
-  PIDS=()
-  
-  # Run more intensive checks only for important branches or if specifically requested
-  if [[ "$IMPORTANT_BRANCH" == "true" || "${FULL_CHECKS}" == "true" ]]; then
-    echo -e "${BLUE}Running comprehensive checks for main branch...${NC}"
-    
-    # Checkstyle
-    run_maven "checkstyle:check" "Checking code style" true &
-    PIDS+=($!)
-    
-    # Wait for second batch
-    for PID in "${PIDS[@]}"; do
-      wait $PID
-      if [ $? -ne 0 ]; then
-        echo -e "${RED}Push aborted due to failed checks.${NC}"
-        echo -e "${YELLOW}Fix the issues or use SKIP_PUSH_HOOKS=true to bypass.${NC}"
-        exit 1
-      fi
-    done
-    
-    # Clear PIDs array for final batch
-    PIDS=()
-    
-    # Critical SpotBugs (security only, fast)
-    run_maven "com.github.spotbugs:spotbugs-maven-plugin:check -Dspotbugs.threshold=High -Dspotbugs.effort=Min" "Checking for critical bugs" true &
-    PIDS+=($!)
-    
-    # Run tests if Java files were modified (and this is an important branch)
-    if [[ -n "$JAVA_FILES" ]]; then
-      echo -e "${CYAN}→ Running tests for modified code...${NC}"
-      
-      # For large projects, only run tests related to modified files to save time
-      CLASSES_CHANGED=$(echo "$JAVA_FILES" | sed 's/\.java$/,/g' | tr -d '\n')
-      if [ -n "$CLASSES_CHANGED" ]; then
-        run_maven "test -Dtest=${CLASSES_CHANGED%,} -Dspring.profiles.active=test" "Running targeted tests" true &
-        PIDS+=($!)
-      fi
-    fi
-    
-    # Wait for final batch
-    for PID in "${PIDS[@]}"; do
-      wait $PID
-      if [ $? -ne 0 ]; then
-        echo -e "${RED}Push aborted due to failed checks.${NC}"
-        echo -e "${YELLOW}Fix the issues or use SKIP_PUSH_HOOKS=true to bypass.${NC}"
-        exit 1
-      fi
-    done
-  else
-    # For non-important branches, run minimal checks
-    echo -e "${CYAN}Running minimal checks for feature branch...${NC}"
-    
-    # Compile only
-    run_maven "compile" "Compiling code" true
-    if [ $? -ne 0 ]; then
-      echo -e "${RED}Push aborted due to compilation errors.${NC}"
-      exit 1
-    fi
-  fi
-  
-  # Save hash to avoid redundant checks
-  echo "$PUSH_HASH" > "$LAST_PUSH_HASH_FILE"
-}
-
-# Special case for important branches - don't allow skipping (requires override)
-if [[ "$IMPORTANT_BRANCH" == "true" && -n "$SKIP_PUSH_HOOKS" && -z "$FORCE_PUSH" ]]; then
-  echo -e "${RED}Warning: You're trying to bypass hooks for an important branch.${NC}"
-  echo -e "${YELLOW}To force this push, use FORCE_PUSH=true SKIP_PUSH_HOOKS=true${NC}"
-  exit 1
 fi
 
 # Reminder for large pushes
@@ -217,9 +69,54 @@ if [ "$COMMIT_COUNT" -gt 10 ] 2>/dev/null; then
   echo -e "${YELLOW}You're pushing $COMMIT_COUNT commits. Consider smaller, focused pushes.${NC}"
 fi
 
-# Run the parallel tasks
-run_parallel_tasks
+# Maven command function
+run_maven() {
+  local cmd="$1"
+  local desc="$2"
+  local required="${3:-false}"
+  
+  echo -e "${BLUE}Running: ${desc}${NC}"
+  
+  if [ -f "./mvnw" ]; then
+    ./mvnw -q $cmd
+  else
+    mvn -q $cmd
+  fi
+  
+  if [ $? -ne 0 ]; then
+    if [ "$required" = "true" ]; then
+      echo -e "${RED}ERROR: ${desc} failed${NC}"
+      echo -e "${YELLOW}Fix the issues before pushing.${NC}"
+      return 1
+    else
+      echo -e "${YELLOW}WARNING: ${desc} had issues but continuing${NC}"
+      return 0
+    fi
+  fi
+  
+  echo -e "${GREEN}${desc} passed${NC}"
+  return 0
+}
 
-# Success message at completion
-echo -e "${GREEN}✅ Pre-push checks passed! Pushing to $TARGET_BRANCH...${NC}"
+# Always run basic checks
+echo -e "${BLUE}Running code quality checks...${NC}"
+
+# Spotless formatting check
+run_maven "spotless:check" "Code formatting check" true || exit 1
+
+# Compilation check
+run_maven "compile" "Compilation check" true || exit 1
+
+# For protected branches, run additional checks
+if [ "$PROTECTED_BRANCH" = "true" ]; then
+  echo -e "${BLUE}Running comprehensive checks for protected branch...${NC}"
+  
+  # Checkstyle 
+  run_maven "checkstyle:check" "Code style check" true || exit 1
+  
+  # Tests
+  run_maven "test -Dspring.profiles.active=test" "Unit tests" true || exit 1
+fi
+
+echo -e "${GREEN}✅ All pre-push checks passed!${NC}"
 exit 0 

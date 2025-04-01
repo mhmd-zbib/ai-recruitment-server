@@ -1,15 +1,17 @@
 package com.zbib.hiresync.builder;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Component;
+
 import com.zbib.hiresync.dto.JobListResponse;
 import com.zbib.hiresync.dto.JobRequest;
 import com.zbib.hiresync.dto.JobResponse;
 import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.entity.User;
 import com.zbib.hiresync.enums.JobStatus;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
-import org.springframework.stereotype.Component;
 
 @Component
 public class JobBuilder {

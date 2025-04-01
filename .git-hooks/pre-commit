@@ -1,197 +1,108 @@
 #!/bin/bash
+#
+# pre-commit hook for HireSync project
+# Runs code quality checks before allowing commit
 
-# Optimized pre-commit hook for modern development workflows
-# Only performs critical, fast checks during commit
-# Heavier checks are moved to pre-push
+set -e
 
-# Colors for better UX
-GREEN="\033[0;32m"
-YELLOW="\033[0;33m"
-RED="\033[0;31m"
-BLUE="\033[0;34m"
-NC="\033[0m"
+# Determine script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-echo -e "${BLUE}Running lightweight pre-commit checks...${NC}"
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-# Check if this is a merge commit
-if [ -f .git/MERGE_HEAD ]; then
-  echo -e "${YELLOW}Merge commit detected, skipping pre-commit hooks.${NC}"
-  exit 0
-fi
+echo -e "${BLUE}========== HireSync Pre-Commit Hook ==========${NC}"
 
-# Check if --no-verify was intended but forgotten
-if [ -n "$GIT_BYPASS_HOOKS" ]; then
-  echo -e "${YELLOW}Bypassing pre-commit hooks due to GIT_BYPASS_HOOKS.${NC}"
-  exit 0
-fi
+# Function to check if a command exists
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
 
-# Store the root directory of the repository
-REPO_ROOT=$(git rev-parse --show-toplevel)
+# Get list of staged files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(java|xml|properties|yml|yaml)$' || true)
 
-# Get list of staged files (with performance optimization)
-STAGED_FILES=$(git diff --name-only --cached --diff-filter=ACM | grep -E '\.java$|\.xml$|\.properties$|\.yml$|\.yaml$|\.json$|\.md$|\.sql$' 2>/dev/null || echo "")
-
-# Skip if no relevant files to check
 if [ -z "$STAGED_FILES" ]; then
-  echo -e "${GREEN}No relevant files to check.${NC}"
+  echo -e "${GREEN}No Java, XML, or property files staged. Skipping checks.${NC}"
   exit 0
 fi
 
-# Check cache to avoid duplicate work
-CACHE_DIR="$REPO_ROOT/.git/hooks-cache"
-mkdir -p "$CACHE_DIR" 2>/dev/null
-
-# Helper to run optimized formatting check
-fast_format_check() {
-  local has_changes=0
-
-  # Quick pass to fix common formatting issues using sed (much faster than Maven)
-  for file in $STAGED_FILES; do
-    # Skip files that don't exist or aren't readable
-    [ ! -r "$file" ] && continue
-
-    # Check file extension
-    ext="${file##*.}"
-    
-    # Cache key based on file and its timestamp
-    CACHE_KEY="$CACHE_DIR/$(echo "$file" | md5sum | cut -d' ' -f1)"
-    CURRENT_HASH=$(git hash-object "$file")
-    
-    if [ -f "$CACHE_KEY" ] && [ "$(cat "$CACHE_KEY")" = "$CURRENT_HASH" ]; then
-      # Skip if unchanged since last check
-      continue
-    fi
-    
-    # Perform fast whitespace fixes regardless of file type
-    # - Remove trailing whitespace
-    # - Ensure file ends with single newline
-    if [ "$ext" = "java" ] || [ "$ext" = "xml" ] || [ "$ext" = "properties" ] || [ "$ext" = "yml" ] || [ "$ext" = "yaml" ]; then
-      sed -i 's/[ \t]*$//' "$file"  # Remove trailing whitespace
-      sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$file"  # Remove blank lines at EOF
-      echo "" >> "$file"  # Ensure file ends with a newline
-      has_changes=1
-      
-      # Cache the new hash
-      git hash-object "$file" > "$CACHE_KEY"
-    fi
-  done
-  
-  return $has_changes
-}
-
-# Normalize critical line endings without full normalization
-critical_line_endings() {
-  # Only fix shell scripts and critical files with minimal processing
-  for file in $STAGED_FILES; do
-    if [[ "$file" == *.sh ]] || [[ "$file" == "mvnw" ]]; then
-      # Use LF for shell scripts (critical)
-      sed -i 's/\r$//' "$file" 2>/dev/null
-      # Make executable
-      chmod +x "$file" 2>/dev/null
-    elif [[ "$file" == *.bat ]] || [[ "$file" == *.cmd ]]; then
-      # Use CRLF for Windows batch files
-      sed -i 's/\r*$/\r/' "$file" 2>/dev/null
-    fi
-  done
-}
-
-# Perform quick checks
-quick_code_check() {
-  # Fast check for debug statements and other critical issues
-  local errors=0
-  local warnings=0
-
-  for file in $STAGED_FILES; do
-    # Skip files that don't exist or aren't readable
-    [ ! -r "$file" ] && continue
-    
-    # Check only Java files
-    if [[ "$file" == *.java ]]; then
-      # Check for common debug statements
-      if grep -q "System\.out\.println\|e\.printStackTrace()" "$file"; then
-        echo -e "${YELLOW}Warning: Debug statements found in $file${NC}"
-        warnings=$((warnings + 1))
-      fi
-      
-      # Check for TODO markers without tickets
-      if grep -q "TODO[^A-Z0-9-]" "$file"; then
-        echo -e "${YELLOW}Warning: TODO without ticket reference in $file${NC}"
-        warnings=$((warnings + 1))
-      fi
-      
-      # Critical: Check for sensitive data patterns (passwords, tokens)
-      if grep -E -q "(password|secret|token|key).*=.*['\"][a-zA-Z0-9]+" "$file"; then
-        echo -e "${RED}Error: Possible hardcoded credentials in $file${NC}"
-        errors=$((errors + 1))
-      fi
-    fi
-  done
-  
-  if [ $errors -gt 0 ]; then
-    echo -e "${RED}Found $errors critical issues that must be fixed${NC}"
-    return 1
-  fi
-  
-  if [ $warnings -gt 0 ]; then
-    echo -e "${YELLOW}Found $warnings warnings (commit allowed)${NC}"
-  fi
-  
-  return 0
-}
-
-# Check for large files
-check_large_files() {
-  for file in $(git diff --name-only --cached --diff-filter=ACM); do
-    # Skip if file doesn't exist or isn't readable
-    [ ! -r "$file" ] && continue
-    
-    # Skip binary files that are tracked by Git LFS
-    if [ -f "$REPO_ROOT/.gitattributes" ] && grep -q "$file filter=lfs" "$REPO_ROOT/.gitattributes"; then
-      continue
-    fi
-    
-    # Get file size in kilobytes
-    FILE_SIZE=$(du -k "$file" | cut -f1)
-    
-    # If file is larger than 5MB, warn the user
-    if [ "$FILE_SIZE" -gt 5120 ]; then
-      echo -e "${YELLOW}Warning: Large file detected: $file (${FILE_SIZE}KB)${NC}"
-      echo -e "${YELLOW}Consider using Git LFS for large files${NC}"
-    fi
-  done
-}
-
-# Main execution flow
-
-# 1. Quick format check (cached)
-echo -e "⚡ Quick format check..."
-fast_format_check
-if [ $? -eq 1 ]; then
-  echo -e "${BLUE}Fixed formatting issues in staged files${NC}"
+# Check for Java
+if ! command_exists java; then
+  echo -e "${YELLOW}Warning: Java not found. Some checks will be skipped.${NC}"
 fi
 
-# 2. Fix critical line endings (shell scripts only)
-echo -e "⚡ Fixing critical line endings..."
-critical_line_endings
-
-# 3. Check for large files
-echo -e "⚡ Checking for large files..."
-check_large_files
-
-# 4. Quick code validation
-echo -e "⚡ Running quick code validation..."
-quick_code_check
-if [ $? -ne 0 ]; then
-  echo -e "${RED}Pre-commit check failed! Please fix the issues and try again.${NC}"
-  exit 1
+# Check for Maven
+MVN_CMD="mvn"
+if [ -f "$PROJECT_ROOT/mvnw" ]; then
+  MVN_CMD="$PROJECT_ROOT/mvnw"
 fi
 
-# Add any fixed files back to staging
-git diff --name-only | while read file; do
-  if echo "$STAGED_FILES" | grep -q "$file"; then
-    git add "$file"
+# 1. Run Spotless to check code formatting
+echo -e "${BLUE}Checking code formatting with Spotless...${NC}"
+if [ -f "$PROJECT_ROOT/pom.xml" ] && command_exists java; then
+  cd "$PROJECT_ROOT"
+  if ! $MVN_CMD spotless:check -q; then
+    echo -e "${RED}Code formatting issues detected. Running auto-fix...${NC}"
+    if $MVN_CMD spotless:apply -q; then
+      echo -e "${GREEN}Code formatting fixed automatically. Please review and stage the changes.${NC}"
+      echo -e "${YELLOW}Run: git add <files>${NC}"
+      exit 1
+    else
+      echo -e "${RED}Failed to fix code formatting. Please fix manually.${NC}"
+      exit 1
+    fi
   fi
+  echo -e "${GREEN}Code formatting check passed.${NC}"
+else
+  echo -e "${YELLOW}Warning: Skipping Spotless checks (Maven or Java not available).${NC}"
+fi
+
+# 2. Check for sensitive information
+echo -e "${BLUE}Checking for sensitive information...${NC}"
+SENSITIVE_PATTERNS=(
+  "[Pp]assword[\s]*=[\s]*['\"]?[^'\"]*['\"]?"
+  "[Ss]ecret[\s]*=[\s]*['\"]?[^'\"]*['\"]?"
+  "[Cc]redential[\s]*=[\s]*['\"]?[^'\"]*['\"]?"
+  "[Aa][Pp][Ii][_]?[Kk][Ee][Yy][\s]*=[\s]*['\"]?[^'\"]*['\"]?"
+  "[Aa][Cc][Cc][Ee][Ss][Ss][_]?[Kk][Ee][Yy][\s]*=[\s]*['\"]?[^'\"]*['\"]?"
+)
+
+CHECK_FAILED=false
+for FILE in $STAGED_FILES; do
+  for PATTERN in "${SENSITIVE_PATTERNS[@]}"; do
+    if git diff --cached "$FILE" | grep -E "$PATTERN" | grep -v -E "(localhost|127.0.0.1|dummy|example|test|placeholder)"; then
+      echo -e "${RED}Possible sensitive information found in $FILE${NC}"
+      CHECK_FAILED=true
+    fi
+  done
 done
 
-echo -e "${GREEN}✅ Pre-commit checks passed! Proceeding with commit...${NC}"
+if [ "$CHECK_FAILED" = true ]; then
+  echo -e "${RED}Sensitive information checks failed. Please remove sensitive data.${NC}"
+  echo -e "${YELLOW}Tip: Store sensitive information in environment variables or secure vaults.${NC}"
+  exit 1
+fi
+echo -e "${GREEN}Sensitive information check passed.${NC}"
+
+# 3. Quick compilation check on modified Java files
+JAVA_FILES=$(echo "$STAGED_FILES" | grep -E '\.java$' || true)
+if [ -n "$JAVA_FILES" ] && command_exists java; then
+  echo -e "${BLUE}Running quick compilation check...${NC}"
+  if [ -f "$PROJECT_ROOT/pom.xml" ]; then
+    cd "$PROJECT_ROOT"
+    if ! $MVN_CMD compiler:compile -q; then
+      echo -e "${RED}Compilation failed. Please fix the issues before committing.${NC}"
+      exit 1
+    fi
+    echo -e "${GREEN}Compilation check passed.${NC}"
+  fi
+fi
+
+# All checks passed
+echo -e "${GREEN}All pre-commit checks passed!${NC}"
 exit 0 

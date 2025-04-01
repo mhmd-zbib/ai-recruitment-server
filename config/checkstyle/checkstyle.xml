@@ -31,7 +31,8 @@
 
     <!-- Suppress specific checks from being applied to test files -->
     <module name="SuppressionFilter">
-        <property name="file" value="${config_loc}/suppressions.xml" optional="true"/>
+        <property name="file" value="${config_loc}/suppressions.xml"/>
+        <property name="optional" value="true"/>
     </module>
 
     <module name="TreeWalker">

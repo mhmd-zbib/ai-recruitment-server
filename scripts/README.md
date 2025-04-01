@@ -1,107 +1,130 @@
 # HireSync Scripts
 
-This directory contains all the shell scripts for the HireSync application. The scripts are organized by purpose to make them easier to find and maintain.
+This directory contains utility scripts for development, deployment, and maintenance of the HireSync application.
 
 ## Directory Structure
 
-```
-scripts/
-├── build/         # Build-related scripts
-│   ├── docker-build.sh        # Build Docker images
-│   └── verify.sh              # Verify code quality before building
-├── deploy/        # Deployment scripts
-│   └── prod-deploy.sh         # Deploy to production
-├── dev/           # Development scripts
-│   └── dev-environment.sh     # Unified development environment manager
-├── quality/       # Quality check scripts
-│   ├── lint-minimal.sh        # Run minimal linting with auto-fixes
-│   └── quality-check.sh       # Run comprehensive quality checks with auto-fixes
-└── utils/         # Utility functions
-    ├── db-utils.sh            # Database utility functions
-    └── health-check.sh        # Application health monitoring
-```
+- **core/**: Core utilities used by other scripts
+  - `colors.sh`: Terminal color definitions
+  - `logging.sh`: Logging functions with different levels
+  - `env.sh`: Environment variable handling
 
-## Usage
+- **db/**: Database management scripts
+  - `db.sh`: Functions for database operations
 
-All scripts should be invoked through the main `run.sh` script in the project root:
+- **utils/**: Utility scripts
+  - `docker.sh`: Docker management utilities
 
-```bash
-# Run with bash
-./run.sh [command] [options]
-```
+- **ci/**: Continuous Integration scripts
+  - *Contains CI-related scripts*
 
-For example:
+- **dev/**: Development environment scripts
+  - *Contains development environment scripts*
+
+## Core Utilities
+
+### Logging
 
 ```bash
-# Start local development
-./run.sh local
+# Import logging utilities
+source ./scripts/core/logging.sh
 
-# Auto-fix code issues
-./run.sh lint
-
-# Run quality checks (non-blocking)
-./run.sh quality
-
-# Check application health status
-./run.sh health
+# Use logging functions
+log_info "Information message"
+log_error "Error message"
+log_warn "Warning message"
+log_debug "Debug message"
+log_success "Success message"
 ```
 
-## Auto-Fix Linting
-
-The project includes automated linting and formatting capabilities that will automatically fix common issues:
-
-- Code formatting is auto-fixed using Spotless
-- Line endings are normalized
-- Import organization is attempted
-- Code structure issues are identified (but require manual fixes)
-
-To run auto-fixes:
+### Color Output
 
 ```bash
-./run.sh lint
+# Import color definitions
+source ./scripts/core/colors.sh
+
+# Use colors in echo statements
+echo -e "${BOLD_GREEN}Success${NC}"
+echo -e "${BOLD_RED}Error${NC}"
 ```
 
-These auto-fixes are also applied automatically during git commit through pre-commit hooks.
+## Database Management
 
-## Script Guidelines
+The `db.sh` script provides utilities for managing the PostgreSQL database:
 
-1. All scripts must be executable and have proper shebang line: `#!/bin/bash`
-2. Scripts should use the shared color definitions for consistent output
-3. All scripts should perform proper error checking but prefer auto-fixes over failing
-4. Scripts should be self-contained but leverage shared utilities when appropriate
-5. Docker-related operations must use the DOCKER_DIR environment variable
+```bash
+# Import database functions
+source ./scripts/db/db.sh
 
-## Environment Variables
+# Start the database
+db_start
 
-Scripts can depend on these environment variables:
+# Check database status
+db_status
 
-- `PROJECT_ROOT`: Root directory of the project
-- `SCRIPT_DIR`: Directory containing the current script
-- `DOCKER_DIR`: Directory containing Docker files
+# Initialize database schema
+db_init
 
-These environment variables can be set via the `.env` file at the project root.
+# Create a backup
+db_backup ./backups
 
-## Common Options
+# Restore from backup
+db_restore ./backups/hiresync_db_20240601_120000.sql
 
-Most scripts support these common options:
-- `--help`: Show help message
-- `--verbose`: Enable verbose output
-- `--debug`: Enable debug mode
-- `--dry-run`: Show what would be done without making changes
+# Stop the database
+db_stop
+```
 
-## Error Handling
+## Docker Utilities
 
-All scripts follow these error handling principles:
-1. Auto-fix issues when possible
-2. Continue despite errors unless absolutely impossible
-3. Provide clear guidance on fixing remaining issues
-4. Clean up resources on failure
-5. Log errors to appropriate output
+The `docker.sh` script provides Docker management utilities:
+
+```bash
+# Import Docker utilities
+source ./scripts/utils/docker.sh
+
+# Build Docker image
+docker_build latest
+
+# Start Docker Compose stack
+docker_up ./.env ./docker/docker-compose.yaml
+
+# View logs
+docker_logs app
+
+# Stop Docker Compose stack
+docker_down
+
+# Clean up Docker resources
+docker_clean
+```
+
+## Usage in Applications
+
+These scripts are typically used by the main `run` script at the root of the project, but they can also be sourced and used in other scripts or directly from the command line.
+
+### Direct Usage Example
+
+```bash
+# Starting the database
+bash ./scripts/db/db.sh
+db_start
+
+# Building a Docker image
+bash ./scripts/utils/docker.sh
+docker_build latest
+```
 
 ## Best Practices
 
-1. Run the lint command before committing changes
-2. Use appropriate environment variables
-3. Follow the deployment checklist
-4. Monitor logs for issues
-5. Keep scripts up to date with changes 
+When adding new scripts:
+
+1. Use the same style and conventions as existing scripts
+2. Add proper logging and error handling
+3. Make functions reusable and modular
+4. Add proper documentation in this README
+5. Export functions you want to make available to other scripts
+6. Use constants instead of hardcoded values
+7. Check for required dependencies
+8. Use meaningful variable and function names
+9. Add help text and usage examples 

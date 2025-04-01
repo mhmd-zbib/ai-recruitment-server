@@ -1,5 +1,7 @@
 package com.zbib.hiresync.builder;
 
+import java.time.LocalDateTime;
+
 import com.zbib.hiresync.dto.ApplicationListResponse;
 import com.zbib.hiresync.dto.ApplicationRequest;
 import com.zbib.hiresync.dto.ApplicationResponse;
@@ -7,7 +9,6 @@ import com.zbib.hiresync.dto.JobApplicationListResponse;
 import com.zbib.hiresync.entity.Application;
 import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.enums.ApplicationStatus;
-import java.time.LocalDateTime;
 
 public class ApplicationBuilder {
 

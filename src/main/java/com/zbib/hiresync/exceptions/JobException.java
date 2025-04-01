@@ -1,6 +1,7 @@
 package com.zbib.hiresync.exceptions;
 
 import java.util.UUID;
+
 import org.springframework.http.HttpStatus;
 
 public class JobException extends AppException {

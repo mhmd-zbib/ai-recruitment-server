@@ -1,11 +1,13 @@
 package com.zbib.hiresync.dto;
 
-import jakarta.validation.constraints.*;
+import org.hibernate.validator.constraints.URL;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.validator.constraints.URL;
+
+import jakarta.validation.constraints.*;
 
 @Data
 @AllArgsConstructor

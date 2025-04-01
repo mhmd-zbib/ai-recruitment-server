@@ -1,16 +1,20 @@
 package com.zbib.hiresync.entity;
 
-import com.zbib.hiresync.enums.InterviewStatus;
-import com.zbib.hiresync.enums.InterviewType;
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
+
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import com.zbib.hiresync.enums.InterviewStatus;
+import com.zbib.hiresync.enums.InterviewType;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+
+import jakarta.persistence.*;
 
 @Entity
 @Table(name = "interviews")

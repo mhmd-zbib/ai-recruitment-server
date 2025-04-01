@@ -1,337 +1,271 @@
 name: CD Pipeline
 
 on:
-  workflow_run:
-    workflows: ["CI Pipeline"]
-    branches: [master, dev]
-    types:
-      - completed
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
   workflow_dispatch:
     inputs:
       environment:
         description: 'Deployment environment'
         required: true
-        default: 'development'
+        default: 'staging'
         type: choice
         options:
-          - development
           - staging
           - production
+      version:
+        description: 'Override version'
+        required: false
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
+  MAVEN_OPTS: '-Xmx512m -XX:+TieredCompilation -XX:TieredStopAtLevel=1'
 
 jobs:
-  validate:
-    name: Validate Deployment Criteria
+  build:
+    name: Build and Test
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
-    outputs:
-      should_deploy: ${{ steps.check.outputs.should_deploy }}
-      environment: ${{ steps.env.outputs.environment }}
-      
-    steps:
-      - name: Determine environment
-        id: env
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event.workflow_run.head_branch }}" == "master" ]]; then
-            echo "environment=production" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event.workflow_run.head_branch }}" == "dev" ]]; then
-            echo "environment=development" >> $GITHUB_OUTPUT
-          else
-            echo "environment=unknown" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Check deployment criteria
-        id: check
-        run: |
-          # Check if environment is valid for deployment
-          if [[ "${{ steps.env.outputs.environment }}" == "unknown" ]]; then
-            echo "should_deploy=false" >> $GITHUB_OUTPUT
-            echo "::warning::Skipping deployment for non-deployable branch"
-          else
-            echo "should_deploy=true" >> $GITHUB_OUTPUT
-            echo "Environment set to ${{ steps.env.outputs.environment }}"
-          fi
-  
-  deploy-development:
-    name: Deploy to Development
-    needs: validate
-    if: ${{ needs.validate.outputs.should_deploy == 'true' && needs.validate.outputs.environment == 'development' }}
-    runs-on: ubuntu-latest
-    environment:
-      name: development
-      url: ${{ vars.DEV_APP_URL }}
     
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-        
-      - name: Set up JDK 17
+      
+      - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
+      
+      - name: Determine version
+        id: version
+        run: |
+          # Use explicit version from workflow input if provided
+          if [[ -n "${{ github.event.inputs.version }}" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          # Use tag name if this is a tag push
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION="${{ github.ref_name }}"
+          # For main/master branch pushes, use current date with commit SHA
+          else
+            VERSION="$(date +'%Y.%m.%d')-$(git rev-parse --short HEAD)"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+      
+      - name: Make scripts executable
+        run: |
+          chmod +x ./mvnw
+          find ./docker -name "*.sh" -type f -exec chmod +x {} \;
+      
+      - name: Build with Maven
+        run: |
+          ./mvnw -B package -Drevision=${{ steps.version.outputs.version }}
+      
+      - name: Run tests
+        run: ./mvnw test
+      
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-artifacts
+          path: target/*.jar
+          retention-days: 5
+
+  docker-build:
+    name: Build and Push Docker Image
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: app-artifacts
+          path: target
+      
+      - name: Login to Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
       
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v4
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.build.outputs.version }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
       
-      - name: Make Scripts Executable
-        run: |
-          chmod +x mvnw
-          chmod +x run.sh
-          find scripts -name "*.sh" -type f -exec chmod +x {} \;
-      
-      - name: Create .env file
-        run: |
-          echo "SPRING_PROFILES_ACTIVE=dev" > .env
-          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
-          echo "JDBC_DATABASE_URL=${{ secrets.DEV_DB_URL }}" >> .env
-          echo "JDBC_DATABASE_USERNAME=${{ secrets.DEV_DB_USERNAME }}" >> .env
-          echo "JDBC_DATABASE_PASSWORD=${{ secrets.DEV_DB_PASSWORD }}" >> .env
-      
-      - name: Verify Code
-        run: |
-          ./run.sh verify
-      
-      - name: Run Tests
-        run: |
-          ./run.sh test
-      
-      - name: Build Docker Image
-        run: |
-          BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-          VCS_REF=$(git rev-parse --short HEAD)
-          VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
-          
-          ./scripts/build/docker-build.sh --version=$VERSION \
-            --registry=${{ vars.DOCKER_REGISTRY }}/${{ github.repository_owner }} \
-            --push
-      
-      - name: Deploy to Railway
-        uses: bervProject/railway-deploy@main
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
         with:
-          railway_token: ${{ secrets.RAILWAY_TOKEN }}
-          service: ${{ vars.RAILWAY_SERVICE }}
-      
-      - name: Health Check
-        run: |
-          echo "Waiting for deployment to complete..."
-          sleep 60
-          ./scripts/utils/health-check.sh --url ${{ vars.DEV_APP_URL }} --retries 10 --delay 30
-      
-      - name: Send Deployment Notification
-        if: always()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_COLOR: ${{ job.status }}
-          SLACK_TITLE: "Development Deployment ${{ job.status }}"
-          SLACK_MESSAGE: "Deployment to Development environment ${{ job.status }}"
-  
+          context: .
+          file: ./docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ needs.build.outputs.version }}
+            BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+            VCS_REF=${{ github.sha }}
+            SPRING_PROFILES_ACTIVE=prod
+
   deploy-staging:
     name: Deploy to Staging
-    needs: validate
-    if: ${{ needs.validate.outputs.should_deploy == 'true' && needs.validate.outputs.environment == 'staging' }}
+    needs: [build, docker-build]
+    if: |
+      github.event_name == 'push' || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
     runs-on: ubuntu-latest
-    environment:
-      name: staging
-      url: ${{ vars.STAGING_APP_URL }}
+    environment: staging
     
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
+      
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.7.0
         with:
-          fetch-depth: 0
-        
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: maven
+          ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
       
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      
-      - name: Make Scripts Executable
+      - name: Copy deployment files
         run: |
-          chmod +x mvnw
-          chmod +x run.sh
-          find scripts -name "*.sh" -type f -exec chmod +x {} \;
-      
-      - name: Create .env file
-        run: |
-          echo "SPRING_PROFILES_ACTIVE=staging" > .env
-          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
-          echo "JDBC_DATABASE_URL=${{ secrets.STAGING_DB_URL }}" >> .env
-          echo "JDBC_DATABASE_USERNAME=${{ secrets.STAGING_DB_USERNAME }}" >> .env
-          echo "JDBC_DATABASE_PASSWORD=${{ secrets.STAGING_DB_PASSWORD }}" >> .env
-      
-      - name: Verify Code
-        run: |
-          ./run.sh verify
-      
-      - name: Run Tests
-        run: |
-          ./run.sh test
-      
-      - name: Build Docker Image
-        run: |
-          BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-          VCS_REF=$(git rev-parse --short HEAD)
-          VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)-rc
+          mkdir -p deploy
+          cp docker/docker-compose.yaml deploy/
+          cp docker/docker-compose.prod.yaml deploy/
+          cp .env.example deploy/.env
           
-          ./scripts/build/docker-build.sh --version=$VERSION \
-            --registry=${{ vars.DOCKER_REGISTRY }}/${{ github.repository_owner }} \
-            --push
+          # Update .env file with secrets
+          sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=${{ secrets.DB_PASSWORD }}/" deploy/.env
+          sed -i "s/SPRING_PROFILES_ACTIVE=.*/SPRING_PROFILES_ACTIVE=prod/" deploy/.env
+          sed -i "s/IMAGE_TAG=.*/IMAGE_TAG=${{ needs.build.outputs.version }}/" deploy/.env
+          sed -i "s/JWT_SECRET=.*/JWT_SECRET=${{ secrets.JWT_SECRET }}/" deploy/.env
       
-      - name: Deploy to Staging
-        uses: bervProject/railway-deploy@main
-        with:
-          railway_token: ${{ secrets.RAILWAY_STAGING_TOKEN }}
-          service: ${{ vars.RAILWAY_STAGING_SERVICE }}
-      
-      - name: Health Check
+      - name: Deploy to staging server
         run: |
-          echo "Waiting for deployment to complete..."
-          sleep 60
-          ./scripts/utils/health-check.sh --url ${{ vars.STAGING_APP_URL }} --retries 10 --delay 30
+          # Add host key
+          ssh-keyscan -H ${{ secrets.STAGING_HOST }} >> ~/.ssh/known_hosts
+          
+          # Create directory if it doesn't exist
+          ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} "mkdir -p ~/hiresync"
+          
+          # Copy deployment files
+          scp -r deploy/* ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:~/hiresync/
+          
+          # Pull and start the application
+          ssh ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} "cd ~/hiresync && \
+            echo 'Pulling latest image...' && \
+            docker login ${{ env.REGISTRY }} -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
+            docker-compose -f docker-compose.yaml -f docker-compose.prod.yaml pull && \
+            echo 'Starting application...' && \
+            docker-compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d && \
+            echo 'Deployment completed!'"
       
-      - name: Send Deployment Notification
-        if: always()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_COLOR: ${{ job.status }}
-          SLACK_TITLE: "Staging Deployment ${{ job.status }}"
-          SLACK_MESSAGE: "Deployment to Staging environment ${{ job.status }}"
-  
+      - name: Verify deployment
+        run: |
+          echo "Waiting for application to start..."
+          sleep 30
+          curl --retry 5 --retry-delay 10 -s http://${{ secrets.STAGING_HOST }}:8080/actuator/health | grep '"status":"UP"'
+          if [ $? -eq 0 ]; then
+            echo "Deployment successful! Application is running."
+          else
+            echo "Deployment verification failed. Check logs for details."
+            exit 1
+          fi
+
   deploy-production:
     name: Deploy to Production
-    needs: validate
-    if: ${{ needs.validate.outputs.should_deploy == 'true' && needs.validate.outputs.environment == 'production' }}
+    needs: [build, docker-build, deploy-staging]
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
     runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: ${{ vars.PROD_APP_URL }}
+    environment: production
     
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
+      
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.7.0
         with:
-          fetch-depth: 0
-        
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: maven
+          ssh-private-key: ${{ secrets.PRODUCTION_SSH_KEY }}
       
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      
-      - name: Make Scripts Executable
+      - name: Copy deployment files
         run: |
-          chmod +x mvnw
-          chmod +x run.sh
-          find scripts -name "*.sh" -type f -exec chmod +x {} \;
-      
-      - name: Create .env file (secure method)
-        run: |
-          {
-            echo "SPRING_PROFILES_ACTIVE=prod"
-            echo "JWT_SECRET=${{ secrets.JWT_SECRET }}"
-            echo "JDBC_DATABASE_URL=${{ secrets.PROD_DB_URL }}"
-            echo "JDBC_DATABASE_USERNAME=${{ secrets.PROD_DB_USERNAME }}"
-            echo "JDBC_DATABASE_PASSWORD=${{ secrets.PROD_DB_PASSWORD }}"
-          } > .env
-      
-      - name: Verify Code
-        run: |
-          ./run.sh verify
-      
-      - name: Run Tests
-        run: |
-          ./run.sh test
-      
-      - name: Get Version
-        id: get_version
-        run: |
-          VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-      
-      - name: Tag Release
-        run: |
-          git config --global user.name 'GitHub Actions'
-          git config --global user.email 'actions@github.com'
-          git tag -a "v${{ env.VERSION }}" -m "Release version ${{ env.VERSION }}"
-          git push origin "v${{ env.VERSION }}"
-      
-      - name: Build and Push Docker Image
-        run: |
-          BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-          VCS_REF=$(git rev-parse --short HEAD)
+          mkdir -p deploy
+          cp docker/docker-compose.yaml deploy/
+          cp docker/docker-compose.prod.yaml deploy/
+          cp .env.example deploy/.env
           
-          ./scripts/build/docker-build.sh --version=${{ env.VERSION }} \
-            --registry=${{ vars.DOCKER_REGISTRY }}/${{ github.repository_owner }} \
-            --push
+          # Update .env file with secrets
+          sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=${{ secrets.DB_PASSWORD }}/" deploy/.env
+          sed -i "s/SPRING_PROFILES_ACTIVE=.*/SPRING_PROFILES_ACTIVE=prod/" deploy/.env
+          sed -i "s/IMAGE_TAG=.*/IMAGE_TAG=${{ needs.build.outputs.version }}/" deploy/.env
+          sed -i "s/JWT_SECRET=.*/JWT_SECRET=${{ secrets.JWT_SECRET }}/" deploy/.env
       
-      - name: Deploy to Render
+      - name: Deploy to production server
         run: |
-          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
+          # Add host key
+          ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
+          
+          # Create directory if it doesn't exist
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "mkdir -p ~/hiresync"
+          
+          # Copy deployment files
+          scp -r deploy/* ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:~/hiresync/
+          
+          # Pull and start the application with zero downtime update
+          ssh ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} "cd ~/hiresync && \
+            echo 'Pulling latest image...' && \
+            docker login ${{ env.REGISTRY }} -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} && \
+            docker-compose -f docker-compose.yaml -f docker-compose.prod.yaml pull && \
+            echo 'Starting application...' && \
+            docker-compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d --force-recreate app && \
+            echo 'Deployment completed!'"
+      
+      - name: Verify deployment
+        run: |
+          echo "Waiting for application to start..."
+          sleep 45
+          curl --retry 5 --retry-delay 15 -s http://${{ secrets.PRODUCTION_HOST }}:8080/actuator/health | grep '"status":"UP"'
+          if [ $? -eq 0 ]; then
+            echo "Deployment successful! Application is running."
+          else
+            echo "Deployment verification failed. Check logs for details."
+            exit 1
+          fi
       
       - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ env.VERSION }}
-          release_name: Release v${{ env.VERSION }}
+          name: Release ${{ needs.build.outputs.version }}
           draft: false
           prerelease: false
-          body: |
-            ## HireSync API Release v${{ env.VERSION }}
-            
-            **Release Date:** $(date +'%Y-%m-%d')
-            
-            ### Changes in this release:
-            
-            - See [commit history](https://github.com/${{ github.repository }}/commits/main) for details
-      
-      - name: Health Check
-        run: |
-          echo "Waiting for deployment to complete..."
-          sleep 120
-          ./scripts/utils/health-check.sh --url ${{ vars.PROD_APP_URL }} --retries 15 --delay 30
-      
-      - name: Send Deployment Notification
-        if: always()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_COLOR: ${{ job.status }}
-          SLACK_TITLE: "Production Deployment ${{ job.status }}"
-          SLACK_MESSAGE: "Release v${{ env.VERSION }} deployment to Production environment ${{ job.status }}" 
+          generate_release_notes: true 

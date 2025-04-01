@@ -1,10 +1,13 @@
 package com.zbib.hiresync.validator;
 
+import java.util.UUID;
+
+import org.springframework.stereotype.Component;
+
 import com.zbib.hiresync.repository.JobRepository;
 import com.zbib.hiresync.security.UserDetailsImpl;
-import java.util.UUID;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor

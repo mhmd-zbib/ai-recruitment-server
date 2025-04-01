@@ -1,12 +1,15 @@
 package com.zbib.hiresync.entity;
 
+import java.time.LocalDateTime;
+import java.util.UUID;
+
 import com.zbib.hiresync.enums.EmploymentType;
 import com.zbib.hiresync.enums.JobStatus;
 import com.zbib.hiresync.enums.LocationType;
-import jakarta.persistence.*;
-import java.time.LocalDateTime;
-import java.util.UUID;
+
 import lombok.*;
+
+import jakarta.persistence.*;
 
 @Getter
 @Setter

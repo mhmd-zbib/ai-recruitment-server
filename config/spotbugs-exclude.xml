@@ -4,84 +4,54 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="https://github.com/spotbugs/filter/3.0.0 https://raw.githubusercontent.com/spotbugs/spotbugs/3.1.0/spotbugs/etc/findbugsfilter.xsd">
 
-    <!-- Exclude common false positives -->
-    
-    <!-- Exclude Lombok-generated code -->
+    <!-- Lombok-generated code exclusions -->
     <Match>
         <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
-        <Class name="~.*\.*dto\..*"/>
-    </Match>
-    <Match>
-        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
-        <Class name="~.*\.*entity\..*"/>
-    </Match>
-    
-    <!-- Ignore serialization warnings in DTOs -->
-    <Match>
-        <Bug pattern="SE_NO_SERIALVERSIONID"/>
-        <Class name="~.*\.*dto\..*"/>
-    </Match>
-    
-    <!-- Ignore JPA entity warnings -->
-    <Match>
-        <Bug pattern="JPA_TRANSACTION_ON_NON_PUBLIC_METHOD"/>
-        <Class name="~.*\.*service\..*"/>
-    </Match>
-    
-    <!-- Ignore test classes -->
-    <Match>
-        <Class name="~.*\.*Test"/>
-    </Match>
-    <Match>
-        <Class name="~.*\.*IT"/>
-    </Match>
-    
-    <!-- Nullable findings in controller parameters -->
-    <Match>
-        <Bug pattern="NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE"/>
-        <Class name="~.*\.*controller\..*"/>
-    </Match>
-    
-    <!-- Spring Boot configuration classes -->
-    <Match>
-        <Class name="~.*\.*config\..*"/>
-        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
-    </Match>
-    
-    <!-- Spring Boot main application class -->
-    <Match>
-        <Class name="~.*Application"/>
-    </Match>
-    
-    <!-- Exclude additional common patterns -->
-    <Match>
-        <!-- Ignore unread fields in model classes -->
-        <Bug pattern="URF_UNREAD_FIELD"/>
         <Class name="~.*\.(dto|entity|model)\..*"/>
     </Match>
     
-    <!-- Spring Framework specifics -->
+    <!-- Test classes exclusions -->
     <Match>
+        <Class name="~.*\.(Test|IT)$"/>
+        <Or>
+            <Bug category="PERFORMANCE"/>
+            <Bug category="STYLE"/>
+        </Or>
+    </Match>
+    
+    <!-- Spring Framework specific exclusions -->
+    <Match>
+        <Class name="~.*\.(controller|service|repository|component)\..*"/>
         <Bug pattern="UWF_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR"/>
-        <Field name="~.*Repository$|.*Service$|.*Component$|.*RestController$|.*Controller$"/>
     </Match>
     
-    <!-- Common design patterns that trigger warnings -->
+    <!-- Configuration classes -->
     <Match>
-        <!-- Builder pattern often uses method call in constructor -->
-        <Bug pattern="MC_METHOD_CALL_IN_CONSTRUCTOR"/>
+        <Class name="~.*\.config\..*"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    
+    <!-- Builder pattern exclusions -->
+    <Match>
         <Method name="&lt;init&gt;"/>
+        <Bug pattern="MC_METHOD_CALL_IN_CONSTRUCTOR"/>
+        <Class name="~.*\.builder\..*"/>
     </Match>
     
-    <!-- Security exceptions often need suppression -->
+    <!-- Security exception handling -->
     <Match>
+        <Class name="~.*\.security\..*"/>
         <Bug pattern="THROWS_METHOD_THROWS_CLAUSE_BASIC_EXCEPTION,THROWS_METHOD_THROWS_CLAUSE_THROWABLE"/>
-        <Class name="~.*\.*security\..*"/>
     </Match>
     
     <!-- Utility classes -->
     <Match>
-        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
         <Class name="~.*Util(s|ity)?$"/>
+        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+    </Match>
+    
+    <!-- Spring Boot main application class -->
+    <Match>
+        <Class name="~.*Application$"/>
     </Match>
 </FindBugsFilter> 

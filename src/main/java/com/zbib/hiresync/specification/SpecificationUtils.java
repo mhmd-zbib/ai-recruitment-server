@@ -1,13 +1,15 @@
 package com.zbib.hiresync.specification;
 
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.Path;
-import jakarta.persistence.criteria.Predicate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
 
 public class SpecificationUtils {
 

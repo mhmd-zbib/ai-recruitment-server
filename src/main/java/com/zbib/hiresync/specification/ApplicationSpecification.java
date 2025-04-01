@@ -1,13 +1,16 @@
 package com.zbib.hiresync.specification;
 
-import com.zbib.hiresync.dto.ApplicationFilter;
-import com.zbib.hiresync.entity.Application;
-import com.zbib.hiresync.entity.Job;
-import jakarta.persistence.criteria.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+
 import org.springframework.data.jpa.domain.Specification;
+
+import com.zbib.hiresync.dto.ApplicationFilter;
+import com.zbib.hiresync.entity.Application;
+import com.zbib.hiresync.entity.Job;
+
+import jakarta.persistence.criteria.*;
 
 public class ApplicationSpecification {
 

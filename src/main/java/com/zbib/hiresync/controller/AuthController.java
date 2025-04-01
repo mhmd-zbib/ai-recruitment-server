@@ -1,13 +1,14 @@
 package com.zbib.hiresync.controller;
 
-import com.zbib.hiresync.dto.AuthRequest;
-import com.zbib.hiresync.dto.AuthResponse;
-import com.zbib.hiresync.service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.zbib.hiresync.dto.AuthRequest;
+import com.zbib.hiresync.dto.AuthResponse;
+import com.zbib.hiresync.service.AuthService;
 
 @RestController
 @RequestMapping("/v1/auth")

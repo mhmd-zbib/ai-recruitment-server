@@ -1,7 +1,8 @@
 package com.zbib.hiresync.service;
 
-import com.zbib.hiresync.repository.InterviewRepository;
 import org.springframework.stereotype.Service;
+
+import com.zbib.hiresync.repository.InterviewRepository;
 
 @Service
 public class InterviewService {

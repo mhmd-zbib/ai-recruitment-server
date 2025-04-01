@@ -2,17 +2,67 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ master, dev ]
+    branches: [ main, master, dev ]
+    paths-ignore:
+      - '**/*.md'
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'docs/**'
   pull_request:
-    branches: [ master, dev ]
+    branches: [ main, master, dev ]
+    paths-ignore:
+      - '**/*.md'
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'docs/**'
   workflow_dispatch:
+    inputs:
+      full_scan:
+        description: 'Run full security scan'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  MAVEN_OPTS: -Xmx2048m
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
 
 jobs:
-  build:
+  code-quality:
+    name: Code Quality
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+      
+      - name: Make scripts executable
+        run: |
+          chmod +x mvnw
+          find . -type f -name "*.sh" -exec chmod +x {} \;
+      
+      - name: Code style & formatting check
+        run: ./mvnw spotless:check checkstyle:check
+
+      - name: Static code analysis
+        run: ./mvnw pmd:check
+        
+      - name: SpotBugs analysis
+        run: ./mvnw spotbugs:check
+      
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    needs: [code-quality]
     
     services:
-      # PostgreSQL service for integration tests
       postgres:
         image: postgres:16-alpine
         env:
@@ -28,102 +78,110 @@ jobs:
           --health-retries 5
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+      
+      - name: Build with Maven
+        run: ./mvnw -B package -DskipTests
+      
+      - name: Run unit tests
+        run: ./mvnw test
+      
+      - name: Run integration tests
+        run: ./mvnw verify -Dspring.profiles.active=test
         
-    - name: Set up JDK 17
-      uses: actions/setup-java@v3
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: maven
+      - name: Generate JaCoCo report
+        run: ./mvnw jacoco:report
+      
+      - name: Check test coverage
+        run: ./mvnw jacoco:check
+        
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: hiresync-artifacts
+          path: |
+            target/*.jar
+            !target/*-sources.jar
+            !target/*-javadoc.jar
+          retention-days: 5
+          
+      - name: Archive test reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-reports
+          path: |
+            target/site/jacoco/
+            target/surefire-reports/
+          retention-days: 5
+  
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [build-and-test]
+    # Only run detailed security scans on main branches or when manually triggered with full_scan=true
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || inputs.full_scan
     
-    - name: Cache Maven packages
-      uses: actions/cache@v3
-      with:
-        path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+      
+      - name: Dependency check
+        run: ./mvnw org.owasp:dependency-check-maven:check -DskipSystemScope=true
+      
+      - name: SonarCloud Scan
+        if: env.SONAR_TOKEN != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: ./mvnw -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+      
+      - name: Archive security reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-reports
+          path: |
+            target/dependency-check-report.html
+            target/sonar/
+          retention-days: 5
+  
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [build-and-test]
     
-    - name: Make scripts executable
-      run: |
-        chmod +x mvnw
-        find scripts -name "*.sh" -type f -exec chmod +x {} \;
-        find .git-hooks -name "*.sh" -type f -exec chmod +x {} \;
-        
-    - name: Set Git global config for CI
-      run: |
-        git config --global user.name "GitHub Actions"
-        git config --global user.email "actions@github.com"
-    
-    - name: Fix line endings
-      run: |
-        # Run the improved line ending correction script
-        bash .git-hooks/correct-line-endings.sh
-        
-        # Check if any files were modified and need to be committed
-        if ! git diff --quiet; then
-          echo "::warning::Line ending issues detected and fixed. Consider merging these fixes into your branch."
-        fi
-    
-    - name: Build with Maven
-      run: ./mvnw -B package --file pom.xml -DskipTests
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       
-    - name: Run code quality checks
-      run: |
-        # Run quality checks
-        bash scripts/quality/quality-check.sh --quick
-        
-    - name: Run unit tests
-      run: ./mvnw test
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
       
-    - name: Run integration tests
-      run: ./mvnw verify -Dspring.profiles.active=test
+      - name: Build and export Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          tags: hiresync:${{ github.sha }}
+          outputs: type=docker,dest=/tmp/hiresync-image.tar
       
-    - name: Generate JaCoCo report
-      run: ./mvnw jacoco:report
-    
-    - name: Check test coverage
-      run: ./mvnw jacoco:check
-      
-    - name: SonarCloud Scan
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      run: ./mvnw -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
-      if: env.SONAR_TOKEN != ''
-      
-    - name: Check for vulnerabilities
-      run: ./mvnw org.owasp:dependency-check-maven:check
-
-    - name: Build Docker image
-      run: |
-        # Make Docker build script executable
-        chmod +x scripts/build/docker-build.sh
-        
-        # Build Docker image without pushing
-        scripts/build/docker-build.sh --version=ci-test
-      
-    - name: Archive artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: hiresync-artifacts
-        path: |
-          target/*.jar
-          !target/*-sources.jar
-          !target/*-javadoc.jar
-        retention-days: 5
-        
-    - name: Archive code quality results
-      uses: actions/upload-artifact@v3
-      with:
-        name: code-quality-reports
-        path: |
-          target/site/
-          target/spotbugsXml.xml
-          target/checkstyle-result.xml
-          target/dependency-check-report.html
-          target/jacoco.xml
-        retention-days: 5 
+      - name: Archive Docker image
+        uses: actions/upload-artifact@v3
+        with:
+          name: docker-image
+          path: /tmp/hiresync-image.tar
+          retention-days: 1 

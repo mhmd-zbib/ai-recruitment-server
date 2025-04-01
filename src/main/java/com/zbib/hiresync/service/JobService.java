@@ -2,6 +2,13 @@ package com.zbib.hiresync.service;
 
 import static com.zbib.hiresync.builder.JobBuilder.buildJobResponseDTO;
 
+import java.util.UUID;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.zbib.hiresync.builder.JobBuilder;
 import com.zbib.hiresync.dto.JobFilter;
 import com.zbib.hiresync.dto.JobListResponse;
@@ -12,12 +19,8 @@ import com.zbib.hiresync.entity.User;
 import com.zbib.hiresync.exceptions.JobException;
 import com.zbib.hiresync.repository.JobRepository;
 import com.zbib.hiresync.specification.JobSpecification;
-import java.util.UUID;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor

@@ -1,14 +1,7 @@
 package com.zbib.hiresync.controller;
 
-import com.zbib.hiresync.dto.JobFilter;
-import com.zbib.hiresync.dto.JobListResponse;
-import com.zbib.hiresync.dto.JobRequest;
-import com.zbib.hiresync.dto.JobResponse;
-import com.zbib.hiresync.security.UserDetailsImpl;
-import com.zbib.hiresync.service.JobService;
-import jakarta.validation.Valid;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -18,6 +11,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import com.zbib.hiresync.dto.JobFilter;
+import com.zbib.hiresync.dto.JobListResponse;
+import com.zbib.hiresync.dto.JobRequest;
+import com.zbib.hiresync.dto.JobResponse;
+import com.zbib.hiresync.security.UserDetailsImpl;
+import com.zbib.hiresync.service.JobService;
+
+import lombok.RequiredArgsConstructor;
+
+import jakarta.validation.Valid;
 
 /**
  * REST controller for managing job resources. Provides endpoints for creating, retrieving, and

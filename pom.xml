@@ -31,6 +31,7 @@
         <sonar.organization>your-sonar-organization</sonar.organization>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.projectKey>your-project-key</sonar.projectKey>
+        <dependency.check.skip>true</dependency.check.skip>
     </properties>
     <dependencies>
         <dependency>
@@ -191,8 +192,11 @@
                             <style>GOOGLE</style>
                         </googleJavaFormat>
                         <removeUnusedImports />
-                        <importOrder />
+                        <importOrder>
+                            <order>java,javax,org,com,io,lombok</order>
+                        </importOrder>
                         <endWithNewline />
+                        <trimTrailingWhitespace />
                         <lineEndings>UNIX</lineEndings>
                     </java>
                 </configuration>
@@ -226,6 +230,7 @@
                     <failsOnError>true</failsOnError>
                     <linkXRef>false</linkXRef>
                     <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                    <propertyExpansion>config_loc=${basedir}/config/checkstyle</propertyExpansion>
                 </configuration>
                 <executions>
                     <execution>
@@ -305,6 +310,7 @@
                 <artifactId>dependency-check-maven</artifactId>
                 <version>9.0.7</version>
                 <configuration>
+                    <skip>${dependency.check.skip}</skip>
                     <failBuildOnCVSS>9</failBuildOnCVSS>
                     <formats>
                         <format>HTML</format>

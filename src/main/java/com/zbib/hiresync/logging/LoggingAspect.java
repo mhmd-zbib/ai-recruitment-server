@@ -1,10 +1,7 @@
 package com.zbib.hiresync.logging;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zbib.hiresync.exceptions.AppException;
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
@@ -15,6 +12,13 @@ import org.aspectj.lang.annotation.Pointcut;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zbib.hiresync.exceptions.AppException;
+
+import lombok.RequiredArgsConstructor;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 @Aspect
 @Component

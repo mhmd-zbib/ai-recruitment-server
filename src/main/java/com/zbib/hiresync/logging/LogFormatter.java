@@ -1,10 +1,12 @@
 package com.zbib.hiresync.logging;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+
 import org.apache.logging.log4j.ThreadContext;
 import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Component for formatting and structuring log messages. Handles different types of log scenarios

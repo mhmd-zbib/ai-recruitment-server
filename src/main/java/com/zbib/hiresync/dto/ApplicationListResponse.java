@@ -1,9 +1,11 @@
 package com.zbib.hiresync.dto;
 
-import com.zbib.hiresync.enums.ApplicationStatus;
-import com.zbib.hiresync.enums.JobStatus;
 import java.time.LocalDateTime;
 import java.util.UUID;
+
+import com.zbib.hiresync.enums.ApplicationStatus;
+import com.zbib.hiresync.enums.JobStatus;
+
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
