@@ -1,70 +1,65 @@
-# Build stage
-FROM eclipse-temurin:17-jdk-alpine AS build
+FROM maven:3.9-eclipse-temurin-21-jammy AS build
 WORKDIR /app
 
-# Install build dependencies and set up non-root user
-RUN apk add --no-cache maven curl && \
-    addgroup -S appgroup && \
-    adduser -S appuser -G appgroup && \
-    mkdir -p /app/logs && \
-    chown -R appuser:appgroup /app
-
-# Copy Maven configuration first for better layer caching
-COPY --chown=appuser:appgroup pom.xml mvnw* ./
-COPY --chown=appuser:appgroup .mvn ./.mvn
-
-# Download dependencies as a separate layer
-RUN ./mvnw dependency:go-offline -B
+# Copy pom.xml and download dependencies (for layer caching)
+COPY pom.xml ./
+COPY .mvn .mvn
+COPY mvnw mvnw
+RUN --mount=type=cache,target=/root/.m2 ./mvnw dependency:go-offline
 
 # Copy source code
-COPY --chown=appuser:appgroup src ./src
-COPY --chown=appuser:appgroup config ./config
-COPY --chown=appuser:appgroup db ./db
+COPY src ./src
+COPY config ./config
+COPY db ./db
 
-# Switch to non-root user for build
-USER appuser
+# Build application
+ARG SPRING_PROFILES_ACTIVE=prod
+ARG SKIP_TESTS=false
+RUN --mount=type=cache,target=/root/.m2 ./mvnw clean package \
+    -DskipTests=${SKIP_TESTS} \
+    -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE} \
+    -Dmaven.test.skip=${SKIP_TESTS}
 
-# Build the application
-RUN ./mvnw package -DskipTests
+# Runtime image
+FROM eclipse-temurin:21-jre-jammy
 
-# Runtime stage
-FROM eclipse-temurin:17-jre-alpine
+# Set working directory
 WORKDIR /app
 
-# Add labels for better maintainability
-LABEL maintainer="HireSync Team" \
-      description="HireSync AI Recruitment Platform" \
-      version="1.0"
+# Create non-root user for running the application
+RUN groupadd -r hiresync && useradd -r -g hiresync hiresync
 
-# Install runtime dependencies and create non-root user
-RUN apk add --no-cache curl tzdata && \
-    addgroup -S appgroup && \
-    adduser -S appuser -G appgroup && \
-    mkdir -p /app/logs && \
-    chown -R appuser:appgroup /app
+# Set environment variables
+ENV SPRING_PROFILES_ACTIVE=prod \
+    APP_PORT=8080 \
+    ACTUATOR_PORT=8081 \
+    PROMETHEUS_PORT=9090 \
+    TZ=UTC
 
-# Copy the application
-COPY --from=build --chown=appuser:appgroup /app/target/*.jar /app/app.jar
-COPY --chown=appuser:appgroup db/init.sql /app/db/
-COPY --chown=appuser:appgroup docker/entrypoint.sh /app/
+# Copy built jar file
+COPY --from=build /app/target/*.jar /app/app.jar
 
-# Ensure scripts are executable
-RUN chmod +x /app/entrypoint.sh
+# Create directories and set permissions
+RUN mkdir -p /app/logs /app/config \
+    && chown -R hiresync:hiresync /app
 
 # Switch to non-root user
-USER appuser
+USER hiresync
 
-# Expose ports
-EXPOSE 8080
-EXPOSE 5005
-
-# Set sensible JVM defaults
-ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Xms256m -Xmx1024m -XX:+UseG1GC" \
-    SPRING_PROFILES_ACTIVE="prod" \
-    TZ="UTC"
+# Expose ports for external access
+EXPOSE ${APP_PORT} ${ACTUATOR_PORT} ${PROMETHEUS_PORT}
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-  CMD curl -f http://localhost:8080/actuator/health || exit 1
+  CMD curl -f http://localhost:${ACTUATOR_PORT}/actuator/health || exit 1
 
-ENTRYPOINT ["/app/entrypoint.sh"] 
+# Entry point
+ENTRYPOINT ["java", \
+  "-Djava.security.egd=file:/dev/./urandom", \
+  "-XX:+UseG1GC", \
+  "-XX:MaxGCPauseMillis=200", \
+  "-XX:+HeapDumpOnOutOfMemoryError", \
+  "-XX:HeapDumpPath=/app/logs/", \
+  "-Dserver.port=${APP_PORT}", \
+  "-Dmanagement.server.port=${ACTUATOR_PORT}", \
+  "-jar", "/app/app.jar"] 

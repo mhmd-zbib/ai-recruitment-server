@@ -1,0 +1,108 @@
+# Local development environment
+name: hiresync-dev
+
+services:
+  # Database service
+  postgres:
+    image: postgres:16-alpine
+    container_name: hiresync-postgres
+    restart: ${DB_RESTART_POLICY:-unless-stopped}
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    volumes:
+      - ${POSTGRES_VOLUME:-hiresync-postgres-data}:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    environment:
+      POSTGRES_USER: ${DB_USER:-hiresync}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-hiresync}
+      POSTGRES_DB: ${DB_NAME:-hiresync}
+      TZ: ${TZ:-UTC}
+      PGTZ: ${TZ:-UTC}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-hiresync}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres
+        -c shared_buffers=256MB
+        -c max_connections=200
+        -c effective_cache_size=1GB
+        -c work_mem=16MB
+        -c maintenance_work_mem=64MB
+    networks:
+      - ${NETWORK_NAME:-hiresync-network}
+    labels:
+      org.hiresync.component: "database"
+      org.hiresync.environment: "development"
+
+  # Development tools container (JDK + Maven)
+  devtools:
+    image: maven:3.9-eclipse-temurin-21-jammy
+    container_name: hiresync-devtools
+    restart: ${DEVTOOLS_RESTART_POLICY:-no}
+    volumes:
+      - ..:/workspace
+      - ${MAVEN_REPO_VOLUME:-hiresync-maven-repo}:/root/.m2
+      - ~/.gitconfig:/root/.gitconfig:ro
+    working_dir: /workspace
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+      - "127.0.0.1:${DEBUG_PORT:-5006}:5006"
+      - "127.0.0.1:${ACTUATOR_PORT:-8081}:8081"
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    environment:
+      # Pass all environment variables to the container
+      - MAVEN_CONFIG=/root/.m2
+      - JAVA_HOME=/opt/java/openjdk
+      - MAVEN_OPTS=${MAVEN_OPTS:--Xmx1024m}
+      - DEBUG_PORT=${DEBUG_PORT:-5006}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-local}
+      # Database connection from inside container
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${DB_NAME:-hiresync}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-hiresync}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-hiresync}
+      - JDBC_DATABASE_URL=jdbc:postgresql://postgres:5432/${DB_NAME:-hiresync}
+      - JDBC_DATABASE_USERNAME=${DB_USER:-hiresync}
+      - JDBC_DATABASE_PASSWORD=${DB_PASSWORD:-hiresync}
+      # Server ports
+      - SERVER_PORT=${APP_PORT:-8080}
+      - MANAGEMENT_SERVER_PORT=${ACTUATOR_PORT:-8081}
+      - PROMETHEUS_PORT=${PROMETHEUS_PORT:-9090}
+      # JWT 
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-key}
+      - JWT_EXPIRATION=${JWT_EXPIRATION:-86400000}
+      # Logging
+      - LOG_LEVEL_ROOT=${LOG_LEVEL_ROOT:-INFO}
+      - LOG_LEVEL_APP=${LOG_LEVEL_APP:-DEBUG}
+      - LOG_LEVEL_SQL=${LOG_LEVEL_SQL:-DEBUG}
+      - LOG_LEVEL_SQL_PARAMS=${LOG_LEVEL_SQL_PARAMS:-TRACE}
+      # Hibernate configs
+      - JPA_DDL_AUTO=${JPA_DDL_AUTO:-update}
+      # Time zone
+      - TZ=${TZ:-UTC}
+    entrypoint: ["sh", "-c", "tail -f /dev/null"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ${NETWORK_NAME:-hiresync-network}
+    labels:
+      org.hiresync.component: "development-tools"
+      org.hiresync.environment: "development"
+
+# Shared networks
+networks:
+  hiresync-network:
+    name: ${NETWORK_NAME:-hiresync-network}
+    driver: bridge
+    external: true
+
+# Persistent volumes
+volumes:
+  hiresync-postgres-data:
+    name: ${POSTGRES_VOLUME:-hiresync-postgres-data}
+    external: true
+  hiresync-maven-repo:
+    name: ${MAVEN_REPO_VOLUME:-hiresync-maven-repo}
+    external: true

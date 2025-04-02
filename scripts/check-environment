@@ -1,0 +1,376 @@
+#!/bin/bash
+# Bash script to check the local development environment
+
+# Set script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Define colors for output
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+# Create logs directory
+LOGS_DIR="$PROJECT_ROOT/logs"
+mkdir -p "$LOGS_DIR"
+LOG_FILE="$LOGS_DIR/env-check-$(date +%Y%m%d-%H%M%S).log"
+
+# Logging function
+log() {
+    local message="$1"
+    local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
+    echo -e "$message" | tee -a "$LOG_FILE"
+}
+
+log_header() {
+    log "\n${BLUE}${BOLD}$1${NC}"
+    log "${BLUE}${BOLD}$(printf '=%.0s' $(seq 1 ${#1}))${NC}"
+}
+
+log_success() {
+    log "${GREEN}✅ $1${NC}"
+}
+
+log_warning() {
+    log "${YELLOW}⚠️  $1${NC}"
+}
+
+log_error() {
+    log "${RED}❌ $1${NC}"
+}
+
+log_info() {
+    log "${CYAN}ℹ️  $1${NC}"
+}
+
+# Function to load environment variables
+load_env_file() {
+    local env_file="$1"
+    
+    log_header "CHECKING ENVIRONMENT FILE"
+    
+    if [ -f "$env_file" ]; then
+        log_success "Found .env file at $env_file"
+        set -a
+        source "$env_file"
+        set +a
+        return 0
+    else
+        log_error ".env file not found at $env_file"
+        log_info "Creating default .env file from example..."
+        
+        if [ -f "$PROJECT_ROOT/.env.example" ]; then
+            cp "$PROJECT_ROOT/.env.example" "$env_file"
+            log_success "Created default .env file. Please review and update as needed."
+            set -a
+            source "$env_file"
+            set +a
+            return 0
+        else
+            log_error "No .env.example file found. Cannot create default .env file."
+            return 1
+        fi
+    fi
+}
+
+# Function to check Docker
+check_docker() {
+    log_header "CHECKING DOCKER"
+    
+    # Check if docker command is available
+    if ! command -v docker >/dev/null 2>&1; then
+        log_error "Docker is not installed or not in PATH"
+        log_info "Please install Docker: https://docs.docker.com/get-docker/"
+        return 1
+    fi
+    
+    # Check if Docker daemon is running
+    if ! docker info >/dev/null 2>&1; then
+        log_error "Docker daemon is not running"
+        log_info "Please start Docker and try again"
+        return 1
+    fi
+    
+    # Get Docker version
+    local docker_version=$(docker --version 2>/dev/null || echo "Unknown")
+    log_success "Docker is installed and running: $docker_version"
+    
+    return 0
+}
+
+# Function to check Docker Compose
+check_docker_compose() {
+    log_header "CHECKING DOCKER COMPOSE"
+    
+    # Check if docker-compose command is available
+    if ! command -v docker-compose >/dev/null 2>&1; then
+        log_error "Docker Compose is not installed or not in PATH"
+        log_info "Please install Docker Compose: https://docs.docker.com/compose/install/"
+        return 1
+    fi
+    
+    # Get Docker Compose version
+    local compose_version=$(docker-compose --version 2>/dev/null || echo "Unknown")
+    log_success "Docker Compose is installed: $compose_version"
+    
+    return 0
+}
+
+# Function to check docker-compose file
+check_docker_compose_file() {
+    local compose_file="$1"
+    
+    log_header "CHECKING DOCKER COMPOSE FILE"
+    
+    if [ -f "$compose_file" ]; then
+        log_success "Docker Compose file exists at $compose_file"
+        
+        # Validate docker-compose file
+        if docker-compose -f "$compose_file" config >/dev/null 2>&1; then
+            log_success "Docker Compose file is valid"
+        else
+            log_error "Docker Compose file has syntax errors"
+            return 1
+        fi
+        
+        # Check for required services
+        if grep -q "postgres:" "$compose_file"; then
+            log_success "Found PostgreSQL service in Docker Compose file"
+        else
+            log_warning "PostgreSQL service not found in Docker Compose file"
+        fi
+        
+        return 0
+    else
+        log_error "Docker Compose file not found at $compose_file"
+        return 1
+    fi
+}
+
+# Function to check environment variables
+check_env_vars() {
+    log_header "CHECKING ENVIRONMENT VARIABLES"
+    
+    local required_vars=(
+        "DB_HOST" "DB_PORT" "DB_NAME" "DB_USERNAME" "DB_PASSWORD"
+        "SPRING_PROFILES_ACTIVE" "JPA_DDL_AUTO"
+    )
+    
+    local missing_vars=0
+    
+    for var in "${required_vars[@]}"; do
+        if [ -z "${!var}" ]; then
+            log_error "$var is not set"
+            missing_vars=$((missing_vars + 1))
+        else
+            log_success "$var is set to: ${!var}"
+        fi
+    done
+    
+    if [ $missing_vars -gt 0 ]; then
+        log_warning "$missing_vars required environment variables are missing"
+        return 1
+    else
+        log_success "All required environment variables are set"
+        return 0
+    fi
+}
+
+# Function to check Java
+check_java() {
+    log_header "CHECKING JAVA"
+    
+    if command -v java >/dev/null 2>&1; then
+        local java_version=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
+        log_success "Java is installed: $java_version"
+        
+        # Check for minimum Java version (17)
+        if [[ "$java_version" == 17* ]] || [[ "$java_version" == 18* ]] || [[ "$java_version" == 19* ]] || [[ "$java_version" == 20* ]] || [[ "$java_version" == 21* ]]; then
+            log_success "Java version $java_version meets requirements (17+)"
+        else
+            log_warning "Java version $java_version may not be compatible. Java 17+ is recommended."
+        fi
+        
+        return 0
+    else
+        log_error "Java is not installed or not in PATH"
+        log_info "Please install Java 17 or later"
+        return 1
+    fi
+}
+
+# Function to check Maven wrapper
+check_maven() {
+    log_header "CHECKING MAVEN WRAPPER"
+    
+    local mvnw_path="$PROJECT_ROOT/mvnw"
+    if [ -f "$mvnw_path" ]; then
+        if [ -x "$mvnw_path" ]; then
+            log_success "Maven Wrapper is available and executable"
+            
+            # Try to get Maven version
+            local mvn_version=$("$mvnw_path" --version 2>/dev/null | head -n1 | awk '{print $3}' || echo "Unknown")
+            log_success "Maven Wrapper version: $mvn_version"
+        else
+            log_warning "Maven Wrapper exists but is not executable"
+            log_info "Running: chmod +x $mvnw_path"
+            chmod +x "$mvnw_path"
+            log_success "Made Maven Wrapper executable"
+        fi
+        
+        return 0
+    else
+        log_error "Maven Wrapper not found at $mvnw_path"
+        return 1
+    fi
+}
+
+# Function to check Spring Boot configuration
+check_spring_boot_config() {
+    log_header "CHECKING SPRING BOOT CONFIGURATION"
+    
+    local app_yaml="$PROJECT_ROOT/src/main/resources/application.yaml"
+    local app_local_yaml="$PROJECT_ROOT/src/main/resources/application-local.yaml"
+    local config_found=false
+    
+    if [ -f "$app_yaml" ]; then
+        log_success "Found main application.yaml at $app_yaml"
+        config_found=true
+    else
+        log_warning "Main application.yaml not found at $app_yaml"
+    fi
+    
+    if [ -f "$app_local_yaml" ]; then
+        log_success "Found local profile configuration at $app_local_yaml"
+        config_found=true
+        
+        # Check for key configurations in local profile
+        if grep -q "datasource" "$app_local_yaml" && grep -q "jpa" "$app_local_yaml"; then
+            log_success "Local profile contains database configuration"
+        else
+            log_warning "Local profile may be missing database configuration"
+        fi
+    else
+        log_error "Local profile configuration not found at $app_local_yaml"
+    fi
+    
+    if [ "$config_found" = true ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to check database initialization scripts
+check_db_scripts() {
+    log_header "CHECKING DATABASE SCRIPTS"
+    
+    local db_dir="${DB_SCRIPTS_DIR:-$PROJECT_ROOT/db}"
+    
+    if [ -d "$db_dir" ]; then
+        log_success "Database scripts directory exists at $db_dir"
+        
+        local sql_count=$(find "$db_dir" -name "*.sql" | wc -l)
+        
+        if [ "$sql_count" -gt 0 ]; then
+            log_success "Found $sql_count SQL script(s) in $db_dir"
+            return 0
+        else
+            log_warning "No SQL scripts found in $db_dir"
+            return 1
+        fi
+    else
+        log_warning "Database scripts directory not found at $db_dir"
+        log_info "Creating directory: $db_dir"
+        mkdir -p "$db_dir"
+        return 1
+    fi
+}
+
+# Function to check network ports
+check_ports() {
+    log_header "CHECKING NETWORK PORTS"
+    
+    local app_port=${PORT:-8080}
+    local db_port=${DB_PORT:-5544}
+    
+    log_info "Checking if port $app_port (application) is available..."
+    if netstat -tuln 2>/dev/null | grep -q ":$app_port "; then
+        log_warning "Port $app_port is already in use"
+    else
+        log_success "Port $app_port is available for use"
+    fi
+    
+    log_info "Checking if port $db_port (database) is available..."
+    if netstat -tuln 2>/dev/null | grep -q ":$db_port "; then
+        log_warning "Port $db_port is already in use"
+        log_info "If it's already used by HireSync database, this is normal"
+    else
+        log_success "Port $db_port is available for use"
+    fi
+    
+    return 0
+}
+
+# Main function
+main() {
+    log_header "HIRESYNC ENVIRONMENT CHECK"
+    log_info "Date/Time: $(date)"
+    log_info "User: $(whoami)"
+    log_info "System: $(uname -a)"
+    log_info "Project directory: $PROJECT_ROOT"
+    
+    # Load environment variables
+    load_env_file "$PROJECT_ROOT/.env"
+    
+    # Perform all checks
+    check_docker
+    docker_status=$?
+    
+    check_docker_compose
+    compose_status=$?
+    
+    check_docker_compose_file "$PROJECT_ROOT/docker/docker-compose.local.yaml"
+    compose_file_status=$?
+    
+    check_env_vars
+    env_status=$?
+    
+    check_java
+    java_status=$?
+    
+    check_maven
+    maven_status=$?
+    
+    check_spring_boot_config
+    spring_status=$?
+    
+    check_db_scripts
+    db_scripts_status=$?
+    
+    check_ports
+    ports_status=$?
+    
+    # Print summary
+    log_header "ENVIRONMENT CHECK SUMMARY"
+    
+    if [ $docker_status -eq 0 ] && [ $compose_status -eq 0 ] && [ $compose_file_status -eq 0 ] && 
+       [ $env_status -eq 0 ] && [ $java_status -eq 0 ] && [ $maven_status -eq 0 ] && 
+       [ $spring_status -eq 0 ] && [ $db_scripts_status -eq 0 ]; then
+        log_success "All checks passed! Your environment is ready for local development."
+        log_info "Log file: $LOG_FILE"
+        log_info "To start the application, run: ./scripts/run-local.sh"
+        return 0
+    else
+        log_warning "Some checks failed. Please fix the issues mentioned above."
+        log_info "Log file: $LOG_FILE"
+        return 1
+    fi
+}
+
+# Run the main function
+main 

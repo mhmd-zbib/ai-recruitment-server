@@ -1,0 +1,222 @@
+#!/bin/bash
+# HireSync CLI - Direct launcher for development environment
+# Provides direct access to all development commands
+
+# Set script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Define colors for output
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+# Function to display help
+show_help() {
+    echo -e "${BOLD}HireSync Development Environment CLI${NC}"
+    echo -e "Usage: ./hiresync ${CYAN}<command>${NC}"
+    echo
+    echo -e "Available commands:"
+    echo -e "  ${CYAN}start${NC}       Start local development environment"
+    echo -e "  ${CYAN}stop${NC}        Stop local development environment"
+    echo -e "  ${CYAN}restart${NC}     Restart local development environment"
+    echo -e "  ${CYAN}status${NC}      Check status of components"
+    echo -e "  ${CYAN}check${NC}       Run environment check"
+    echo -e "  ${CYAN}logs${NC}        View PostgreSQL logs"
+    echo -e "  ${CYAN}devlogs${NC}     View Development Tools logs"
+    echo -e "  ${CYAN}psql${NC}        Open PostgreSQL terminal"
+    echo -e "  ${CYAN}run${NC}         Run the application directly (not in container) with .env variables"
+    echo -e "  ${CYAN}postgres${NC}    Start only the PostgreSQL container"
+    echo -e "  ${CYAN}maven${NC}       Run Maven commands in the development container"
+    echo -e "  ${CYAN}bash${NC}        Open bash shell in the development container"
+    echo -e "  ${CYAN}clean${NC}       Remove all data (WARNING: destructive)"
+    echo -e "  ${CYAN}help${NC}        Show this help message"
+    echo
+    echo -e "Examples:"
+    echo -e "  ./hiresync start        Start the development environment"
+    echo -e "  ./hiresync maven test   Run Maven tests in development container"
+    echo -e "  ./hiresync run          Run application directly with .env variables"
+    echo -e "  ./hiresync postgres     Start only the PostgreSQL container"
+    echo
+}
+
+# Main function
+main() {
+    case "$1" in
+        start)
+            "$SCRIPT_DIR/scripts/run-local.sh"
+            ;;
+        stop)
+            "$SCRIPT_DIR/scripts/stop-local.sh"
+            ;;
+        restart)
+            echo -e "${BOLD}Restarting HireSync development environment...${NC}"
+            "$SCRIPT_DIR/scripts/stop-local.sh"
+            echo -e "\n${CYAN}Waiting for services to stop completely...${NC}"
+            sleep 3
+            "$SCRIPT_DIR/scripts/run-local.sh"
+            ;;
+        status)
+            echo -e "${BOLD}Checking HireSync development environment status...${NC}"
+            
+            # Check Docker status
+            echo -e "\n${CYAN}Docker Container Status:${NC}"
+            docker ps --filter "name=hiresync"
+            
+            # Check application port
+            local app_port=${APP_PORT:-8080}
+            echo -e "\n${CYAN}Application Port Status (${app_port}):${NC}"
+            if command -v netstat &> /dev/null; then
+                netstat -tuln | grep ${app_port} || echo "No process using port ${app_port}"
+            elif command -v ss &> /dev/null; then
+                ss -tuln | grep ${app_port} || echo "No process using port ${app_port}"
+            else
+                echo "Cannot check port status. Please install netstat or ss."
+            fi
+            
+            # Show Docker volumes
+            echo -e "\n${CYAN}Docker Volumes:${NC}"
+            docker volume ls --filter "name=hiresync"
+            
+            echo -e "\n${GREEN}Status check completed${NC}"
+            ;;
+        check)
+            "$SCRIPT_DIR/scripts/check-environment.sh"
+            ;;
+        logs)
+            echo -e "${BOLD}Viewing PostgreSQL logs...${NC}"
+            docker logs -f hiresync-postgres
+            ;;
+        devlogs)
+            echo -e "${BOLD}Viewing Development Tools logs...${NC}"
+            docker logs -f hiresync-devtools
+            ;;
+        run)
+            echo -e "${BOLD}Running application directly with .env variables...${NC}"
+            
+            # Check OS type to determine which script to run
+            if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+                # Windows
+                powershell.exe -ExecutionPolicy Bypass -File "$SCRIPT_DIR/scripts/run-app.ps1"
+            else
+                # Linux/macOS
+                "$SCRIPT_DIR/scripts/run-app.sh"
+            fi
+            ;;
+        postgres)
+            echo -e "${BOLD}Starting PostgreSQL container only...${NC}"
+            
+            # Check OS type to determine which script to run
+            if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "win32" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+                # Windows
+                powershell.exe -ExecutionPolicy Bypass -File "$SCRIPT_DIR/scripts/start-postgres.ps1"
+            else
+                # Linux/macOS
+                "$SCRIPT_DIR/scripts/start-postgres.sh"
+            fi
+            ;;
+        psql)
+            echo -e "${BOLD}Opening PostgreSQL terminal...${NC}"
+            
+            # Load environment variables or use defaults
+            if [ -f "$SCRIPT_DIR/.env" ]; then
+                set -a
+                source "$SCRIPT_DIR/.env"
+                set +a
+            else
+                export DB_USER=${DB_USER:-hiresync}
+                export DB_NAME=${DB_NAME:-hiresync}
+            fi
+            
+            # Check if container is running
+            if ! docker ps --filter "name=hiresync-postgres" | grep -q "hiresync-postgres"; then
+                echo -e "${RED}Error: PostgreSQL container is not running${NC}"
+                exit 1
+            fi
+            
+            # Open PostgreSQL terminal
+            docker exec -it hiresync-postgres psql -U "$DB_USER" -d "$DB_NAME"
+            ;;
+        maven)
+            echo -e "${BOLD}Running Maven command in development container...${NC}"
+            
+            # Check if container is running
+            if ! docker ps --filter "name=hiresync-devtools" | grep -q "hiresync-devtools"; then
+                echo -e "${YELLOW}Development container is not running, starting it...${NC}"
+                "$SCRIPT_DIR/scripts/run-local.sh" --dev-only
+                
+                if [ $? -ne 0 ]; then
+                    echo -e "${RED}Failed to start development container${NC}"
+                    exit 1
+                fi
+            fi
+            
+            # The rest of the arguments are passed to Maven
+            if [ $# -lt 2 ]; then
+                echo -e "${YELLOW}No Maven command specified. Usage: ./hiresync maven <command>${NC}"
+                echo -e "Examples:"
+                echo -e "  ./hiresync maven clean install"
+                echo -e "  ./hiresync maven test"
+                exit 1
+            fi
+            
+            # Remove the first argument (which is 'maven')
+            shift
+            
+            echo -e "${CYAN}Executing: mvn $@${NC}"
+            docker exec -it hiresync-devtools sh -c "cd /workspace && ./mvnw $@"
+            ;;
+        bash)
+            echo -e "${BOLD}Opening bash shell in development container...${NC}"
+            
+            # Check if container is running
+            if ! docker ps --filter "name=hiresync-devtools" | grep -q "hiresync-devtools"; then
+                echo -e "${YELLOW}Development container is not running, starting it...${NC}"
+                "$SCRIPT_DIR/scripts/run-local.sh" --dev-only
+                
+                if [ $? -ne 0 ]; then
+                    echo -e "${RED}Failed to start development container${NC}"
+                    exit 1
+                fi
+            fi
+            
+            docker exec -it hiresync-devtools bash
+            ;;
+        clean)
+            echo -e "${RED}${BOLD}WARNING: This will remove all data from your development environment!${NC}"
+            echo -e "${RED}All database data will be lost!${NC}"
+            read -p "Are you sure you want to continue? (y/N) " confirm
+            
+            if [[ $confirm =~ ^[Yy]$ ]]; then
+                echo -e "${YELLOW}Stopping containers...${NC}"
+                "$SCRIPT_DIR/scripts/stop-local.sh"
+                
+                echo -e "${YELLOW}Removing PostgreSQL data volume...${NC}"
+                docker volume rm hiresync-postgres-data
+                
+                echo -e "${GREEN}Environment cleaned successfully${NC}"
+            else
+                echo -e "${CYAN}Operation cancelled${NC}"
+            fi
+            ;;
+        help|--help|-h)
+            show_help
+            ;;
+        *)
+            echo -e "${RED}Unknown command: $1${NC}"
+            show_help
+            exit 1
+            ;;
+    esac
+}
+
+# Run main function with all arguments
+if [ $# -eq 0 ]; then
+    show_help
+    exit 0
+fi
+
+main "$@" 

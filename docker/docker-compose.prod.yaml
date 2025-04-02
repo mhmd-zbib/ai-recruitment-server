@@ -4,86 +4,65 @@ version: '3.8'
 services:
   # Use managed database in production
   postgres:
-    ports: []  # Remove port exposure in production
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: '2G'
+    image: postgres:16-alpine
+    container_name: hiresync-postgres
+    restart: ${DB_RESTART_POLICY:-always}
+    environment:
+      POSTGRES_USER: ${DB_USER:-hiresync}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-hiresync}
+      POSTGRES_DB: ${DB_NAME:-hiresync}
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      # No init scripts mounted in production - DB should be managed separately
-    command: >
-      -c 'max_connections=300'
-      -c 'shared_buffers=256MB'
-      -c 'effective_cache_size=1GB'
-      -c 'work_mem=32MB'
-      -c 'maintenance_work_mem=256MB'
-      -c 'synchronous_commit=on'
-      -c 'wal_level=replica'
-      -c 'log_statement=ddl'
-      -c 'log_duration=off'
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "5"
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-hiresync}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    networks:
+      - hiresync-network
 
   # Production app config 
   app:
     image: ${REGISTRY:-ghcr.io}/${REPO_OWNER:-zbib}/${IMAGE_NAME:-hiresync}:${IMAGE_TAG:-latest}
-    ports:
-      - "${APP_PORT:-8080}:8080"  # Public port exposure via proxy
+    container_name: hiresync-app
+    restart: ${APP_RESTART_POLICY:-always}
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      # Set PRODUCTION mode explicitly 
-      SPRING_PROFILES_ACTIVE: prod
-      
-      # Disable debug mode in production
-      DEBUG_ENABLED: "false"
-      
-      # Production JVM settings
-      JAVA_OPTS: "-Xms512m -Xmx2048m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/app/logs/"
-      
-      # Additional production settings
-      APP_LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    deploy:
-      replicas: ${APP_REPLICAS:-2}
-      update_config:
-        parallelism: 1
-        delay: 10s
-        order: start-first
-        failure_action: rollback
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      resources:
-        limits:
-          cpus: '4'
-          memory: '4G'
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${DB_NAME:-hiresync}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-hiresync}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-hiresync}
+      - SERVER_PORT=${APP_PORT:-8080}
+      - MANAGEMENT_SERVER_PORT=${ACTUATOR_PORT:-8081}
+      - JAVA_OPTS=${JAVA_OPTS:--Xms512m -Xmx2g}
+      - TZ=${TZ:-UTC}
+    ports:
+      - "${APP_PORT:-8080}:8080"
+      - "${ACTUATOR_PORT:-8081}:8081"
     healthcheck:
-      interval: 60s
-      timeout: 15s
-      retries: 5
-      start_period: 90s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "200m"
-        max-file: "10"
+      test: ["CMD", "curl", "-f", "http://localhost:${ACTUATOR_PORT:-8081}/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - app-logs:/app/logs
+    networks:
+      - hiresync-network
 
 # Configure volume backup
 volumes:
   postgres-data:
-    name: ${VOLUME_PREFIX:-hiresync-prod}-postgres-data
+    name: ${POSTGRES_VOLUME:-hiresync-postgres-data}
   app-logs:
-    name: ${VOLUME_PREFIX:-hiresync-prod}-app-logs
+    name: hiresync-app-logs
 
 networks:
   hiresync-network:
-    driver: bridge
-
-volumes:
-  postgres-data:
-  app-logs: 
+    name: ${NETWORK_NAME:-hiresync-network}
+    driver: bridge 
