@@ -26,7 +26,7 @@ echo -e "${BLUE}To Git hooks directory: ${HOOKS_DIR}${NC}"
 mkdir -p "$HOOKS_DIR"
 
 # Get list of hooks to install
-HOOKS=$(find "$SCRIPT_DIR" -type f -not -path "*/\.*" -not -name "install.sh" -not -name "README.md")
+HOOKS=$(find "$SCRIPT_DIR" -type f -not -path "*/\.*" -not -name "install.sh" -not -name "install.cmd" -not -name "README.md")
 
 # Install each hook
 for HOOK_PATH in $HOOKS; do
@@ -44,16 +44,13 @@ for HOOK_PATH in $HOOKS; do
     echo -e "${GREEN}Successfully installed: ${HOOK_NAME}${NC}"
 done
 
-# Create a symlink to the hook directory for easier access
-if [ -L "$GIT_DIR/hooks.local" ]; then
-    rm "$GIT_DIR/hooks.local"
-fi
-ln -s "$SCRIPT_DIR" "$GIT_DIR/hooks.local"
+# Configure Git to use core.hooksPath
+git config core.hooksPath "$HOOKS_DIR"
+
+# Create a marker file instead of a symlink
+echo "This file indicates that Git hooks are installed from $SCRIPT_DIR" > "$GIT_DIR/hooks.installed"
 
 echo -e "${GREEN}Git hooks installation completed!${NC}"
 echo -e "${YELLOW}Note: To bypass hooks temporarily, use: GIT_BYPASS_HOOKS=1 git commit/push${NC}"
-
-# Configure Git to use core.hooksPath
-git config core.hooksPath "$HOOKS_DIR"
 
 exit 0 

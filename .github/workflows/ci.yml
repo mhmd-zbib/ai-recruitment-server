@@ -49,13 +49,80 @@ jobs:
           find . -type f -name "*.sh" -exec chmod +x {} \;
       
       - name: Code style & formatting check
+        id: style-check
         run: ./mvnw spotless:check checkstyle:check
+        continue-on-error: true
+        
+      - name: Generate Checkstyle Report
+        if: steps.style-check.outcome == 'failure'
+        run: ./mvnw checkstyle:checkstyle -Dcheckstyle.skip=false
+        continue-on-error: true
+        
+      - name: Archive Checkstyle Report
+        if: steps.style-check.outcome == 'failure'
+        uses: actions/upload-artifact@v3
+        with:
+          name: checkstyle-report
+          path: target/site/checkstyle*.html
+          retention-days: 7
 
-      - name: Static code analysis
+      - name: Static code analysis with PMD
+        id: pmd-check
         run: ./mvnw pmd:check
+        continue-on-error: true
+        
+      - name: Generate PMD Report
+        if: steps.pmd-check.outcome == 'failure'
+        run: ./mvnw pmd:pmd
+        continue-on-error: true
+        
+      - name: Archive PMD Report
+        if: steps.pmd-check.outcome == 'failure'
+        uses: actions/upload-artifact@v3
+        with:
+          name: pmd-report
+          path: target/site/pmd*.html
+          retention-days: 7
         
       - name: SpotBugs analysis
+        id: spotbugs-check
         run: ./mvnw spotbugs:check
+        continue-on-error: true
+        
+      - name: Generate SpotBugs Report
+        if: steps.spotbugs-check.outcome == 'failure'
+        run: ./mvnw spotbugs:spotbugs
+        continue-on-error: true
+        
+      - name: Archive SpotBugs Report
+        if: steps.spotbugs-check.outcome == 'failure'
+        uses: actions/upload-artifact@v3
+        with:
+          name: spotbugs-report
+          path: target/spotbugsXml.xml
+          retention-days: 7
+          
+      - name: Check for code duplication
+        id: cpd-check
+        run: ./mvnw cpd:check
+        continue-on-error: true
+        
+      - name: Fail if critical checks didn't pass
+        if: |
+          steps.style-check.outcome == 'failure' || 
+          steps.spotbugs-check.outcome == 'failure'
+        run: |
+          echo "::error::Critical code quality checks failed. Please fix the issues before merging."
+          echo "::error::See uploaded reports for details."
+          exit 1
+          
+      - name: Warn if non-critical checks didn't pass
+        if: |
+          steps.pmd-check.outcome == 'failure' || 
+          steps.cpd-check.outcome == 'failure'
+        run: |
+          echo "::warning::Some code quality checks have warnings. Consider addressing them."
+          echo "::warning::See uploaded reports for details."
       
   build-and-test:
     name: Build and Test

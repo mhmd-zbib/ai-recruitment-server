@@ -36,15 +36,18 @@ if not exist "%HOOKS_DIR%" mkdir "%HOOKS_DIR%"
 :: Install each hook
 for %%f in ("%SCRIPT_DIR%\*") do (
     set "FILENAME=%%~nxf"
-    if not "!FILENAME!"=="install.cmd" if not "!FILENAME!"=="install.sh" if not "!FILENAME!"=="README.md" (
+    if not "!FILENAME!"=="install.cmd" if not "!FILENAME!"=="install.sh" if not "!FILENAME!"=="README.md" if not "!FILENAME!"==".git" (
         echo %BLUE%Installing hook: !FILENAME!%NC%
         copy /Y "%%f" "%HOOKS_DIR%\!FILENAME!" > nul
         echo %GREEN%Successfully installed: !FILENAME!%NC%
     )
 )
 
-:: Configure Git to use core.hooksPath
+:: Configure Git to use core.hooksPath instead of symlink
 git config core.hooksPath "%HOOKS_DIR%"
+
+:: Create a marker file instead of a symlink
+echo This file indicates that Git hooks are installed from %SCRIPT_DIR% > "%GIT_DIR%\hooks.installed"
 
 echo %GREEN%Git hooks installation completed!%NC%
 echo %YELLOW%Note: To bypass hooks temporarily, use: set "GIT_BYPASS_HOOKS=1" before git commit/push%NC%
