@@ -7,7 +7,10 @@ set -e
 
 # Determine script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+
+# Change to project root directory to ensure all relative paths work
+cd "$PROJECT_ROOT"
 
 # Colors for output
 RED='\033[0;31m'
@@ -80,6 +83,13 @@ if [ -n "$SKIP_PRECOMMIT_HOOK" ] || [ -n "$GIT_BYPASS_HOOKS" ]; then
   exit 0
 fi
 
+# Verify we're in the project root with pom.xml
+if [ ! -f "pom.xml" ]; then
+  echo -e "${RED}Error: pom.xml not found in project root: $PROJECT_ROOT${NC}"
+  echo -e "${YELLOW}Make sure you're running this hook from the correct repository.${NC}"
+  exit 1
+fi
+
 # Get list of staged files
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(java|xml|properties|yml|yaml)$' || true)
 
@@ -103,6 +113,8 @@ if [ -z "$MVN_CMD" ]; then
   echo -e "${YELLOW}Use git commit --no-verify to bypass this check if needed.${NC}"
   exit 1
 fi
+
+echo -e "${BLUE}Running checks from: ${PROJECT_ROOT}${NC}"
 
 # Create a temp file with list of staged files (shared across checks)
 STAGED_FILES_LIST=$(mktemp)

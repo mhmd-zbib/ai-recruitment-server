@@ -33,20 +33,28 @@ echo %BLUE%To Git hooks directory: %HOOKS_DIR%%NC%
 :: Create hooks directory if it doesn't exist
 if not exist "%HOOKS_DIR%" mkdir "%HOOKS_DIR%"
 
-:: Install each hook
+:: Install each hook with Windows wrapper
 for %%f in ("%SCRIPT_DIR%\*") do (
     set "FILENAME=%%~nxf"
     if not "!FILENAME!"=="install.cmd" if not "!FILENAME!"=="install.sh" if not "!FILENAME!"=="README.md" if not "!FILENAME!"==".git" (
         echo %BLUE%Installing hook: !FILENAME!%NC%
-        copy /Y "%%f" "%HOOKS_DIR%\!FILENAME!" > nul
-        echo %GREEN%Successfully installed: !FILENAME!%NC%
+        
+        :: Copy the bash script with .sh extension
+        copy /Y "%%f" "%HOOKS_DIR%\!FILENAME!.sh" > nul
+        
+        :: Create a Windows batch file wrapper
+        echo @echo off > "%HOOKS_DIR%\!FILENAME!"
+        echo bash "%%~dp0!FILENAME!.sh" %%* >> "%HOOKS_DIR%\!FILENAME!"
+        echo exit /b %%ERRORLEVEL%% >> "%HOOKS_DIR%\!FILENAME!"
+        
+        echo %GREEN%Successfully installed: !FILENAME! with Windows wrapper%NC%
     )
 )
 
-:: Configure Git to use core.hooksPath instead of symlink
+:: Configure Git to use core.hooksPath
 git config core.hooksPath "%HOOKS_DIR%"
 
-:: Create a marker file instead of a symlink
+:: Create a marker file
 echo This file indicates that Git hooks are installed from %SCRIPT_DIR% > "%GIT_DIR%\hooks.installed"
 
 echo %GREEN%Git hooks installation completed!%NC%

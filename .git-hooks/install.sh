@@ -25,6 +25,13 @@ echo -e "${BLUE}To Git hooks directory: ${HOOKS_DIR}${NC}"
 # Create hooks directory if it doesn't exist
 mkdir -p "$HOOKS_DIR"
 
+# Detect platform (Windows or Unix)
+IS_WINDOWS=false
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OSTYPE" == "cygwin" ]]; then
+    IS_WINDOWS=true
+    echo -e "${YELLOW}Windows platform detected. Creating batch file wrappers.${NC}"
+fi
+
 # Get list of hooks to install
 HOOKS=$(find "$SCRIPT_DIR" -type f -not -path "*/\.*" -not -name "install.sh" -not -name "install.cmd" -not -name "README.md")
 
@@ -35,19 +42,31 @@ for HOOK_PATH in $HOOKS; do
     
     echo -e "${BLUE}Installing hook: ${HOOK_NAME}${NC}"
     
-    # Copy hook file
-    cp "$HOOK_PATH" "$TARGET_PATH"
-    
-    # Make executable
-    chmod +x "$TARGET_PATH"
-    
-    echo -e "${GREEN}Successfully installed: ${HOOK_NAME}${NC}"
+    if [ "$IS_WINDOWS" = true ]; then
+        # On Windows, create a wrapper script setup
+        # Copy the bash script with .sh extension
+        cp "$HOOK_PATH" "$HOOKS_DIR/$HOOK_NAME.sh"
+        chmod +x "$HOOKS_DIR/$HOOK_NAME.sh"
+        
+        # Create a batch file wrapper
+        cat > "$TARGET_PATH" << EOF
+@echo off
+bash "%~dp0$HOOK_NAME.sh" %*
+exit /b %ERRORLEVEL%
+EOF
+        echo -e "${GREEN}Successfully installed: ${HOOK_NAME} with Windows wrapper${NC}"
+    else
+        # On Unix, just copy the script directly
+        cp "$HOOK_PATH" "$TARGET_PATH"
+        chmod +x "$TARGET_PATH"
+        echo -e "${GREEN}Successfully installed: ${HOOK_NAME}${NC}"
+    fi
 done
 
 # Configure Git to use core.hooksPath
 git config core.hooksPath "$HOOKS_DIR"
 
-# Create a marker file instead of a symlink
+# Create a marker file
 echo "This file indicates that Git hooks are installed from $SCRIPT_DIR" > "$GIT_DIR/hooks.installed"
 
 echo -e "${GREEN}Git hooks installation completed!${NC}"
