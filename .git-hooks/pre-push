@@ -10,9 +10,11 @@ GREEN="\033[0;32m"
 YELLOW="\033[0;33m"
 RED="\033[0;31m"
 BLUE="\033[0;34m"
+CYAN="\033[0;36m"
+BOLD="\033[1m"
 NC="\033[0m"
 
-echo -e "${BLUE}========== HireSync Pre-Push Hook ==========${NC}"
+echo -e "${BLUE}${BOLD}========== HireSync Pre-Push Quality Gate ==========${NC}"
 
 # Get repository root
 REPO_ROOT=$(git rev-parse --show-toplevel)
@@ -40,10 +42,99 @@ fi
 # Identify if target is a protected branch
 if [[ "$TARGET_BRANCH" == "main" || "$TARGET_BRANCH" == "master" || "$TARGET_BRANCH" == "dev" || "$TARGET_BRANCH" =~ ^release/.*$ ]]; then
   PROTECTED_BRANCH=true
-  echo -e "${BLUE}Pushing to protected branch: ${TARGET_BRANCH}${NC}"
+  echo -e "${BLUE}${BOLD}Pushing to protected branch: ${TARGET_BRANCH}${NC}"
 else
   PROTECTED_BRANCH=false
 fi
+
+# Function to find Java in common locations
+find_java() {
+  # Check for JAVA_HOME environment variable
+  if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+    echo "$JAVA_HOME/bin/java"
+    return 0
+  fi
+  
+  # Check if java is in PATH
+  if command -v java >/dev/null 2>&1; then
+    echo "java"
+    return 0
+  fi
+  
+  # Common installation directories on different OSes
+  local common_locations=(
+    "/usr/bin/java"
+    "/usr/local/bin/java"
+    "/opt/jdk/bin/java"
+    "/Library/Java/JavaVirtualMachines/*/Contents/Home/bin/java"
+    "C:/Program Files/Java/*/bin/java.exe"
+    "C:/Program Files (x86)/Java/*/bin/java.exe"
+  )
+  
+  for location in "${common_locations[@]}"; do
+    # Handle wildcards
+    if [[ "$location" == *"*"* ]]; then
+      for path in $location; do
+        if [ -x "$path" ]; then
+          echo "$path"
+          return 0
+        fi
+      done
+    elif [ -x "$location" ]; then
+      echo "$location"
+      return 0
+    fi
+  done
+  
+  return 1
+}
+
+# Function to find Maven in common locations
+find_maven() {
+  # Check for Maven wrapper in project
+  if [ -f "$REPO_ROOT/mvnw" ]; then
+    echo "$REPO_ROOT/mvnw"
+    return 0
+  }
+  
+  # Check for M2_HOME environment variable
+  if [ -n "$M2_HOME" ] && [ -x "$M2_HOME/bin/mvn" ]; then
+    echo "$M2_HOME/bin/mvn"
+    return 0
+  }
+  
+  # Check if mvn is in PATH
+  if command -v mvn >/dev/null 2>&1; then
+    echo "mvn"
+    return 0
+  }
+  
+  # Common installation directories
+  local common_locations=(
+    "/usr/bin/mvn"
+    "/usr/local/bin/mvn"
+    "/opt/maven/bin/mvn"
+    "C:/Program Files/Apache Maven/*/bin/mvn.cmd"
+    "C:/Program Files (x86)/Apache Maven/*/bin/mvn.cmd"
+  )
+  
+  for location in "${common_locations[@]}"; do
+    # Handle wildcards
+    if [[ "$location" == *"*"* ]]; then
+      for path in $location; do
+        if [ -x "$path" ]; then
+          echo "$path"
+          return 0
+        fi
+      done
+    elif [ -x "$location" ]; then
+      echo "$location"
+      return 0
+    fi
+  done
+  
+  return 1
+}
 
 # Get changed files
 if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
@@ -69,6 +160,26 @@ if [ "$COMMIT_COUNT" -gt 10 ] 2>/dev/null; then
   echo -e "${YELLOW}You're pushing $COMMIT_COUNT commits. Consider smaller, focused pushes.${NC}"
 fi
 
+# Find Java and Maven
+JAVA_CMD=$(find_java)
+if [ -z "$JAVA_CMD" ]; then
+  echo -e "${RED}Java not found. Cannot run quality checks.${NC}"
+  echo -e "${YELLOW}Please install Java or configure JAVA_HOME.${NC}"
+  echo -e "${YELLOW}To bypass temporarily: GIT_BYPASS_HOOKS=1 git push${NC}"
+  exit 1
+fi
+
+MVN_CMD=$(find_maven)
+if [ -z "$MVN_CMD" ]; then
+  echo -e "${RED}Maven not found. Cannot run quality checks.${NC}"
+  echo -e "${YELLOW}Please install Maven or configure M2_HOME.${NC}"
+  echo -e "${YELLOW}To bypass temporarily: GIT_BYPASS_HOOKS=1 git push${NC}"
+  exit 1
+fi
+
+echo -e "${BLUE}Using Java: $JAVA_CMD${NC}"
+echo -e "${BLUE}Using Maven: $MVN_CMD${NC}"
+
 # Maven command function
 run_maven() {
   local cmd="$1"
@@ -77,13 +188,7 @@ run_maven() {
   
   echo -e "${BLUE}Running: ${desc}${NC}"
   
-  if [ -f "./mvnw" ]; then
-    ./mvnw -q $cmd
-  else
-    mvn -q $cmd
-  fi
-  
-  if [ $? -ne 0 ]; then
+  if ! "$MVN_CMD" -q $cmd; then
     if [ "$required" = "true" ]; then
       echo -e "${RED}ERROR: ${desc} failed${NC}"
       echo -e "${YELLOW}Fix the issues before pushing.${NC}"
@@ -94,29 +199,38 @@ run_maven() {
     fi
   fi
   
-  echo -e "${GREEN}${desc} passed${NC}"
+  echo -e "${GREEN}✓ ${desc} passed${NC}"
   return 0
 }
 
 # Always run basic checks
-echo -e "${BLUE}Running code quality checks...${NC}"
-
-# Spotless formatting check
+echo -e "\n${CYAN}${BOLD}[1/4]${NC} ${BLUE}Checking code formatting...${NC}"
 run_maven "spotless:check" "Code formatting check" true || exit 1
 
-# Compilation check
+echo -e "\n${CYAN}${BOLD}[2/4]${NC} ${BLUE}Running compilation check...${NC}"
 run_maven "compile" "Compilation check" true || exit 1
 
 # For protected branches, run additional checks
 if [ "$PROTECTED_BRANCH" = "true" ]; then
-  echo -e "${BLUE}Running comprehensive checks for protected branch...${NC}"
+  echo -e "\n${CYAN}${BOLD}[3/4]${NC} ${BLUE}Running code style check...${NC}"
+  run_maven "checkstyle:check -Dcheckstyle.skip=false" "Code style check" true || exit 1
   
-  # Checkstyle 
-  run_maven "checkstyle:check" "Code style check" true || exit 1
-  
-  # Tests
+  echo -e "\n${CYAN}${BOLD}[4/4]${NC} ${BLUE}Running unit tests...${NC}"
   run_maven "test -Dspring.profiles.active=test" "Unit tests" true || exit 1
+  
+  # Optional: Run additional checks for protected branches
+  if [ "$TARGET_BRANCH" == "main" ] || [ "$TARGET_BRANCH" == "master" ]; then
+    echo -e "\n${CYAN}${BOLD}[EXTRA]${NC} ${BLUE}Running security checks...${NC}"
+    run_maven "dependency-check:check -Ddependency.check.skip=false" "Security check" false
+    
+    echo -e "\n${CYAN}${BOLD}[EXTRA]${NC} ${BLUE}Running static code analysis...${NC}"
+    run_maven "pmd:check -Dpmd.skip=false" "Static analysis" false
+  fi
+else
+  echo -e "\n${YELLOW}Skipping additional quality checks for non-protected branch.${NC}"
+  echo -e "${YELLOW}Consider running full validation before merging to protected branches.${NC}"
 fi
 
-echo -e "${GREEN}✅ All pre-push checks passed!${NC}"
+echo -e "\n${GREEN}${BOLD}✅ All pre-push quality checks passed!${NC}"
+echo -e "${BLUE}Your code meets the quality standards for pushing to ${TARGET_BRANCH}.${NC}"
 exit 0 

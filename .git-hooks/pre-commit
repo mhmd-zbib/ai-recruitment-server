@@ -25,10 +25,99 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
+# Function to find Java in common locations
+find_java() {
+  # Check for JAVA_HOME environment variable
+  if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+    echo "$JAVA_HOME/bin/java"
+    return 0
+  fi
+  
+  # Check if java is in PATH
+  if command_exists java; then
+    echo "java"
+    return 0
+  fi
+  
+  # Common installation directories on different OSes
+  local common_locations=(
+    "/usr/bin/java"
+    "/usr/local/bin/java"
+    "/opt/jdk/bin/java"
+    "/Library/Java/JavaVirtualMachines/*/Contents/Home/bin/java"
+    "C:/Program Files/Java/*/bin/java.exe"
+    "C:/Program Files (x86)/Java/*/bin/java.exe"
+  )
+  
+  for location in "${common_locations[@]}"; do
+    # Handle wildcards
+    if [[ "$location" == *"*"* ]]; then
+      for path in $location; do
+        if [ -x "$path" ]; then
+          echo "$path"
+          return 0
+        fi
+      done
+    elif [ -x "$location" ]; then
+      echo "$location"
+      return 0
+    fi
+  done
+  
+  return 1
+}
+
+# Function to find Maven in common locations
+find_maven() {
+  # Check for M2_HOME environment variable
+  if [ -n "$M2_HOME" ] && [ -x "$M2_HOME/bin/mvn" ]; then
+    echo "$M2_HOME/bin/mvn"
+    return 0
+  fi
+  
+  # Check for Maven wrapper in project
+  if [ -f "$PROJECT_ROOT/mvnw" ]; then
+    echo "$PROJECT_ROOT/mvnw"
+    return 0
+  fi
+  
+  # Check if mvn is in PATH
+  if command_exists mvn; then
+    echo "mvn"
+    return 0
+  fi
+  
+  # Common installation directories
+  local common_locations=(
+    "/usr/bin/mvn"
+    "/usr/local/bin/mvn"
+    "/opt/maven/bin/mvn"
+    "C:/Program Files/Apache Maven/*/bin/mvn.cmd"
+    "C:/Program Files (x86)/Apache Maven/*/bin/mvn.cmd"
+  )
+  
+  for location in "${common_locations[@]}"; do
+    # Handle wildcards
+    if [[ "$location" == *"*"* ]]; then
+      for path in $location; do
+        if [ -x "$path" ]; then
+          echo "$path"
+          return 0
+        fi
+      done
+    elif [ -x "$location" ]; then
+      echo "$location"
+      return 0
+    fi
+  done
+  
+  return 1
+}
+
 # Optional checks configuration (can be enabled in git config)
 RUN_TESTS=$(git config --get hooks.precommit.tests || echo "false")
 RUN_CHECKSTYLE=$(git config --get hooks.precommit.checkstyle || echo "true")
-RUN_PMD=$(git config --get hooks.precommit.pmd || echo "false")
+RUN_PMD=$(git config --get hooks.precommit.pmd || echo "true")
 QUICK_MODE=$(git config --get hooks.precommit.quick || echo "true")
 
 # Get list of staged files
@@ -39,20 +128,30 @@ if [ -z "$STAGED_FILES" ]; then
   exit 0
 fi
 
-# Check for Java
-if ! command_exists java; then
-  echo -e "${YELLOW}Warning: Java not found. Some checks will be skipped.${NC}"
+# Find Java
+JAVA_CMD=$(find_java)
+if [ -z "$JAVA_CMD" ]; then
+  echo -e "${RED}Java not found. Cannot run quality checks.${NC}"
+  echo -e "${YELLOW}Please install Java or configure JAVA_HOME.${NC}"
+  echo -e "${YELLOW}To bypass temporarily: git commit --no-verify${NC}"
+  exit 1
 fi
 
-# Check for Maven
-MVN_CMD="mvn"
-if [ -f "$PROJECT_ROOT/mvnw" ]; then
-  MVN_CMD="$PROJECT_ROOT/mvnw"
+# Find Maven
+MVN_CMD=$(find_maven)
+if [ -z "$MVN_CMD" ]; then
+  echo -e "${RED}Maven not found. Cannot run quality checks.${NC}"
+  echo -e "${YELLOW}Please install Maven or configure M2_HOME.${NC}"
+  echo -e "${YELLOW}To bypass temporarily: git commit --no-verify${NC}"
+  exit 1
 fi
+
+echo -e "${BLUE}Using Java: $JAVA_CMD${NC}"
+echo -e "${BLUE}Using Maven: $MVN_CMD${NC}"
 
 # STEP 1: Format check and fix with Spotless
 echo -e "\n${CYAN}${BOLD}[1/6]${NC} ${BLUE}Checking code formatting with Spotless...${NC}"
-if [ -f "$PROJECT_ROOT/pom.xml" ] && command_exists java; then
+if [ -f "$PROJECT_ROOT/pom.xml" ]; then
   cd "$PROJECT_ROOT"
   
   # Create a temporary file with the list of staged files
@@ -60,9 +159,9 @@ if [ -f "$PROJECT_ROOT/pom.xml" ] && command_exists java; then
   echo "$STAGED_FILES" > "$STAGED_FILES_LIST"
   
   # Run spotless only on staged files
-  if ! $MVN_CMD spotless:check -q -DspotlessFiles="$STAGED_FILES_LIST"; then
+  if ! "$MVN_CMD" spotless:check -q -DspotlessFiles="$STAGED_FILES_LIST"; then
     echo -e "${YELLOW}Code formatting issues detected. Running auto-fix...${NC}"
-    if $MVN_CMD spotless:apply -q -DspotlessFiles="$STAGED_FILES_LIST"; then
+    if "$MVN_CMD" spotless:apply -q -DspotlessFiles="$STAGED_FILES_LIST"; then
       echo -e "${GREEN}Code formatting fixed automatically. Please review and stage the changes.${NC}"
       echo -e "${YELLOW}Run: git add <files>${NC}"
       # Clean up temporary file
@@ -80,24 +179,25 @@ if [ -f "$PROJECT_ROOT/pom.xml" ] && command_exists java; then
   rm -f "$STAGED_FILES_LIST"
   echo -e "${GREEN}✓ Code formatting check passed.${NC}"
 else
-  echo -e "${YELLOW}Warning: Skipping Spotless checks (Maven or Java not available).${NC}"
+  echo -e "${RED}No pom.xml found in project root. Cannot run Spotless.${NC}"
+  exit 1
 fi
 
 # STEP 2: Run Checkstyle on staged files (if enabled)
-if [ "$RUN_CHECKSTYLE" = "true" ] && [ -f "$PROJECT_ROOT/pom.xml" ] && command_exists java; then
+if [ "$RUN_CHECKSTYLE" = "true" ] && [ -f "$PROJECT_ROOT/pom.xml" ]; then
   echo -e "\n${CYAN}${BOLD}[2/6]${NC} ${BLUE}Running Checkstyle code quality check...${NC}"
   cd "$PROJECT_ROOT"
   
   JAVA_FILES=$(echo "$STAGED_FILES" | grep -E '\.java$' || true)
   if [ -n "$JAVA_FILES" ]; then
     # Temporarily enable checkstyle in Maven
-    $MVN_CMD -q exec:exec -Dexec.executable="echo" -Dexec.args="-Dcheckstyle.skip=false" > /dev/null
+    "$MVN_CMD" -q exec:exec -Dexec.executable="echo" -Dexec.args="-Dcheckstyle.skip=false" > /dev/null
     
     # Create a Java-only file list for checkstyle
     JAVA_FILES_LIST=$(mktemp)
     echo "$JAVA_FILES" > "$JAVA_FILES_LIST"
     
-    if ! $MVN_CMD checkstyle:check -q -DcheckstyleFiles="$JAVA_FILES_LIST" -Dcheckstyle.skip=false; then
+    if ! "$MVN_CMD" checkstyle:check -q -DcheckstyleFiles="$JAVA_FILES_LIST" -Dcheckstyle.skip=false; then
       echo -e "${RED}Checkstyle violations found. Please fix the style issues.${NC}"
       rm -f "$JAVA_FILES_LIST"
       exit 1
@@ -107,6 +207,13 @@ if [ "$RUN_CHECKSTYLE" = "true" ] && [ -f "$PROJECT_ROOT/pom.xml" ] && command_e
     echo -e "${GREEN}✓ Checkstyle check passed.${NC}"
   else
     echo -e "${GREEN}No Java files to check with Checkstyle.${NC}"
+  fi
+else
+  if [ "$RUN_CHECKSTYLE" != "true" ]; then
+    echo -e "\n${YELLOW}Checkstyle checks disabled via git config.${NC}"
+    echo -e "${YELLOW}Enable with: git config hooks.precommit.checkstyle true${NC}"
+  else
+    echo -e "\n${RED}Cannot run Checkstyle. pom.xml not found.${NC}"
   fi
 fi
 
@@ -139,17 +246,17 @@ if [ "$CHECK_FAILED" = true ]; then
 fi
 echo -e "${GREEN}✓ Sensitive information check passed.${NC}"
 
-# STEP 4: Run quick compilation check
+# STEP 4: Run compilation check
 echo -e "\n${CYAN}${BOLD}[4/6]${NC} ${BLUE}Running compilation check...${NC}"
 JAVA_FILES=$(echo "$STAGED_FILES" | grep -E '\.java$' || true)
-if [ -n "$JAVA_FILES" ] && command_exists java; then
+if [ -n "$JAVA_FILES" ]; then
   if [ -f "$PROJECT_ROOT/pom.xml" ]; then
     cd "$PROJECT_ROOT"
     
     # For quick mode, just compile everything
     if [ "$QUICK_MODE" = "true" ]; then
       echo -e "${BLUE}Compiling all Java sources...${NC}"
-      if ! $MVN_CMD compiler:compile -q; then
+      if ! "$MVN_CMD" compiler:compile -q; then
         echo -e "${RED}Compilation failed. Please fix the issues before committing.${NC}"
         exit 1
       fi
@@ -163,7 +270,7 @@ if [ -n "$JAVA_FILES" ] && command_exists java; then
         CLASS_NAME=$(basename "$FILE" .java)
         FULL_CLASS="$PACKAGE.$CLASS_NAME"
         
-        if ! $MVN_CMD compiler:compile -q -Dinclude="$FULL_CLASS"; then
+        if ! "$MVN_CMD" compiler:compile -q -Dinclude="$FULL_CLASS"; then
           echo -e "${RED}Compilation failed for $FILE.${NC}"
           COMPILE_STATUS=1
         fi
@@ -175,29 +282,45 @@ if [ -n "$JAVA_FILES" ] && command_exists java; then
       fi
     fi
     echo -e "${GREEN}✓ Compilation check passed.${NC}"
+  else
+    echo -e "${RED}No pom.xml found in project root. Cannot run compilation check.${NC}"
+    exit 1
   fi
+else
+  echo -e "${GREEN}No Java files to compile.${NC}"
 fi
 
 # STEP 5: Check for code complexity and architecture issues
 echo -e "\n${CYAN}${BOLD}[5/6]${NC} ${BLUE}Checking for architecture issues...${NC}"
-if [ -n "$JAVA_FILES" ] && [ "$RUN_PMD" = "true" ] && command_exists java; then
+if [ -n "$JAVA_FILES" ] && [ "$RUN_PMD" = "true" ]; then
   cd "$PROJECT_ROOT"
   
-  JAVA_FILES_LIST=$(mktemp)
-  echo "$JAVA_FILES" > "$JAVA_FILES_LIST"
-  
-  if ! $MVN_CMD pmd:check -q -DtargetFiles="$JAVA_FILES_LIST"; then
-    echo -e "${YELLOW}PMD found code quality issues. Consider fixing these issues.${NC}"
-    # Not failing build, just warning
+  if [ -f "pom.xml" ]; then
+    JAVA_FILES_LIST=$(mktemp)
+    echo "$JAVA_FILES" > "$JAVA_FILES_LIST"
+    
+    if ! "$MVN_CMD" pmd:check -q -DtargetFiles="$JAVA_FILES_LIST" -Dpmd.skip=false; then
+      echo -e "${YELLOW}PMD found code quality issues. Consider fixing these issues.${NC}"
+      # Not failing build, just warning
+    else
+      echo -e "${GREEN}✓ PMD checks passed.${NC}"
+    fi
+    
+    rm -f "$JAVA_FILES_LIST"
+  else
+    echo -e "${RED}No pom.xml found in project root. Cannot run PMD.${NC}"
   fi
-  
-  rm -f "$JAVA_FILES_LIST"
 else
-  echo -e "${YELLOW}Skipping PMD checks (not enabled or Java not available).${NC}"
+  if [ "$RUN_PMD" != "true" ]; then
+    echo -e "${YELLOW}PMD checks disabled via git config.${NC}"
+    echo -e "${YELLOW}Enable with: git config hooks.precommit.pmd true${NC}"
+  else
+    echo -e "${GREEN}No Java files to check with PMD.${NC}"
+  fi
 fi
 
 # STEP 6: Run unit tests affected by changes (if enabled)
-if [ "$RUN_TESTS" = "true" ] && [ -f "$PROJECT_ROOT/pom.xml" ] && command_exists java; then
+if [ "$RUN_TESTS" = "true" ] && [ -f "$PROJECT_ROOT/pom.xml" ]; then
   echo -e "\n${CYAN}${BOLD}[6/6]${NC} ${BLUE}Running relevant tests...${NC}"
   cd "$PROJECT_ROOT"
   
@@ -216,7 +339,7 @@ if [ "$RUN_TESTS" = "true" ] && [ -f "$PROJECT_ROOT/pom.xml" ] && command_exists
   if [ ${#PACKAGES[@]} -gt 0 ]; then
     for PACKAGE in "${PACKAGES[@]}"; do
       echo -e "${BLUE}Running tests for package: $PACKAGE${NC}"
-      $MVN_CMD test -q -Dtest="$PACKAGE.**" || {
+      "$MVN_CMD" test -q -Dtest="$PACKAGE.**" || {
         echo -e "${RED}Tests failed. Please fix the failing tests before committing.${NC}"
         exit 1
       }
@@ -226,7 +349,12 @@ if [ "$RUN_TESTS" = "true" ] && [ -f "$PROJECT_ROOT/pom.xml" ] && command_exists
     echo -e "${GREEN}No specific packages identified for testing.${NC}"
   fi
 else
-  echo -e "${YELLOW}Skipping test execution (not enabled or Maven/Java not available).${NC}"
+  if [ "$RUN_TESTS" != "true" ]; then
+    echo -e "${YELLOW}Test execution disabled via git config.${NC}"
+    echo -e "${YELLOW}Enable with: git config hooks.precommit.tests true${NC}"
+  else
+    echo -e "${RED}Cannot run tests. pom.xml not found.${NC}"
+  fi
 fi
 
 # All checks passed
