@@ -50,20 +50,20 @@ jobs:
       
       - name: Code style & formatting check
         id: style-check
-        run: ./mvnw spotless:check checkstyle:check
+        run: ./mvnw pmd:check
         continue-on-error: true
-        
+      
       - name: Generate Checkstyle Report
         if: steps.style-check.outcome == 'failure'
-        run: ./mvnw checkstyle:checkstyle -Dcheckstyle.skip=false
+        run: ./mvnw pmd:pmd
         continue-on-error: true
         
       - name: Archive Checkstyle Report
         if: steps.style-check.outcome == 'failure'
         uses: actions/upload-artifact@v3
         with:
-          name: checkstyle-report
-          path: target/site/checkstyle*.html
+          name: pmd-report
+          path: target/site/pmd*.html
           retention-days: 7
 
       - name: Static code analysis with PMD

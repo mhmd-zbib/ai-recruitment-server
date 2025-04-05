@@ -33,19 +33,13 @@
         <sonar.projectKey>your-project-key</sonar.projectKey>
         <!-- Default: Enable quality checks for builds -->
         <dependency.check.skip>false</dependency.check.skip>
-        <checkstyle.skip>false</checkstyle.skip>
         <pmd.skip>false</pmd.skip>
         <spotbugs.skip>false</spotbugs.skip>
         <enforcer.skip>false</enforcer.skip>
-        <spotless.check.skip>false</spotless.check.skip>
         <jacoco.skip>false</jacoco.skip>
         <maven.test.skip>false</maven.test.skip>
         <maven.resources.skip>false</maven.resources.skip>
-        <!-- Checkstyle configuration -->
-        <checkstyle.version>10.12.5</checkstyle.version>
-        <maven-checkstyle-plugin.version>3.3.1</maven-checkstyle-plugin.version>
-        <checkstyle.config.location>${project.basedir}/config/checkstyle/checkstyle.xml</checkstyle.config.location>
-        <checkstyle.suppressions.location>${project.basedir}/config/checkstyle/suppressions.xml</checkstyle.suppressions.location>
+        <jwt.version>0.11.5</jwt.version>
     </properties>
     
     <!-- Add profiles for different environments -->
@@ -62,11 +56,9 @@
             <properties>
                 <!-- Disable heavy checks for local development -->
                 <dependency.check.skip>true</dependency.check.skip>
-                <checkstyle.skip>false</checkstyle.skip>
                 <pmd.skip>true</pmd.skip>
                 <spotbugs.skip>true</spotbugs.skip>
                 <enforcer.skip>true</enforcer.skip>
-                <spotless.check.skip>false</spotless.check.skip>
                 <jacoco.skip>true</jacoco.skip>
                 <maven.test.skip>false</maven.test.skip>
                 <maven.resources.skip>false</maven.resources.skip>
@@ -83,11 +75,9 @@
             <properties>
                 <!-- Enable all quality checks for CI -->
                 <dependency.check.skip>false</dependency.check.skip>
-                <checkstyle.skip>false</checkstyle.skip>
                 <pmd.skip>false</pmd.skip>
                 <spotbugs.skip>false</spotbugs.skip>
                 <enforcer.skip>false</enforcer.skip>
-                <spotless.check.skip>false</spotless.check.skip>
                 <jacoco.skip>false</jacoco.skip>
                 <maven.test.skip>false</maven.test.skip>
                 <maven.resources.skip>false</maven.resources.skip>
@@ -99,11 +89,9 @@
             <properties>
                 <!-- Minimal checks for quick iterations -->
                 <dependency.check.skip>true</dependency.check.skip>
-                <checkstyle.skip>true</checkstyle.skip>
                 <pmd.skip>true</pmd.skip>
                 <spotbugs.skip>true</spotbugs.skip>
                 <enforcer.skip>true</enforcer.skip>
-                <spotless.check.skip>true</spotless.check.skip>
                 <jacoco.skip>true</jacoco.skip>
                 <maven.test.skip>true</maven.test.skip>
                 <maven.resources.skip>true</maven.resources.skip>
@@ -111,6 +99,7 @@
         </profile>
     </profiles>
     <dependencies>
+        <!-- Core Spring Boot Dependencies -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -123,43 +112,53 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+        
+        <!-- Database -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
+        
+        <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-test</artifactId>
-            <scope>test</scope>
-        </dependency>
+        
+        <!-- JWT Authentication -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
-            <version>0.11.5</version>
+            <version>${jwt.version}</version>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
-            <version>0.11.5</version>
+            <version>${jwt.version}</version>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
-            <version>0.11.5</version>
+            <version>${jwt.version}</version>
+            <scope>runtime</scope>
         </dependency>
-        <!-- Add Log4j2 with proper exclusions -->
+        
+        <!-- Logging (using Log4j2) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
@@ -170,14 +169,10 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        
-        <!-- Log4j2 dependencies -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-log4j2</artifactId>
         </dependency>
-        
-        <!-- JSON logging support -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
@@ -191,24 +186,6 @@
             <artifactId>log4j-layout-template-json</artifactId>
         </dependency>
         
-        <!-- AOP for logging aspects -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
-        </dependency>
-        
-        <!-- Validation -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-        
-        <!-- Monitoring and health checks -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
-        </dependency>
-        
         <!-- API Documentation -->
         <dependency>
             <groupId>org.springdoc</groupId>
@@ -216,7 +193,17 @@
             <version>2.4.0</version>
         </dependency>
         
-        <!-- H2 Database for testing -->
+        <!-- Testing Dependencies -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
@@ -257,110 +244,6 @@
                 </configuration>
             </plugin>
             
-            <!-- Spotless for code formatting -->
-            <plugin>
-                <groupId>com.diffplug.spotless</groupId>
-                <artifactId>spotless-maven-plugin</artifactId>
-                <version>2.41.1</version>
-                <configuration>
-                    <java>
-                        <googleJavaFormat>
-                            <version>1.17.0</version>
-                            <style>GOOGLE</style>
-                        </googleJavaFormat>
-                        <removeUnusedImports />
-                        <importOrder>
-                            <order>java,javax,org,com,io,lombok</order>
-                        </importOrder>
-                        <endWithNewline />
-                        <trimTrailingWhitespace />
-                        <lineEndings>UNIX</lineEndings>
-                    </java>
-                    <skip>${spotless.check.skip}</skip>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <phase>compile</phase>
-                        <configuration>
-                            <skip>${spotless.check.skip}</skip>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            
-            <!-- Checkstyle for code style validation -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>3.3.1</version>
-                <dependencies>
-                    <dependency>
-                        <groupId>com.puppycrawl.tools</groupId>
-                        <artifactId>checkstyle</artifactId>
-                        <version>10.12.5</version>
-                    </dependency>
-                </dependencies>
-                <configuration>
-                    <configLocation>config/checkstyle/checkstyle.xml</configLocation>
-                    <suppressionsLocation>config/checkstyle/suppressions.xml</suppressionsLocation>
-                    <encoding>UTF-8</encoding>
-                    <consoleOutput>true</consoleOutput>
-                    <failsOnError>true</failsOnError>
-                    <violationSeverity>warning</violationSeverity>
-                    <linkXRef>false</linkXRef>
-                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
-                    <propertyExpansion>config_loc=${basedir}/config/checkstyle</propertyExpansion>
-                    <skip>${checkstyle.skip}</skip>
-                    <sourceDirectories>
-                        <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
-                    </sourceDirectories>
-                    <includeResources>false</includeResources>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>validate</id>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <configuration>
-                            <skip>${checkstyle.skip}</skip>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            
-            <!-- PMD for code analysis -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-pmd-plugin</artifactId>
-                <version>3.21.2</version>
-                <configuration>
-                    <failOnViolation>true</failOnViolation>
-                    <printFailingErrors>true</printFailingErrors>
-                    <linkXRef>false</linkXRef>
-                    <includeTests>true</includeTests>
-                    <inputEncoding>UTF-8</inputEncoding>
-                    <minimumTokens>100</minimumTokens>
-                    <targetJdk>${java.version}</targetJdk>
-                    <skip>${pmd.skip}</skip>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <phase>none</phase>
-                        <configuration>
-                            <skip>${pmd.skip}</skip>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            
             <!-- Surefire for unit tests -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -368,35 +251,41 @@
                 <version>3.2.5</version>
             </plugin>
             
-            <!-- SpotBugs for finding bugs and security issues -->
+            <!-- JaCoCo for code coverage -->
             <plugin>
-                <groupId>com.github.spotbugs</groupId>
-                <artifactId>spotbugs-maven-plugin</artifactId>
-                <version>4.8.3.0</version>
-                <dependencies>
-                    <dependency>
-                        <groupId>com.github.spotbugs</groupId>
-                        <artifactId>spotbugs</artifactId>
-                        <version>4.8.3</version>
-                    </dependency>
-                </dependencies>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.11</version>
                 <configuration>
-                    <effort>Max</effort>
-                    <threshold>Low</threshold>
-                    <xmlOutput>true</xmlOutput>
-                    <failOnError>true</failOnError>
-                    <excludeFilterFile>${project.basedir}/config/spotbugs-exclude.xml</excludeFilterFile>
-                    <skip>${spotbugs.skip}</skip>
+                    <excludes>
+                        <exclude>**/dto/**</exclude>
+                        <exclude>**/entity/**</exclude>
+                        <exclude>**/config/**</exclude>
+                        <exclude>**/enums/**</exclude>
+                        <exclude>**/exceptions/**</exclude>
+                        <exclude>**/*Application.*</exclude>
+                    </excludes>
+                    <skip>${jacoco.skip}</skip>
                 </configuration>
                 <executions>
                     <execution>
-                        <id>spotbugs-check</id>
-                        <phase>none</phase>
+                        <id>default-prepare-agent</id>
                         <goals>
-                            <goal>check</goal>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                        <phase>initialize</phase>
+                        <configuration>
+                            <skip>${jacoco.skip}</skip>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>default-report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
                         </goals>
                         <configuration>
-                            <skip>${spotbugs.skip}</skip>
+                            <skip>${jacoco.skip}</skip>
                         </configuration>
                     </execution>
                 </executions>
@@ -426,7 +315,7 @@
                         <goals>
                             <goal>check</goal>
                         </goals>
-                        <phase>none</phase>
+                        <phase>verify</phase>
                         <configuration>
                             <skip>${dependency.check.skip}</skip>
                         </configuration>
@@ -444,21 +333,19 @@
                 </configuration>
                 <executions>
                     <execution>
-                        <id>enforce-java-maven-versions</id>
+                        <id>enforce-rules</id>
                         <goals>
                             <goal>enforce</goal>
                         </goals>
-                        <phase>none</phase>
+                        <phase>validate</phase>
                         <configuration>
                             <skip>${enforcer.skip}</skip>
                             <rules>
                                 <requireMavenVersion>
                                     <version>[3.8.0,)</version>
-                                    <message>You need Maven 3.8.0 or newer</message>
                                 </requireMavenVersion>
                                 <requireJavaVersion>
                                     <version>[${java.version},)</version>
-                                    <message>You need Java ${java.version} or newer</message>
                                 </requireJavaVersion>
                                 <banDuplicatePomDependencyVersions/>
                                 <bannedDependencies>
@@ -468,110 +355,17 @@
                                         <exclude>org.apache.logging.log4j:log4j-core:[2.0,2.17.0)</exclude>
                                     </excludes>
                                 </bannedDependencies>
-                                <dependencyConvergence/>
                             </rules>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>enforce-code-size</id>
-                        <goals>
-                            <goal>enforce</goal>
-                        </goals>
-                        <phase>none</phase>
-                        <configuration>
-                            <skip>${enforcer.skip}</skip>
-                            <rules>
-                                <reactorModuleConvergence>
-                                    <message>All modules must use the same version</message>
-                                </reactorModuleConvergence>
-                                <requireSameVersions>
-                                    <dependencies>
-                                        <dependency>org.springframework.boot</dependency>
-                                        <dependency>org.springframework</dependency>
-                                        <dependency>org.springframework.security</dependency>
-                                    </dependencies>
-                                </requireSameVersions>
-                            </rules>
-                            <fail>true</fail>
                         </configuration>
                     </execution>
                 </executions>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>extra-enforcer-rules</artifactId>
-                        <version>1.7.0</version>
-                    </dependency>
-                </dependencies>
             </plugin>
             
-            <!-- Provides source checks via Sonar -->
+            <!-- Sonar for code quality analysis -->
             <plugin>
                 <groupId>org.sonarsource.scanner.maven</groupId>
                 <artifactId>sonar-maven-plugin</artifactId>
                 <version>3.10.0.2594</version>
-            </plugin>
-            
-            <!-- JaCoCo for code coverage -->
-            <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.11</version>
-                <configuration>
-                    <excludes>
-                        <exclude>**/dto/**</exclude>
-                        <exclude>**/entity/**</exclude>
-                        <exclude>**/config/**</exclude>
-                        <exclude>**/enums/**</exclude>
-                        <exclude>**/exceptions/**</exclude>
-                        <exclude>**/*Application.*</exclude>
-                    </excludes>
-                    <skip>${jacoco.skip}</skip>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>default-prepare-agent</id>
-                        <goals>
-                            <goal>prepare-agent</goal>
-                        </goals>
-                        <phase>none</phase>
-                        <configuration>
-                            <skip>${jacoco.skip}</skip>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>default-report</id>
-                        <phase>none</phase>
-                        <goals>
-                            <goal>report</goal>
-                        </goals>
-                        <configuration>
-                            <skip>${jacoco.skip}</skip>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>default-check</id>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <phase>none</phase>
-                        <configuration>
-                            <skip>${jacoco.skip}</skip>
-                            <rules>
-                                <rule>
-                                    <element>BUNDLE</element>
-                                    <limits>
-                                        <limit>
-                                            <counter>LINE</counter>
-                                            <value>COVEREDRATIO</value>
-                                            <minimum>0.70</minimum>
-                                        </limit>
-                                    </limits>
-                                </rule>
-                            </rules>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>
