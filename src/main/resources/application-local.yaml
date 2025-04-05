@@ -1,32 +1,72 @@
-# Configuration for local development with PostgreSQL in Docker
+# Configuration for local development
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5544}/${DB_NAME:hiresync_db}
-    username: ${DB_USERNAME:hiresync_user}
-    password: ${DB_PASSWORD:hiresync_password}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:hiresync}
+    username: ${DB_USER:hiresync}
+    password: ${DB_PASSWORD:hiresync}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: ${DB_MAX_POOL_SIZE:5}
-      minimum-idle: ${DB_MIN_IDLE:1}
+      maximum-pool-size: ${DB_MAX_POOL_SIZE:10}
+      minimum-idle: ${DB_MIN_IDLE:5}
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
   jpa:
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:update}
     show-sql: true
     properties:
       hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+        jdbc:
+          time_zone: UTC
 
 # Configure logging for local development
 logging:
   level:
     root: ${LOG_LEVEL_ROOT:INFO}
-    org.hibernate.SQL: ${LOG_LEVEL_SQL:DEBUG}
-    org.hibernate.type.descriptor.sql: TRACE
     com.zbib.hiresync: ${LOG_LEVEL_APP:DEBUG}
+    org.hibernate.SQL: ${LOG_LEVEL_SQL:DEBUG}
+    org.hibernate.type.descriptor.sql: ${LOG_LEVEL_SQL_PARAMS:TRACE}
+    org.springframework.web: INFO
 
+# Server configuration
+server:
+  port: ${APP_PORT:8080}
+  
 # Enable Swagger UI for local development
 springdoc:
   swagger-ui:
     enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+    filter: true
+    display-request-duration: true
   api-docs:
     enabled: true
+  show-actuator: true
+
+# Security settings for local development
+security:
+  jwt:
+    secret-key: ${JWT_SECRET:dev_only_replace_in_production}
+    token-validity: ${JWT_EXPIRATION:86400000}
+    issuer: hiresync-local
+    audience: hiresync-app
+  cors:
+    allowed-origins: 
+      - http://localhost:3000
+      - http://127.0.0.1:3000
+      - http://localhost:5173
+      - http://127.0.0.1:5173
+
+# Actuator configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always

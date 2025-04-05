@@ -45,9 +45,12 @@ spring:
       matching-strategy: ant_path_matcher
 
 # Security configuration
-jwt:
-  secret: ${JWT_SECRET:LONG_RANDOM_SECRET_THAT_IS_AT_LEAST_32_CHARACTERS_A1B2C3D4E5F6G7H8}
-  expiration: ${JWT_EXPIRATION:86400000}
+security:
+  jwt:
+    issuer: hiresync
+    audience: hiresync-app
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
 
 # Logging configuration
 logging:

@@ -2,28 +2,6 @@ version: '3.8'
 
 # Production-specific overrides
 services:
-  # Use managed database in production
-  postgres:
-    image: postgres:16-alpine
-    container_name: hiresync-postgres
-    restart: ${DB_RESTART_POLICY:-always}
-    environment:
-      POSTGRES_USER: ${DB_USER:-hiresync}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-hiresync}
-      POSTGRES_DB: ${DB_NAME:-hiresync}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./postgres/init:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-hiresync}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    ports:
-      - "127.0.0.1:${DB_PORT:-5432}:5432"
-    networks:
-      - hiresync-network
-
   # Production app config 
   app:
     image: ${REGISTRY:-ghcr.io}/${REPO_OWNER:-zbib}/${IMAGE_NAME:-hiresync}:${IMAGE_TAG:-latest}
