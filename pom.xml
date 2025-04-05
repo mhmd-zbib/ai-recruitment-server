@@ -31,15 +31,21 @@
         <sonar.organization>your-sonar-organization</sonar.organization>
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
         <sonar.projectKey>your-project-key</sonar.projectKey>
-        <dependency.check.skip>true</dependency.check.skip>
-        <checkstyle.skip>true</checkstyle.skip>
-        <pmd.skip>true</pmd.skip>
-        <spotbugs.skip>true</spotbugs.skip>
-        <enforcer.skip>true</enforcer.skip>
-        <spotless.check.skip>true</spotless.check.skip>
-        <jacoco.skip>true</jacoco.skip>
-        <maven.test.skip>true</maven.test.skip>
-        <maven.resources.skip>true</maven.resources.skip>
+        <!-- Default: Enable quality checks for builds -->
+        <dependency.check.skip>false</dependency.check.skip>
+        <checkstyle.skip>false</checkstyle.skip>
+        <pmd.skip>false</pmd.skip>
+        <spotbugs.skip>false</spotbugs.skip>
+        <enforcer.skip>false</enforcer.skip>
+        <spotless.check.skip>false</spotless.check.skip>
+        <jacoco.skip>false</jacoco.skip>
+        <maven.test.skip>false</maven.test.skip>
+        <maven.resources.skip>false</maven.resources.skip>
+        <!-- Checkstyle configuration -->
+        <checkstyle.version>10.12.5</checkstyle.version>
+        <maven-checkstyle-plugin.version>3.3.1</maven-checkstyle-plugin.version>
+        <checkstyle.config.location>${project.basedir}/config/checkstyle/checkstyle.xml</checkstyle.config.location>
+        <checkstyle.suppressions.location>${project.basedir}/config/checkstyle/suppressions.xml</checkstyle.suppressions.location>
     </properties>
     
     <!-- Add profiles for different environments -->
@@ -47,14 +53,51 @@
         <profile>
             <id>local</id>
             <activation>
-                <activeByDefault>false</activeByDefault>
+                <activeByDefault>true</activeByDefault>
                 <property>
                     <name>spring.profiles.active</name>
                     <value>local</value>
                 </property>
             </activation>
             <properties>
-                <!-- Disable all quality checks for local development -->
+                <!-- Disable heavy checks for local development -->
+                <dependency.check.skip>true</dependency.check.skip>
+                <checkstyle.skip>false</checkstyle.skip>
+                <pmd.skip>true</pmd.skip>
+                <spotbugs.skip>true</spotbugs.skip>
+                <enforcer.skip>true</enforcer.skip>
+                <spotless.check.skip>false</spotless.check.skip>
+                <jacoco.skip>true</jacoco.skip>
+                <maven.test.skip>false</maven.test.skip>
+                <maven.resources.skip>false</maven.resources.skip>
+            </properties>
+        </profile>
+        
+        <profile>
+            <id>ci</id>
+            <activation>
+                <property>
+                    <name>env.CI</name>
+                </property>
+            </activation>
+            <properties>
+                <!-- Enable all quality checks for CI -->
+                <dependency.check.skip>false</dependency.check.skip>
+                <checkstyle.skip>false</checkstyle.skip>
+                <pmd.skip>false</pmd.skip>
+                <spotbugs.skip>false</spotbugs.skip>
+                <enforcer.skip>false</enforcer.skip>
+                <spotless.check.skip>false</spotless.check.skip>
+                <jacoco.skip>false</jacoco.skip>
+                <maven.test.skip>false</maven.test.skip>
+                <maven.resources.skip>false</maven.resources.skip>
+            </properties>
+        </profile>
+        
+        <profile>
+            <id>quick</id>
+            <properties>
+                <!-- Minimal checks for quick iterations -->
                 <dependency.check.skip>true</dependency.check.skip>
                 <checkstyle.skip>true</checkstyle.skip>
                 <pmd.skip>true</pmd.skip>
@@ -263,18 +306,23 @@
                 <configuration>
                     <configLocation>config/checkstyle/checkstyle.xml</configLocation>
                     <suppressionsLocation>config/checkstyle/suppressions.xml</suppressionsLocation>
-                    <inputEncoding>UTF-8</inputEncoding>
+                    <encoding>UTF-8</encoding>
                     <consoleOutput>true</consoleOutput>
                     <failsOnError>true</failsOnError>
+                    <violationSeverity>warning</violationSeverity>
                     <linkXRef>false</linkXRef>
                     <includeTestSourceDirectory>true</includeTestSourceDirectory>
                     <propertyExpansion>config_loc=${basedir}/config/checkstyle</propertyExpansion>
                     <skip>${checkstyle.skip}</skip>
+                    <sourceDirectories>
+                        <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
+                    </sourceDirectories>
+                    <includeResources>false</includeResources>
                 </configuration>
                 <executions>
                     <execution>
                         <id>validate</id>
-                        <phase>none</phase>
+                        <phase>validate</phase>
                         <goals>
                             <goal>check</goal>
                         </goals>

@@ -33,6 +33,14 @@ main() {
     clean)
       "$SCRIPT_DIR/scripts/clean.sh"
       ;;
+    checkstyle)
+      # Run checkstyle with remaining arguments
+      "$SCRIPT_DIR/scripts/checkstyle.sh" "${@:2}"
+      ;;
+    quality)
+      # Run all quality checks (shorthand for mvn verify)
+      mvn -f "$SCRIPT_DIR/pom.xml" verify -Dcheckstyle.skip=false -Dpmd.skip=false -Dspotbugs.skip=false
+      ;;
     help)
       "$SCRIPT_DIR/scripts/help.sh"
       ;;

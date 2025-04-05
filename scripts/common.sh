@@ -147,10 +147,13 @@ usage() {
   echo -e "Commands:"
   echo -e "  ${BOLD}start${NC}        Start all services and the application"
   echo -e "  ${BOLD}stop${NC}         Stop all services"
+  echo -e "  ${BOLD}restart${NC}      Restart all services and the application"
   echo -e "  ${BOLD}status${NC}       Show status of services"
   echo -e "  ${BOLD}app${NC}          Start only the Spring Boot application"
   echo -e "  ${BOLD}services${NC}     Start only the supporting services (PostgreSQL, etc.)"
   echo -e "  ${BOLD}clean${NC}        Stop services and remove volumes (data reset)"
+  echo -e "  ${BOLD}checkstyle${NC}   Run code style checks (use -h for options)"
+  echo -e "  ${BOLD}quality${NC}      Run all quality checks (checkstyle, PMD, SpotBugs)"
   echo -e "  ${BOLD}help${NC}         Show this help message"
   echo
 }
