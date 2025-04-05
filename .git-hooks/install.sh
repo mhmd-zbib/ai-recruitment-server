@@ -45,10 +45,10 @@ for HOOK_PATH in $HOOKS; do
 done
 
 # Create a symlink to the hook directory for easier access
-if [ -L "$PROJECT_ROOT/.git/hooks.local" ]; then
-    rm "$PROJECT_ROOT/.git/hooks.local"
+if [ -L "$GIT_DIR/hooks.local" ]; then
+    rm "$GIT_DIR/hooks.local"
 fi
-ln -s "$SCRIPT_DIR" "$PROJECT_ROOT/.git/hooks.local"
+ln -s "$SCRIPT_DIR" "$GIT_DIR/hooks.local"
 
 echo -e "${GREEN}Git hooks installation completed!${NC}"
 echo -e "${YELLOW}Note: To bypass hooks temporarily, use: GIT_BYPASS_HOOKS=1 git commit/push${NC}"
