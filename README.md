@@ -24,7 +24,14 @@ HireSync is a modern recruitment platform that leverages AI to streamline the hi
      ```
    - Edit the `.env` file to customize your settings (if needed)
 
-3. Start the application with all services:
+3. Start the application:
+   
+   For local development with hot reloading:
+   ```bash
+   ./scripts/start-local.sh
+   ```
+   
+   For production-like mode:
    ```bash
    ./scripts/start.sh
    ```
@@ -62,15 +69,52 @@ The application uses the following environment variables that you can customize 
 
 The project includes several convenience scripts in the `scripts` directory:
 
-- `start.sh`: Start all services and the application
+- `start.sh`: Start all services and the application in production-like mode
+- `start-local.sh`: Start local development environment with hot reloading
 - `stop.sh`: Stop all services
 - `status.sh`: Show status of services
 - `app.sh`: Start only the Spring Boot application
 - `services.sh`: Start only the supporting services (PostgreSQL, etc.)
 - `clean.sh`: Stop services and remove volumes (data reset)
+- `lint.sh`: Run comprehensive code quality and linting checks
 - `help.sh`: Show help information
 
 ## Development
+
+### Local Development Environment
+
+The `start-local.sh` script sets up a complete development environment with the following features:
+
+- **Hot reloading**: Automatically reloads the application when Java files change
+- **Environment configuration**: Sets up development-specific environment variables
+- **Service management**: Starts and orchestrates Docker containers in the right order
+- **Database initialization**: Manages database migrations and development data seeding
+- **Health monitoring**: Monitors the status of running services
+
+To use additional development features, set the following environment variables before running the script:
+
+- `AUTO_MIGRATE=true`: Automatically run database migrations
+- `SEED_DEV_DATA=true`: Seed the database with development data
+- `PULL_LATEST=true`: Pull the latest Docker images before starting
+
+Example:
+```bash
+AUTO_MIGRATE=true SEED_DEV_DATA=true ./scripts/start-local.sh
+```
+
+### Code Quality
+
+Run linting and code quality checks with:
+
+```bash
+./scripts/lint.sh
+```
+
+This will perform various checks including:
+- Checkstyle validation
+- SpotBugs static analysis
+- Code duplication detection
+- Code formatting verification
 
 ### Database Management
 The PostgreSQL database will be automatically created on first startup with the credentials specified in your `.env` file. If you change these credentials after the initial setup, you'll need to run `./scripts/clean.sh` to remove the existing database volume and recreate it with the new credentials.

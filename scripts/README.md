@@ -1,69 +1,85 @@
 # HireSync Scripts
 
-This directory contains the script files that power the HireSync development environment manager.
+This directory contains utility scripts for development, deployment, and maintenance of the HireSync application.
 
-## Script Structure
+## Available Scripts
+
+### Core Application Scripts
+
+- **start.sh**: Starts all services and the application in production-like mode
+- **start-local.sh**: Starts a local development environment with hot reloading
+- **stop.sh**: Stops all services
+- **restart.sh**: Restarts all services and the application
+- **status.sh**: Shows the status of all services
+
+### Utility Scripts
+
+- **app.sh**: Starts only the Spring Boot application
+- **services.sh**: Starts only the supporting services (PostgreSQL, etc.)
+- **clean.sh**: Stops services and removes volumes (data reset)
+- **help.sh**: Shows help information for all commands
+
+### Quality & Testing Scripts
+
+- **lint.sh**: Runs comprehensive code quality and linting checks
+- **checkstyle.sh**: Runs code style checks
 
 ### Core Utilities
 
-- `common.sh`: Core functions for logging, error handling, and environment management
-- `docker-utils.sh`: Docker infrastructure and service management
-- `app-utils.sh`: Spring Boot application management
+- **common.sh**: Core utilities and shared functions
+- **app-utils.sh**: Application-related utility functions
+- **docker-utils.sh**: Docker-related utility functions
 
-### Command Scripts
+## Usage Examples
 
-- `start.sh`: Starts all services and the application
-- `stop.sh`: Stops all services
-- `restart.sh`: Restarts all services and the application
-- `status.sh`: Shows status of services
-- `app.sh`: Starts only the Spring Boot application
-- `services.sh`: Starts only the supporting services (PostgreSQL, etc.)
-- `clean.sh`: Stops services and removes volumes (data reset)
-- `help.sh`: Displays usage information
+### Local Development
 
-### Main Launcher
-
-The main script `hiresync` in the project root orchestrates these scripts, providing a unified interface for managing the development environment.
-
-## Using the Main Launcher
-
-All operations are handled by the main launcher script:
+For local development with hot reloading:
 
 ```bash
-# Start everything (PostgreSQL + application)
-./hiresync start
-
-# Start only services (PostgreSQL, etc.)
-./hiresync services
-
-# Stop everything
-./hiresync stop
-
-# Show status of all services
-./hiresync status
-
-# Start only the Spring Boot application
-./hiresync app
-
-# Restart all services and application
-./hiresync restart
-
-# Clean up environment
-./hiresync clean
+./start-local.sh
 ```
 
-## Architecture
+With auto migrations and development data:
 
-The scripts follow a modular design:
+```bash
+AUTO_MIGRATE=true SEED_DEV_DATA=true ./start-local.sh
+```
 
-1. **Core utilities** (`common.sh`): Base functions for logging, error handling, and environment loading
-2. **Domain utilities**:
-   - Docker service management (`docker-utils.sh`)
-   - Application management (`app-utils.sh`)
-3. **Command scripts**: Each command is implemented in its own script which uses the utility modules
+### Code Quality Checks
 
-This modular structure makes maintenance and extension easier, and separates concerns for better organization.
+Run all linting checks:
 
-## Environment Configuration
+```bash
+./lint.sh
+```
 
-The scripts automatically load configuration from the `.env` file in the project root. If this file doesn't exist, it will be created from `.env.example` if available. 
+Run just checkstyle:
+
+```bash
+./checkstyle.sh
+```
+
+### Service Management
+
+Start just the backing services:
+
+```bash
+./services.sh
+```
+
+Check service status:
+
+```bash
+./status.sh
+```
+
+Clean up and remove data:
+
+```bash
+./clean.sh
+```
+
+## Configuration
+
+Most scripts rely on environment variables defined in the `.env` file at the project root. See the main README.md for details on available environment variables. 
