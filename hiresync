@@ -5,7 +5,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Make sure all scripts are executable
-chmod +x "$SCRIPT_DIR/scripts/"*.sh
+find "$SCRIPT_DIR/scripts" -name "*.sh" -type f -exec chmod +x {} \;
 
 # Main function to handle command dispatching
 main() {
@@ -13,40 +13,57 @@ main() {
   case "$1" in
     start|"")
       # Run start script (which will show logs and can be stopped with Ctrl+C)
-      "$SCRIPT_DIR/scripts/start.sh"
+      "$SCRIPT_DIR/scripts/core/start.sh"
+      ;;
+    local)
+      # Run local development with hot-reload
+      "$SCRIPT_DIR/scripts/core/local.sh" "${@:2}"
       ;;
     status)
-      "$SCRIPT_DIR/scripts/status.sh"
+      "$SCRIPT_DIR/scripts/core/services.sh" status
       ;;
     app)
-      "$SCRIPT_DIR/scripts/app.sh"
+      "$SCRIPT_DIR/scripts/core/app.sh" "${@:2}"
       ;;
     services)
-      "$SCRIPT_DIR/scripts/services.sh"
+      "$SCRIPT_DIR/scripts/core/services.sh" "${@:2}"
       ;;
     stop)
-      "$SCRIPT_DIR/scripts/stop.sh"
+      "$SCRIPT_DIR/scripts/core/services.sh" stop
       ;;
     restart)
-      "$SCRIPT_DIR/scripts/restart.sh"
+      "$SCRIPT_DIR/scripts/core/services.sh" restart
       ;;
     clean)
-      "$SCRIPT_DIR/scripts/clean.sh"
+      "$SCRIPT_DIR/scripts/core/services.sh" clean
       ;;
-    checkstyle)
-      # Run checkstyle with remaining arguments
-      "$SCRIPT_DIR/scripts/checkstyle.sh" "${@:2}"
+    lint)
+      # Run linting with remaining arguments
+      "$SCRIPT_DIR/scripts/utils/lint.sh" "${@:2}"
       ;;
     quality)
       # Run all quality checks (shorthand for mvn verify)
       mvn -f "$SCRIPT_DIR/pom.xml" verify -Dcheckstyle.skip=false -Dpmd.skip=false -Dspotbugs.skip=false
       ;;
     help)
-      "$SCRIPT_DIR/scripts/help.sh"
+      echo -e "HireSync Development Environment Manager\n"
+      echo -e "Usage: ./hiresync COMMAND [OPTIONS]\n"
+      echo -e "Commands:"
+      echo "  start       Start the application in production mode"
+      echo "  local       Start in local development mode with hot reload"
+      echo "  app         Run the application without services"
+      echo "  services    Manage supporting services"
+      echo "  status      Show status of services"
+      echo "  stop        Stop all services"
+      echo "  restart     Restart all services"
+      echo "  clean       Stop services and clean data"
+      echo "  lint        Run code linting"
+      echo "  quality     Run all quality checks"
+      echo "  help        Show this help message"
       ;;
     *)
       echo "Unknown command: $1"
-      "$SCRIPT_DIR/scripts/help.sh"
+      echo "Run './hiresync help' for available commands"
       exit 1
       ;;
   esac

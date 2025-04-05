@@ -1,85 +1,140 @@
 # HireSync Scripts
 
-This directory contains utility scripts for development, deployment, and maintenance of the HireSync application.
+This directory contains utility scripts for managing the HireSync application and its supporting services.
 
-## Available Scripts
+## Directory Structure
 
-### Core Application Scripts
-
-- **start.sh**: Starts all services and the application in production-like mode
-- **start-local.sh**: Starts a local development environment with hot reloading
-- **stop.sh**: Stops all services
-- **restart.sh**: Restarts all services and the application
-- **status.sh**: Shows the status of all services
-
-### Utility Scripts
-
-- **app.sh**: Starts only the Spring Boot application
-- **services.sh**: Starts only the supporting services (PostgreSQL, etc.)
-- **clean.sh**: Stops services and removes volumes (data reset)
-- **help.sh**: Shows help information for all commands
-
-### Quality & Testing Scripts
-
-- **lint.sh**: Runs comprehensive code quality and linting checks
-- **checkstyle.sh**: Runs code style checks
-
-### Core Utilities
-
-- **common.sh**: Core utilities and shared functions
-- **app-utils.sh**: Application-related utility functions
-- **docker-utils.sh**: Docker-related utility functions
-
-## Usage Examples
-
-### Local Development
-
-For local development with hot reloading:
-
-```bash
-./start-local.sh
+```
+scripts/
+├── core/                 # Core application scripts
+│   ├── app.sh            # Application runner
+│   ├── local.sh          # Local development with hot reload
+│   ├── services.sh       # Service management
+│   └── start.sh          # Production starter
+├── utils/                # Utility scripts and functions
+│   ├── app.sh            # Application management utilities
+│   ├── docker.sh         # Docker and service utilities
+│   ├── logging.sh        # Logging and output formatting
+│   └── lint.sh           # Code quality checks
+└── README.md             # This file
 ```
 
-With auto migrations and development data:
+## Common Scripts
 
-```bash
-AUTO_MIGRATE=true SEED_DEV_DATA=true ./start-local.sh
+### core/start.sh
+
+Start the application in production mode with all required services.
+
+```
+./core/start.sh
 ```
 
-### Code Quality Checks
+### core/local.sh
 
-Run all linting checks:
+Run the application in local development mode with hot reload.
 
-```bash
-./lint.sh
+```
+./core/local.sh [OPTIONS]
+
+Options:
+  --no-services  Don't start Docker services
+  --debug        Enable remote debugging
+  --seed         Seed development data
+  --migrate      Run database migrations
+  --help, -h     Show help
 ```
 
-Run just checkstyle:
+### core/app.sh
 
-```bash
-./checkstyle.sh
+Run the application without starting services.
+
+```
+./core/app.sh [PROFILE] [OPTIONS]
+
+Profiles:
+  local    Development mode with hot reload (default)
+  dev      Development mode with remote database
+  test     Testing environment
+  prod     Production mode
+
+Options:
+  --debug  Enable remote debugging
 ```
 
-### Service Management
+### core/services.sh
 
-Start just the backing services:
+Manage Docker services without starting the application.
 
-```bash
-./services.sh
+```
+./core/services.sh COMMAND [OPTIONS]
+
+Commands:
+  start     Start all services
+  stop      Stop all services
+  restart   Restart all services
+  status    Show services status
+  logs      Show service logs
+  clean     Stop and remove volumes
+
+Options:
+  --help, -h  Show help
 ```
 
-Check service status:
+## Utility Functions
 
-```bash
-./status.sh
-```
+The scripts under the `utils/` directory provide shared functionality:
 
-Clean up and remove data:
+- **app.sh**: Functions for running, packaging, and testing the Spring Boot application
+- **docker.sh**: Functions for managing Docker containers and services
+- **logging.sh**: Functions for formatted output and user interaction
+- **lint.sh**: Code quality checking utilities
 
-```bash
-./clean.sh
-```
+## Examples
 
-## Configuration
+1. Start in local development mode with database migrations:
+   ```
+   ./core/local.sh --migrate
+   ```
 
-Most scripts rely on environment variables defined in the `.env` file at the project root. See the main README.md for details on available environment variables. 
+2. Start only the services without the application:
+   ```
+   ./core/services.sh start
+   ```
+
+3. Start the application in production mode:
+   ```
+   ./core/start.sh
+   ```
+
+4. Run the application with a specific profile:
+   ```
+   ./core/app.sh prod
+   ```
+
+5. Run the application with debugging enabled:
+   ```
+   ./core/app.sh local --debug
+   ```
+
+## Implementation Status
+
+✅ Complete
+- utils/logging.sh - Logging utilities
+- utils/docker.sh - Docker management utilities
+- utils/app.sh - Application utilities
+- utils/lint.sh - Code quality checks
+- core/app.sh - Application runner
+- core/local.sh - Local development script
+- core/services.sh - Service management
+- core/start.sh - Production starter
+- README.md - Documentation
+
+## Recent Changes
+
+This scripts directory has been completely reorganized with the following improvements:
+
+1. **Simpler Structure**: Reduced to just core/ and utils/ directories
+2. **Simplified Commands**: Clearer interfaces with consistent parameter handling
+3. **Better Error Handling**: More robust error checking and user feedback
+4. **Comprehensive Help**: All scripts provide help text and examples
+5. **Consistent Logging**: Unified logging system with clear visual formatting 

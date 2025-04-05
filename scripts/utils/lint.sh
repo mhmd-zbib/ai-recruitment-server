@@ -11,25 +11,22 @@ log_section "HireSync Code Linting"
 SRC_DIR="../src"
 TEST_DIR="../src/test"
 
-# Check if checkstyle is already installed
-check_checkstyle() {
-  if [ -f "../target/checkstyle-result.xml" ]; then
-    return 0
-  else
-    return 1
-  fi
-}
-
-# Run checkstyle
-run_checkstyle() {
-  log_info "Running Checkstyle checks..."
+# Run PMD if available
+run_pmd() {
+  log_info "Running PMD analysis..."
   
-  if bash "$(dirname "$0")/checkstyle.sh"; then
-    log_success "Checkstyle checks passed"
-    return 0
+  if command -v mvn &> /dev/null; then
+    mvn pmd:check
+    if [ $? -eq 0 ]; then
+      log_success "PMD checks passed"
+      return 0
+    else
+      log_error "PMD checks failed"
+      return 1
+    fi
   else
-    log_error "Checkstyle checks failed"
-    return 1
+    log_warning "Maven not found, skipping PMD"
+    return 0
   fi
 }
 
@@ -97,7 +94,7 @@ main() {
   ERRORS=0
   
   # Run all checks
-  run_checkstyle || ((ERRORS++))
+  run_pmd || ((ERRORS++))
   run_spotbugs || ((ERRORS++))
   check_duplication || ((ERRORS++))
   check_formatting || ((ERRORS++))
