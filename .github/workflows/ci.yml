@@ -48,6 +48,11 @@ jobs:
           chmod +x ./scripts/core/ci-prepare.sh
           ./scripts/core/ci-prepare.sh
       
+      - name: Format Code
+        run: |
+          cd $GITHUB_WORKSPACE
+          mvn spotless:apply ${{ env.MAVEN_ARGS }}
+      
       - name: Check Code Format
         run: |
           cd $GITHUB_WORKSPACE

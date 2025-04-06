@@ -63,5 +63,18 @@ if [ "$CACHE_DEPS" = true ]; then
   mvn $MVN_ARGS dependency:go-offline
 fi
 
+# Install necessary tools
+echo "Installing tools..."
+
+# Set up environment variables if needed
+echo "Setting up environment variables..."
+
+# Create necessary directories
+mkdir -p config
+
+# Format code before validation (crucial for first-time CI runs)
+echo "Formatting code to match style guide..."
+mvn spotless:apply ${MVN_ARGS:-}
+
 echo "===== CI Environment Ready ====="
 exit 0 
