@@ -2,9 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ master, dev ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ master, dev ]
   schedule:
     - cron: '0 0 * * 0'  # Weekly security scan on Sunday at midnight
   workflow_dispatch:
