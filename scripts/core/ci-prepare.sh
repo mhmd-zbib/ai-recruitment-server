@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # Description: Prepares the CI environment for running tests and builds without Docker.
 
@@ -11,7 +11,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Default values
 CACHE_DEPS=${CACHE_DEPS:-true}
-MVN_ARGS="-B -ntp"
+MVN_ARGS=${MAVEN_ARGS:-"-B -ntp"}
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -57,24 +57,22 @@ EOF
   echo "CI application properties created"
 fi
 
-# Ensure all dependencies are downloaded and cached
-if [ "$CACHE_DEPS" = true ]; then
-  echo "Resolving and caching dependencies..."
+# Create necessary directories for reports and configs
+mkdir -p config
+mkdir -p target/reports
+
+# Check if running in CI environment
+if [ -n "$CI" ]; then
+  echo "Running in CI environment"
+  
+  # Cache Maven dependencies if running in CI
+  echo "Caching Maven dependencies..."
   mvn $MVN_ARGS dependency:go-offline
 fi
 
-# Install necessary tools
-echo "Installing tools..."
-
-# Set up environment variables if needed
-echo "Setting up environment variables..."
-
-# Create necessary directories
-mkdir -p config
-
-# Format code before validation (crucial for first-time CI runs)
-echo "Formatting code to match style guide..."
-mvn spotless:apply ${MVN_ARGS:-}
+# Format code automatically before validation
+echo "Formatting code with Spotless..."
+mvn spotless:apply $MVN_ARGS
 
 echo "===== CI Environment Ready ====="
 exit 0 

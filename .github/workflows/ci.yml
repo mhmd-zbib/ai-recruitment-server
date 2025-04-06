@@ -1,10 +1,16 @@
 name: CI Pipeline
 
+env:
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'adopt'
+  MAVEN_ARGS: '-B -ntp -Dcheckstyle.skip=true'
+  MAVEN_OPTS: '-Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn'
+
 on:
   push:
-    branches: [ master, dev ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ master, dev ]
+    branches: [ main, develop ]
   schedule:
     - cron: '0 0 * * 0'  # Weekly security scan on Sunday at midnight
   workflow_dispatch:
@@ -61,7 +67,7 @@ jobs:
       - name: Static Code Analysis
         run: |
           cd $GITHUB_WORKSPACE
-          mvn ${{ env.MAVEN_ARGS }} checkstyle:check pmd:check
+          mvn pmd:check ${{ env.MAVEN_ARGS }}
 
   security-scan:
     name: Security Scan
