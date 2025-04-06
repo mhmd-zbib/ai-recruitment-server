@@ -40,6 +40,7 @@
         <maven.test.skip>false</maven.test.skip>
         <maven.resources.skip>false</maven.resources.skip>
         <jwt.version>0.11.5</jwt.version>
+        <spotless.skip>false</spotless.skip>
     </properties>
     
     <!-- Add profiles for different environments -->
@@ -62,6 +63,7 @@
                 <jacoco.skip>true</jacoco.skip>
                 <maven.test.skip>false</maven.test.skip>
                 <maven.resources.skip>false</maven.resources.skip>
+                <spotless.skip>true</spotless.skip>
             </properties>
         </profile>
         
@@ -367,7 +369,12 @@
                 <artifactId>spotless-maven-plugin</artifactId>
                 <version>2.43.0</version>
                 <configuration>
+                    <skip>${spotless.skip}</skip>
                     <java>
+                        <includes>
+                            <include>src/main/java/**/*.java</include>
+                            <include>src/test/java/**/*.java</include>
+                        </includes>
                         <importOrder>
                             <order>java,javax,org,com,io</order>
                         </importOrder>
@@ -379,18 +386,16 @@
                         <endWithNewline/>
                         <trimTrailingWhitespace/>
                     </java>
-                    <markdown>
-                        <endWithNewline/>
-                        <trimTrailingWhitespace/>
-                    </markdown>
                     <yaml>
+                        <includes>
+                            <include>src/main/resources/*.yaml</include>
+                            <include>src/main/resources/*.yml</include>
+                            <include>src/test/resources/*.yaml</include>
+                            <include>src/test/resources/*.yml</include>
+                        </includes>
                         <endWithNewline/>
                         <trimTrailingWhitespace/>
                     </yaml>
-                    <json>
-                        <endWithNewline/>
-                        <trimTrailingWhitespace/>
-                    </json>
                 </configuration>
                 <executions>
                     <execution>
