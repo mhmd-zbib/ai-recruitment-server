@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Description: Starts the application in local development mode with Docker containers.
+
 # Exit on error
 set -e
 
@@ -8,8 +10,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Source common utilities
-source "$PROJECT_ROOT/scripts/common/logging.sh"
-source "$PROJECT_ROOT/scripts/common/env.sh"
+source "$PROJECT_ROOT/scripts/utils/logging.sh"
+source "$PROJECT_ROOT/scripts/utils/env.sh"
 
 # Default values
 ENV_FILE="$PROJECT_ROOT/.env"

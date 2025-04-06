@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Description: Provides colorized logging functions for shell scripts (info, success, warning, error, section).
+
 # Simple colorized logging for shell scripts
 
 # Colors with simplified declarations

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Description: Provides functions to load environment variables from .env files and get the project root path.
+
 # Simple environment file loader
 load_env() {
   local env_file="${1:-.env}"

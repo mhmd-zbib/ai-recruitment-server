@@ -3,8 +3,7 @@ set -e
 
 # Simple bash script router
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts"
-SCRIPT_LOCAL="$SCRIPT_DIR/local"
-SCRIPT_COMMON="$SCRIPT_DIR/common"
+SCRIPT_CORE="$SCRIPT_DIR/core"
 
 # Get command from first argument
 COMMAND="$1"
@@ -18,16 +17,9 @@ if [ -z "$COMMAND" ]; then
 fi
 
 # Route to appropriate script
-if [ -f "$SCRIPT_LOCAL/${COMMAND}.sh" ]; then
-  # Check local directory first with .sh extension
-  bash "$SCRIPT_LOCAL/${COMMAND}.sh" "$@"
-elif [ -f "$SCRIPT_COMMON/${COMMAND}.sh" ]; then
-  # Then check common directory with .sh extension
-  bash "$SCRIPT_COMMON/${COMMAND}.sh" "$@"
+if [ -f "$SCRIPT_CORE/${COMMAND}.sh" ]; then
+  bash "$SCRIPT_CORE/${COMMAND}.sh" "$@"
 else
   echo "Unknown command: $COMMAND"
-  echo "Available commands:"
-  echo "  Local: $(ls -1 "$SCRIPT_LOCAL"/*.sh 2>/dev/null | xargs -n1 basename | sed 's/\.sh$//' | tr '\n' ' ')"
-  echo "  Common: $(ls -1 "$SCRIPT_COMMON"/*.sh 2>/dev/null | xargs -n1 basename | sed 's/\.sh$//' | tr '\n' ' ')"
   exit 1
 fi

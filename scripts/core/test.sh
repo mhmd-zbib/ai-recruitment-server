@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 
+# Description: Runs unit tests or all tests in the development container.
+
 # Get the project root directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Source common utilities
-source "$SCRIPT_DIR/logging.sh"
+source "$SCRIPT_DIR/../utils/logging.sh"
 
 # Container name
 DEVTOOLS_CONTAINER="hiresync-devtools"
