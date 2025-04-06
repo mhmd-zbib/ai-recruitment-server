@@ -15,16 +15,26 @@ show_usage() {
   echo "  stop        Stop the application"
   echo "  status      Check application status"
   echo "  logs        View application logs"
+  echo "  test        Run tests"
+  echo "  clean       Clean the project"
   echo 
   echo "Options:"
   echo "  --local     Use local development environment"
   echo "  --dev       Use development environment"
   echo "  --prod      Use production environment"
+  echo "  --unit      Run unit tests only (with test command)"
+  echo "  --build     Build after clean (with clean command)"
+  echo "  --all       Clean and build all (with clean command)"
   echo "  --help      Show this help message"
   echo 
   echo "Examples:"
   echo "  $0 start --local    # Start the application in local development mode"
   echo "  $0 start --prod     # Start the application in production mode"
+  echo "  $0 test             # Run all tests"
+  echo "  $0 test --unit      # Run unit tests only"
+  echo "  $0 clean            # Clean the project"
+  echo "  $0 clean --build    # Clean and build the project"
+  echo "  $0 clean --all      # Clean, build and install the project"
   echo "  $0 stop             # Stop the application"
   echo 
   exit 1
@@ -44,7 +54,10 @@ main() {
   # Default environment is local if not specified
   ENVIRONMENT="local"
   
-  # Parse options for environment
+  # Parse options
+  UNIT_TESTS=false
+  BUILD_OPT=""
+  
   for arg in "$@"; do
     case "$arg" in
       --local)
@@ -55,6 +68,15 @@ main() {
         ;;
       --prod)
         ENVIRONMENT="prod"
+        ;;
+      --unit)
+        UNIT_TESTS=true
+        ;;
+      --build)
+        BUILD_OPT="--build"
+        ;;
+      --all)
+        BUILD_OPT="--all"
         ;;
       --help)
         show_usage
@@ -78,6 +100,18 @@ main() {
         echo "[ERROR] Production environment not implemented yet"
         exit 1
       fi
+      ;;
+    test)
+      # Execute the test script with appropriate options
+      if [ "$UNIT_TESTS" = true ]; then
+        bash "$SCRIPT_DIR/common/test.sh" --unit
+      else
+        bash "$SCRIPT_DIR/common/test.sh"
+      fi
+      ;;
+    clean)
+      # Execute the build script with appropriate options
+      bash "$SCRIPT_DIR/common/build.sh" "$BUILD_OPT"
       ;;
     stop)
       echo "[ERROR] Stop command not implemented yet"
