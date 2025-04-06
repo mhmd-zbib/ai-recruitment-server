@@ -1,136 +1,33 @@
 #!/usr/bin/env bash
+set -e
 
-# Get the script directory
+# Simple bash script router
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts"
+SCRIPT_LOCAL="$SCRIPT_DIR/local"
+SCRIPT_COMMON="$SCRIPT_DIR/common"
 
-# Load common utilities
-source "$SCRIPT_DIR/common/logging.sh"
+# Get command from first argument
+COMMAND="$1"
+shift
 
-# Show usage information
-show_usage() {
-  echo "Usage: $0 COMMAND [OPTIONS]"
-  echo 
-  echo "Commands:"
-  echo "  start       Start the application"
-  echo "  stop        Stop the application"
-  echo "  status      Check application status"
-  echo "  logs        View application logs"
-  echo "  test        Run tests"
-  echo "  clean       Clean the project"
-  echo 
-  echo "Options:"
-  echo "  --local     Use local development environment"
-  echo "  --dev       Use development environment"
-  echo "  --prod      Use production environment"
-  echo "  --unit      Run unit tests only (with test command)"
-  echo "  --build     Build after clean (with clean command)"
-  echo "  --all       Clean and build all (with clean command)"
-  echo "  --help      Show this help message"
-  echo 
-  echo "Examples:"
-  echo "  $0 start --local    # Start the application in local development mode"
-  echo "  $0 start --prod     # Start the application in production mode"
-  echo "  $0 test             # Run all tests"
-  echo "  $0 test --unit      # Run unit tests only"
-  echo "  $0 clean            # Clean the project"
-  echo "  $0 clean --build    # Clean and build the project"
-  echo "  $0 clean --all      # Clean, build and install the project"
-  echo "  $0 stop             # Stop the application"
-  echo 
+# Show usage if no command provided
+if [ -z "$COMMAND" ]; then
+  echo "Usage: ./hiresync COMMAND [OPTIONS]"
+  echo "Example: ./hiresync start"
   exit 1
-}
+fi
 
-# Main command dispatcher
-main() {
-  # Check if command is provided
-  if [ $# -eq 0 ]; then
-    show_usage
-  fi
-  
-  # Parse first argument as command
-  COMMAND="$1"
-  shift
-  
-  # Default environment is local if not specified
-  ENVIRONMENT="local"
-  
-  # Parse options
-  UNIT_TESTS=false
-  BUILD_OPT=""
-  
-  for arg in "$@"; do
-    case "$arg" in
-      --local)
-        ENVIRONMENT="local"
-        ;;
-      --dev)
-        ENVIRONMENT="dev"
-        ;;
-      --prod)
-        ENVIRONMENT="prod"
-        ;;
-      --unit)
-        UNIT_TESTS=true
-        ;;
-      --build)
-        BUILD_OPT="--build"
-        ;;
-      --all)
-        BUILD_OPT="--all"
-        ;;
-      --help)
-        show_usage
-        ;;
-    esac
-  done
-  
-  # Check command and route to proper script
-  case "$COMMAND" in
-    start)
-      # Execute the appropriate script quietly without duplicate logs
-      if [ "$ENVIRONMENT" = "local" ]; then
-        # Execute the start script directly (it will show its own logs)
-        bash "$SCRIPT_DIR/local/start"
-      elif [ "$ENVIRONMENT" = "dev" ]; then
-        # Will be implemented in the future
-        echo "[ERROR] Dev environment not implemented yet"
-        exit 1
-      elif [ "$ENVIRONMENT" = "prod" ]; then
-        # Will be implemented in the future
-        echo "[ERROR] Production environment not implemented yet"
-        exit 1
-      fi
-      ;;
-    test)
-      # Execute the test script with appropriate options
-      if [ "$UNIT_TESTS" = true ]; then
-        bash "$SCRIPT_DIR/common/test.sh" --unit
-      else
-        bash "$SCRIPT_DIR/common/test.sh"
-      fi
-      ;;
-    clean)
-      # Execute the build script with appropriate options
-      bash "$SCRIPT_DIR/common/build.sh" "$BUILD_OPT"
-      ;;
-    stop)
-      echo "[ERROR] Stop command not implemented yet"
-      exit 1
-      ;;
-    status)
-      echo "[ERROR] Status command not implemented yet"
-      exit 1
-      ;;
-    logs)
-      echo "[ERROR] Logs command not implemented yet"
-      exit 1
-      ;;
-    *)
-      echo "[ERROR] Unknown command: $COMMAND"
-      show_usage
-      ;;
-  esac
-}
-
-# Execute main function with all arguments
-main "$@"
+# Route to appropriate script
+if [ -f "$SCRIPT_LOCAL/${COMMAND}.sh" ]; then
+  # Check local directory first with .sh extension
+  bash "$SCRIPT_LOCAL/${COMMAND}.sh" "$@"
+elif [ -f "$SCRIPT_COMMON/${COMMAND}.sh" ]; then
+  # Then check common directory with .sh extension
+  bash "$SCRIPT_COMMON/${COMMAND}.sh" "$@"
+else
+  echo "Unknown command: $COMMAND"
+  echo "Available commands:"
+  echo "  Local: $(ls -1 "$SCRIPT_LOCAL"/*.sh 2>/dev/null | xargs -n1 basename | sed 's/\.sh$//' | tr '\n' ' ')"
+  echo "  Common: $(ls -1 "$SCRIPT_COMMON"/*.sh 2>/dev/null | xargs -n1 basename | sed 's/\.sh$//' | tr '\n' ' ')"
+  exit 1
+fi

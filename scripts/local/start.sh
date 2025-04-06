@@ -56,4 +56,4 @@ docker exec -it "$DEVTOOLS_CONTAINER" bash -c 'cd /workspace && mvn spring-boot:
 
 # If we get here, the application has stopped
 log_info "Application has stopped."
-exit 0
+exit 0 

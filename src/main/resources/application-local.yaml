@@ -1,16 +1,20 @@
 # Configuration for local development
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:hiresync}
-    username: ${DB_USER:hiresync}
-    password: ${DB_PASSWORD:hiresync}
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: ${DB_MAX_POOL_SIZE:10}
-      minimum-idle: ${DB_MIN_IDLE:5}
+      maximum-pool-size: ${DB_MAX_POOL_SIZE:5}
+      minimum-idle: ${DB_MIN_IDLE:2}
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
+      auto-commit: true
+      pool-name: HireSyncHikariPool
+      validation-timeout: 5000
+      leak-detection-threshold: 60000
   jpa:
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:update}
@@ -21,19 +25,52 @@ spring:
         format_sql: true
         jdbc:
           time_zone: UTC
+        order_inserts: true
+        order_updates: true
+        generate_statistics: ${HIBERNATE_STATS:false}
+        cache:
+          use_second_level_cache: false
+        search:
+          enabled: false
+  devtools:
+    restart:
+      enabled: true
+      additional-paths: src/main/java,src/main/resources
+      exclude: static/**,public/**,META-INF/**
+      poll-interval: 1s
+      quiet-period: 400ms
+    livereload:
+      enabled: true
+      port: ${LIVERELOAD_PORT:35729}
 
 # Configure logging for local development
 logging:
   level:
     root: ${LOG_LEVEL_ROOT:INFO}
     com.zbib.hiresync: ${LOG_LEVEL_APP:DEBUG}
-    org.hibernate.SQL: ${LOG_LEVEL_SQL:DEBUG}
-    org.hibernate.type.descriptor.sql: ${LOG_LEVEL_SQL_PARAMS:TRACE}
+    org.hibernate.SQL: ${LOG_LEVEL_SQL:INFO}
     org.springframework.web: INFO
+    org.springframework.security: INFO
+  file:
+    name: ${LOG_FILE_PATH:logs/hiresync-local.log}
+  pattern:
+    console: "%d{HH:mm:ss} %highlight(%-5level) [%blue(%t)] %yellow(%C{1.}): %msg%n%throwable"
+    file: "%d{yyyy-MM-dd HH:mm:ss} %-5level [%t] %C{1.}: %msg%n%throwable"
 
 # Server configuration
 server:
   port: ${APP_PORT:8080}
+  servlet:
+    context-path: /api
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: never
+    include-exception: false
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+    min-response-size: 2048
   
 # Enable Swagger UI for local development
 springdoc:
@@ -43,30 +80,68 @@ springdoc:
     tagsSorter: alpha
     filter: true
     display-request-duration: true
+    path: /swagger-ui.html
+    url: /v3/api-docs
+    doc-expansion: none
   api-docs:
     enabled: true
+    path: /v3/api-docs
+    groups:
+      enabled: true
   show-actuator: true
+  default-produces-media-type: application/json
+  default-consumes-media-type: application/json
 
 # Security settings for local development
 security:
   jwt:
-    secret-key: ${JWT_SECRET:dev_only_replace_in_production}
-    token-validity: ${JWT_EXPIRATION:86400000}
+    secret-key: ${JWT_SECRET}
+    token-validity: ${JWT_EXPIRATION}
     issuer: hiresync-local
     audience: hiresync-app
+    refresh-token-validity: 604800000 # 7 days in milliseconds
   cors:
     allowed-origins: 
       - http://localhost:3000
       - http://127.0.0.1:3000
       - http://localhost:5173
       - http://127.0.0.1:5173
+    allowed-methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+      - PATCH
+    allowed-headers:
+      - Authorization
+      - Content-Type
+      - Accept
+      - X-Requested-With
+      - X-API-Key
+    allow-credentials: true
+    max-age: 3600
 
 # Actuator configuration
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,info,metrics,loggers
+      base-path: /actuator
   endpoint:
     health:
       show-details: always
+    info:
+      enabled: true
+
+# Application specific configuration
+hiresync:
+  app:
+    name: HireSync API
+    version: 1.0.0
+    description: HireSync backend API for recruitment automation
+  features:
+    enable-email-notifications: ${ENABLE_EMAIL:false}
+    enable-file-upload: ${ENABLE_FILE_UPLOAD:true}
+    debug-mode: ${DEBUG_MODE:true}

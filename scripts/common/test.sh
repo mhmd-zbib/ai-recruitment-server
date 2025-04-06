@@ -1,59 +1,37 @@
 #!/usr/bin/env bash
 
 # Get the project root directory
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Docker container name
+# Source common utilities
+source "$SCRIPT_DIR/logging.sh"
+
+# Container name
 DEVTOOLS_CONTAINER="hiresync-devtools"
 
 # Run all tests
 run_all_tests() {
-  echo "[INFO] Running all tests"
-  
-  if ! docker ps -q -f name="$DEVTOOLS_CONTAINER" &>/dev/null; then
-    echo "[ERROR] Development container is not running"
-    echo "[INFO] Please start the application first with: hiresync start --local"
-    return 1
-  fi
-  
-  echo "[INFO] Executing tests in $DEVTOOLS_CONTAINER container"
-  if docker exec -i "$DEVTOOLS_CONTAINER" mvn test; then
-    echo "[SUCCESS] All tests passed successfully"
-    return 0
-  else
-    echo "[ERROR] Some tests failed"
-    return 1
-  fi
+  log_info "Running All Tests"
+  docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn test"
 }
 
 # Run unit tests only
 run_unit_tests() {
-  echo "[INFO] Running unit tests only"
-  
-  if ! docker ps -q -f name="$DEVTOOLS_CONTAINER" &>/dev/null; then
-    echo "[ERROR] Development container is not running"
-    echo "[INFO] Please start the application first with: hiresync start --local"
-    return 1
-  fi
-  
-  echo "[INFO] Executing unit tests in $DEVTOOLS_CONTAINER container"
-  if docker exec -i "$DEVTOOLS_CONTAINER" mvn test -Dtest="*Test" -DexcludedGroups="integration,e2e"; then
-    echo "[SUCCESS] All unit tests passed successfully"
-    return 0
-  else
-    echo "[ERROR] Some unit tests failed"
-    return 1
-  fi
+  log_info "Running Unit Tests"
+  docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn test -Dtest=\"*Test\" -DexcludedGroups=\"integration,e2e\""
 }
 
-# Entry point
-main() {
-  if [ "$1" = "--unit" ]; then
-    run_unit_tests
-  else
-    run_all_tests
-  fi
-}
+# Check if container is running
+if ! docker ps --format '{{.Names}}' | grep -q "$DEVTOOLS_CONTAINER"; then
+  log_error "Development container is not running"
+  log_info "Start it first with ./hiresync start"
+  exit 1
+fi
 
-# Execute the main function with all arguments
-main "$@" 
+# Check if running unit tests only
+if [[ "$1" == "--unit" ]]; then
+  run_unit_tests
+else
+  run_all_tests
+fi

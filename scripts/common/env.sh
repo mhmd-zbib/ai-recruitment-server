@@ -1,5 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
+# Simple environment file loader
 load_env() {
   local env_file="${1:-.env}"
   
@@ -8,28 +9,20 @@ load_env() {
     return 1
   fi
   
-  while IFS='=' read -r key value || [ -n "$key" ]; do
-    # Skip comments and empty lines
-    if [[ $key && ! $key =~ ^# ]]; then
-      # Remove leading/trailing whitespace
-      key=$(echo "$key" | xargs)
-      value=$(echo "$value" | xargs)
-      
-      # Remove quotes if present
-      value="${value%\"}"
-      value="${value#\"}"
-      value="${value%\'}"
-      value="${value#\'}"
-      
-      # Export the variable
-      export "$key=$value"
-    fi
-  done < "$env_file"
-  
+  # Export all variables from the .env file
+  export $(grep -v '^#' "$env_file" | xargs)
   return 0
 }
 
-# Get project root directory (assuming scripts are in PROJECT_ROOT/scripts/*)
+# Get project root directory with Windows path normalization
 get_project_root() {
-  echo "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+  local project_root
+  project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+  
+  # Normalize path for Windows environments
+  if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
+    project_root=$(echo "$project_root" | sed 's/\\/\//g')
+  fi
+  
+  echo "$project_root"
 } 
