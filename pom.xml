@@ -361,6 +361,77 @@
                 </executions>
             </plugin>
             
+            <!-- Spotless for code formatting -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>2.43.0</version>
+                <configuration>
+                    <java>
+                        <importOrder>
+                            <order>java,javax,org,com,io</order>
+                        </importOrder>
+                        <removeUnusedImports/>
+                        <googleJavaFormat>
+                            <version>1.17.0</version>
+                            <style>GOOGLE</style>
+                        </googleJavaFormat>
+                        <endWithNewline/>
+                        <trimTrailingWhitespace/>
+                    </java>
+                    <markdown>
+                        <endWithNewline/>
+                        <trimTrailingWhitespace/>
+                    </markdown>
+                    <yaml>
+                        <endWithNewline/>
+                        <trimTrailingWhitespace/>
+                    </yaml>
+                    <json>
+                        <endWithNewline/>
+                        <trimTrailingWhitespace/>
+                    </json>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <phase>verify</phase>
+                    </execution>
+                </executions>
+            </plugin>
+            
+            <!-- PMD for static code analysis -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-pmd-plugin</artifactId>
+                <version>3.21.2</version>
+                <configuration>
+                    <skip>${pmd.skip}</skip>
+                    <failOnViolation>true</failOnViolation>
+                    <printFailingErrors>true</printFailingErrors>
+                    <linkXRef>false</linkXRef>
+                    <analysisCache>true</analysisCache>
+                    <sourceEncoding>UTF-8</sourceEncoding>
+                    <targetJdk>${java.version}</targetJdk>
+                    <rulesets>
+                        <ruleset>config/pmd-ruleset.xml</ruleset>
+                    </rulesets>
+                    <excludeRoots>
+                        <excludeRoot>target/generated-sources</excludeRoot>
+                    </excludeRoots>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <phase>verify</phase>
+                    </execution>
+                </executions>
+            </plugin>
+            
             <!-- Sonar for code quality analysis -->
             <plugin>
                 <groupId>org.sonarsource.scanner.maven</groupId>
