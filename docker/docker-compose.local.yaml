@@ -87,10 +87,13 @@ services:
 networks:
   hiresync-network:
     name: ${NETWORK_NAME:-hiresync-network}
+    external: true
 
 # Persistent volumes
 volumes:
   hiresync-postgres-data:
     name: ${POSTGRES_VOLUME:-hiresync-postgres-data}
+    external: true
   maven-repo:
     name: ${MAVEN_REPO_VOLUME:-hiresync-maven-repo}
+    external: true

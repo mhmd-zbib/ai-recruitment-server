@@ -1,73 +1,102 @@
-#!/bin/bash
-# HireSync Development Environment Manager
+#!/usr/bin/env bash
 
-# Set script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get the script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts"
 
-# Make sure all scripts are executable
-find "$SCRIPT_DIR/scripts" -name "*.sh" -type f -exec chmod +x {} \;
+# Load common utilities
+source "$SCRIPT_DIR/common/logging.sh"
 
-# Main function to handle command dispatching
+# Show usage information
+show_usage() {
+  echo "Usage: $0 COMMAND [OPTIONS]"
+  echo 
+  echo "Commands:"
+  echo "  start       Start the application"
+  echo "  stop        Stop the application"
+  echo "  status      Check application status"
+  echo "  logs        View application logs"
+  echo 
+  echo "Options:"
+  echo "  --local     Use local development environment"
+  echo "  --dev       Use development environment"
+  echo "  --prod      Use production environment"
+  echo "  --help      Show this help message"
+  echo 
+  echo "Examples:"
+  echo "  $0 start --local    # Start the application in local development mode"
+  echo "  $0 start --prod     # Start the application in production mode"
+  echo "  $0 stop             # Stop the application"
+  echo 
+  exit 1
+}
+
+# Main command dispatcher
 main() {
-  # Process command
-  case "$1" in
-    start|"")
-      # Run start script (which will show logs and can be stopped with Ctrl+C)
-      "$SCRIPT_DIR/scripts/core/start.sh"
-      ;;
-    local)
-      # Run local development with hot-reload
-      "$SCRIPT_DIR/scripts/core/local.sh" "${@:2}"
-      ;;
-    status)
-      "$SCRIPT_DIR/scripts/core/services.sh" status
-      ;;
-    app)
-      "$SCRIPT_DIR/scripts/core/app.sh" "${@:2}"
-      ;;
-    services)
-      "$SCRIPT_DIR/scripts/core/services.sh" "${@:2}"
+  # Check if command is provided
+  if [ $# -eq 0 ]; then
+    show_usage
+  fi
+  
+  # Parse first argument as command
+  COMMAND="$1"
+  shift
+  
+  # Default environment is local if not specified
+  ENVIRONMENT="local"
+  
+  # Parse options for environment
+  for arg in "$@"; do
+    case "$arg" in
+      --local)
+        ENVIRONMENT="local"
+        ;;
+      --dev)
+        ENVIRONMENT="dev"
+        ;;
+      --prod)
+        ENVIRONMENT="prod"
+        ;;
+      --help)
+        show_usage
+        ;;
+    esac
+  done
+  
+  # Check command and route to proper script
+  case "$COMMAND" in
+    start)
+      # Execute the appropriate script quietly without duplicate logs
+      if [ "$ENVIRONMENT" = "local" ]; then
+        # Execute the start script directly (it will show its own logs)
+        bash "$SCRIPT_DIR/local/start"
+      elif [ "$ENVIRONMENT" = "dev" ]; then
+        # Will be implemented in the future
+        echo "[ERROR] Dev environment not implemented yet"
+        exit 1
+      elif [ "$ENVIRONMENT" = "prod" ]; then
+        # Will be implemented in the future
+        echo "[ERROR] Production environment not implemented yet"
+        exit 1
+      fi
       ;;
     stop)
-      "$SCRIPT_DIR/scripts/core/services.sh" stop
+      echo "[ERROR] Stop command not implemented yet"
+      exit 1
       ;;
-    restart)
-      "$SCRIPT_DIR/scripts/core/services.sh" restart
+    status)
+      echo "[ERROR] Status command not implemented yet"
+      exit 1
       ;;
-    clean)
-      "$SCRIPT_DIR/scripts/core/services.sh" clean
-      ;;
-    lint)
-      # Run linting with remaining arguments
-      "$SCRIPT_DIR/scripts/utils/lint.sh" "${@:2}"
-      ;;
-    quality)
-      # Run all quality checks (shorthand for mvn verify)
-      mvn -f "$SCRIPT_DIR/pom.xml" verify -Dcheckstyle.skip=false -Dpmd.skip=false -Dspotbugs.skip=false
-      ;;
-    help)
-      echo -e "HireSync Development Environment Manager\n"
-      echo -e "Usage: ./hiresync COMMAND [OPTIONS]\n"
-      echo -e "Commands:"
-      echo "  start       Start the application in production mode"
-      echo "  local       Start in local development mode with hot reload"
-      echo "  app         Run the application without services"
-      echo "  services    Manage supporting services"
-      echo "  status      Show status of services"
-      echo "  stop        Stop all services"
-      echo "  restart     Restart all services"
-      echo "  clean       Stop services and clean data"
-      echo "  lint        Run code linting"
-      echo "  quality     Run all quality checks"
-      echo "  help        Show this help message"
+    logs)
+      echo "[ERROR] Logs command not implemented yet"
+      exit 1
       ;;
     *)
-      echo "Unknown command: $1"
-      echo "Run './hiresync help' for available commands"
-      exit 1
+      echo "[ERROR] Unknown command: $COMMAND"
+      show_usage
       ;;
   esac
 }
 
-# Execute main function with arguments
-main "$@" 
+# Execute main function with all arguments
+main "$@"
