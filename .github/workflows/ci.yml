@@ -2,26 +2,19 @@ name: CI Pipeline
 
 env:
   JAVA_VERSION: '17'
-  JAVA_DISTRIBUTION: 'adopt'
+  JAVA_DISTRIBUTION: 'temurin'
   MAVEN_ARGS: '-B -ntp -Dcheckstyle.skip=true'
-  MAVEN_OPTS: '-Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn'
+  MAVEN_OPTS: '-Xmx3G -Dmaven.artifact.threads=8'
+  COVERAGE_THRESHOLD: '80'
 
 on:
   push:
-    branches: [ master, dev ]
+    branches: [ master, devv ]
   pull_request:
-    branches: [ master, dev ]
+    branches: [ master, devv ]
   schedule:
     - cron: '0 0 * * 0'  # Weekly security scan on Sunday at midnight
   workflow_dispatch:
-
-# Define environment variables globally
-env:
-  JAVA_VERSION: '17'
-  JAVA_DISTRIBUTION: 'temurin'
-  MAVEN_OPTS: '-Xmx3G -Dmaven.artifact.threads=8'
-  MAVEN_ARGS: '-B -ntp'
-  COVERAGE_THRESHOLD: '80'
 
 jobs:
   validate:
@@ -32,6 +25,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        
         with:
           fetch-depth: 0
       
@@ -213,7 +207,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [build-and-test, security-scan]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/devv')
     
     steps:
       - name: Checkout code
@@ -267,7 +261,7 @@ jobs:
           path: build-info.txt
       
       - name: Create GitHub Release
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -285,7 +279,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: package
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/devv'
     environment:
       name: staging
       url: https://staging.hiresync.example.com
@@ -354,7 +348,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: package
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     environment:
       name: production
       url: https://hiresync.example.com
