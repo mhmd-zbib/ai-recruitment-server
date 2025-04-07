@@ -4,6 +4,8 @@ import com.zbib.hiresync.dto.ApplicationRequest;
 import com.zbib.hiresync.dto.ApplicationResponse;
 import com.zbib.hiresync.dto.ApplicationFilter;
 import com.zbib.hiresync.dto.JobApplicationFilter;
+import com.zbib.hiresync.dto.ApplicationListResponse;
+import com.zbib.hiresync.dto.JobApplicationListResponse;
 import com.zbib.hiresync.entity.Application;
 import com.zbib.hiresync.entity.JobPosting;
 import com.zbib.hiresync.entity.User;
@@ -15,6 +17,7 @@ import com.zbib.hiresync.repository.UserRepository;
 import com.zbib.hiresync.specification.ApplicationSpecification;
 import com.zbib.hiresync.specification.JobApplicationSpecification;
 import com.zbib.hiresync.validator.ApplicationValidator;
+import com.zbib.hiresync.builder.ApplicationBuilder;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -120,27 +123,14 @@ public final class ApplicationService {
      * @param pageable the pagination information
      * @return a page of application responses
      */
-    public Page<ApplicationResponse> getJobApplications(
+    public Page<JobApplicationListResponse> getJobApplications(
             final UUID jobId,
             final JobApplicationFilter filter,
             final Pageable pageable) {
         return applicationRepository.findAll(
             JobApplicationSpecification.buildSpecification(jobId, filter),
             pageable)
-            .map(application -> ApplicationResponse.builder()
-                .id(application.getId())
-                .jobId(application.getJob().getId())
-                .firstName(application.getFirstName())
-                .lastName(application.getLastName())
-                .email(application.getEmail())
-                .phoneNumber(application.getPhoneNumber())
-                .linkedInUrl(application.getLinkedinUrl())
-                .websiteUrl(application.getWebsiteUrl())
-                .cvUrl(application.getCvUrl())
-                .status(application.getStatus())
-                .referredBy(application.getReferredBy())
-                .appliedAt(application.getCreatedAt())
-                .build());
+            .map(ApplicationBuilder::buildJobApplicationListResponse);
     }
 
     /**
@@ -151,27 +141,14 @@ public final class ApplicationService {
      * @param pageable the pagination information
      * @return a page of application responses
      */
-    public Page<ApplicationResponse> getApplications(
+    public Page<ApplicationListResponse> getApplications(
             final UUID userId,
             final ApplicationFilter filter,
             final Pageable pageable) {
         return applicationRepository.findAll(
             ApplicationSpecification.buildSpecification(userId, filter),
             pageable)
-            .map(application -> ApplicationResponse.builder()
-                .id(application.getId())
-                .jobId(application.getJob().getId())
-                .firstName(application.getFirstName())
-                .lastName(application.getLastName())
-                .email(application.getEmail())
-                .phoneNumber(application.getPhoneNumber())
-                .linkedInUrl(application.getLinkedinUrl())
-                .websiteUrl(application.getWebsiteUrl())
-                .cvUrl(application.getCvUrl())
-                .status(application.getStatus())
-                .referredBy(application.getReferredBy())
-                .appliedAt(application.getCreatedAt())
-                .build());
+            .map(ApplicationBuilder::buildApplicationListResponse);
     }
 
     /**

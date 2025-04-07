@@ -29,7 +29,7 @@ public class JobBuilder {
             .employmentType(request.getEmploymentType())
             .minSalary(request.getMinSalary())
             .maxSalary(request.getMaxSalary())
-            .status(JobStatus.DRAFT)
+            .status(JobStatus.OPEN)
             .build();
   }
 
@@ -72,7 +72,7 @@ public class JobBuilder {
             .employmentType(request.getEmploymentType())
             .minSalary(request.getMinSalary())
             .maxSalary(request.getMaxSalary())
-            .status(JobStatus.DRAFT)
+            .status(JobStatus.OPEN)
             .build();
   }
 

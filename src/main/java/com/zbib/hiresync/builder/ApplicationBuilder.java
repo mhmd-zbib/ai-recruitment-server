@@ -56,7 +56,7 @@ public class ApplicationBuilder {
         .linkedinUrl(request.getLinkedInUrl())
         .cvUrl(request.getCvUrl())
         .referredBy(request.getReferredBy())
-        .status(ApplicationStatus.NEW)
+        .status(ApplicationStatus.SUBMITTED
         .build();
   }
 
