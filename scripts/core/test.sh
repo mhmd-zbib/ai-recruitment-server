@@ -24,13 +24,6 @@ run_unit_tests() {
   docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn test -Dtest=\"*Test\" -DexcludedGroups=\"integration,e2e\""
 }
 
-# Check if container is running
-if ! docker ps --format '{{.Names}}' | grep -q "$DEVTOOLS_CONTAINER"; then
-  log_error "Development container is not running"
-  log_info "Start it first with ./hiresync start"
-  exit 1
-fi
-
 # Check if running unit tests only
 if [[ "$1" == "--unit" ]]; then
   run_unit_tests

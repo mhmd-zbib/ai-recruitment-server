@@ -43,13 +43,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Check if container is running
-if ! docker ps --format '{{.Names}}' | grep -q "$DEVTOOLS_CONTAINER"; then
-  log_error "Development container is not running"
-  log_info "Start it first with ./hiresync start"
-  exit 1
-fi
-
 log_section "Building Application"
 
 # Build the application

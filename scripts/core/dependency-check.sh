@@ -41,13 +41,6 @@ done
 # Convert report format to uppercase
 REPORT_FORMAT=$(echo "$REPORT_FORMAT" | tr '[:lower:]' '[:upper:]')
 
-# Check if container is running
-if ! docker ps --format '{{.Names}}' | grep -q "$DEVTOOLS_CONTAINER"; then
-  log_error "Development container is not running"
-  log_info "Start it first with ./hiresync start"
-  exit 1
-fi
-
 # Validate report format
 case "$REPORT_FORMAT" in
   HTML|XML|CSV|JSON)

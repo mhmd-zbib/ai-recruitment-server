@@ -14,10 +14,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up JDK 17
+    - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
-        java-version: '17'
+        java-version: '21'
         distribution: 'temurin'
         cache: maven
 
@@ -25,6 +25,14 @@ jobs:
       run: |
         chmod +x ./scripts/core/*.sh
         chmod +x ./scripts/utils/*.sh
+        chmod +x ./hiresync
+
+    - name: Create .env file
+      run: cp .env.example .env
+
+    - name: Set up Docker environment
+      run: |
+        docker-compose -f docker/docker-compose.local.yaml up -d
 
     - name: Prepare CI environment
       run: ./scripts/core/ci-prepare.sh
@@ -45,4 +53,8 @@ jobs:
       with:
         name: spring-boot-app
         path: target/*.jar
-        retention-days: 5 
+        retention-days: 5
+        
+    - name: Clean up
+      if: always()
+      run: docker-compose -f docker/docker-compose.local.yaml down 
