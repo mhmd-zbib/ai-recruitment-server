@@ -47,7 +47,14 @@ if [[ -n "${CI}" ]]; then
   # If in GitHub Actions
   if [[ -n "${GITHUB_ACTIONS}" ]]; then
     REGISTRY="${REGISTRY:-ghcr.io}"
-    IMAGE_NAME="${IMAGE_NAME:-${GITHUB_REPOSITORY##*/}}"
+    
+    # For GitHub Container Registry, we need to include the owner in the image name
+    if [[ "${REGISTRY}" == "ghcr.io" ]]; then
+      GITHUB_OWNER=$(echo "${GITHUB_REPOSITORY}" | cut -d'/' -f1 | tr '[:upper:]' '[:lower:]')
+      IMAGE_NAME="${GITHUB_OWNER}/${IMAGE_NAME:-${GITHUB_REPOSITORY##*/}}"
+    else
+      IMAGE_NAME="${IMAGE_NAME:-${GITHUB_REPOSITORY##*/}}"
+    fi
     
     # Use branch name or tag for the image tag
     if [[ -n "${GITHUB_REF_NAME}" ]]; then
