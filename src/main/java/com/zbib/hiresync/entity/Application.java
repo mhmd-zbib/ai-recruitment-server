@@ -19,6 +19,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 
 /**
  * Entity representing a job application submitted by a candidate. Tracks application details
@@ -36,7 +38,11 @@ public class Application {
 
   @ManyToOne
   @JoinColumn(name = "job_id", nullable = false)
-  private Job job;
+  private JobPosting job;
+
+  @ManyToOne
+  @JoinColumn(name = "user_id", nullable = false)
+  private User user;
 
   @Column(nullable = false)
   private String firstName;
@@ -66,9 +72,20 @@ public class Application {
   @Column(nullable = false)
   private ApplicationStatus status;
 
-  @Column(nullable = false)
+  @Column(name = "created_at", nullable = false)
   private LocalDateTime createdAt;
 
-  @Column(nullable = false)
+  @Column(name = "updated_at", nullable = false)
   private LocalDateTime updatedAt;
+
+  @PrePersist
+  protected void onCreate() {
+    createdAt = LocalDateTime.now();
+    updatedAt = LocalDateTime.now();
+  }
+
+  @PreUpdate
+  protected void onUpdate() {
+    updatedAt = LocalDateTime.now();
+  }
 }

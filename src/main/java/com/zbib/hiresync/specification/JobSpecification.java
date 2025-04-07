@@ -7,60 +7,63 @@ import java.util.UUID;
 import org.springframework.data.jpa.domain.Specification;
 
 import com.zbib.hiresync.dto.JobFilter;
-import com.zbib.hiresync.entity.Job;
+import com.zbib.hiresync.entity.JobPosting;
 
 import jakarta.persistence.criteria.Predicate;
 
 public class JobSpecification {
 
-  public static Specification<Job> buildSpecification(UUID userId, JobFilter filter) {
-    return (root, query, criteriaBuilder) -> {
-      List<Predicate> predicates = new ArrayList<>();
+  public static Specification<JobPosting> buildSpecification(UUID userId, JobFilter filter) {
+    return Specification.where(hasUserId(userId))
+            .and(hasTitle(filter.getQuery()))
+            .and(hasLocationType(filter.getLocationType()))
+            .and(hasEmploymentType(filter.getEmploymentType()))
+            .and(hasStatus(filter.getStatus()))
+            .and(hasMinExperience(filter.getMinExperience(), filter.getMaxExperience()))
+            .and(hasMinSalary(filter.getMinSalary()))
+            .and(hasMaxSalary(filter.getMaxSalary()));
+  }
 
-      // User ID filter
-      if (userId != null) {
-        predicates.add(
-            SpecificationUtils.createEqualPredicate(
-                criteriaBuilder, root.get("user").get("id"), userId));
+  private static Specification<JobPosting> hasUserId(UUID userId) {
+    return (root, query, cb) -> userId == null ? null : cb.equal(root.get("user").get("id"), userId);
+  }
+
+  private static Specification<JobPosting> hasTitle(String title) {
+    return (root, query, cb) -> title == null ? null : cb.like(cb.lower(root.get("title")), "%" + title.toLowerCase() + "%");
+  }
+
+  private static Specification<JobPosting> hasLocationType(String locationType) {
+    return (root, query, cb) -> locationType == null ? null : cb.equal(root.get("locationType"), locationType);
+  }
+
+  private static Specification<JobPosting> hasEmploymentType(String employmentType) {
+    return (root, query, cb) -> employmentType == null ? null : cb.equal(root.get("employmentType"), employmentType);
+  }
+
+  private static Specification<JobPosting> hasStatus(String status) {
+    return (root, query, cb) -> status == null ? null : cb.equal(root.get("status"), status);
+  }
+
+  private static Specification<JobPosting> hasMinExperience(Integer minExperience, Integer maxExperience) {
+    return (root, query, cb) -> {
+      if (minExperience == null && maxExperience == null) {
+        return null;
       }
-
-      // Text search
-      SpecificationUtils.addStringSearchPredicateIfNotEmpty(
-          predicates, criteriaBuilder, filter.getQuery(), root.get("title"));
-
-      // Simple equality filters
-      if (filter.getLocationType() != null) {
-        predicates.add(
-            SpecificationUtils.createEqualPredicate(
-                criteriaBuilder, root.get("locationType"), filter.getLocationType()));
+      if (minExperience == null) {
+        return cb.lessThanOrEqualTo(root.get("yearsOfExperience"), maxExperience);
       }
-
-      if (filter.getEmploymentType() != null) {
-        predicates.add(
-            SpecificationUtils.createEqualPredicate(
-                criteriaBuilder, root.get("employmentType"), filter.getEmploymentType()));
+      if (maxExperience == null) {
+        return cb.greaterThanOrEqualTo(root.get("yearsOfExperience"), minExperience);
       }
-
-      if (filter.getStatus() != null) {
-        predicates.add(
-            SpecificationUtils.createEqualPredicate(
-                criteriaBuilder, root.get("status"), filter.getStatus()));
-      }
-
-      // Range filters
-      SpecificationUtils.addGreaterThanOrEqualPredicateIfNotNull(
-          predicates, root.get("yearsOfExperience"), filter.getMinExperience(), criteriaBuilder);
-
-      SpecificationUtils.addLessThanOrEqualPredicateIfNotNull(
-          predicates, root.get("yearsOfExperience"), filter.getMaxExperience(), criteriaBuilder);
-
-      SpecificationUtils.addGreaterThanOrEqualPredicateIfNotNull(
-          predicates, root.get("minSalary"), filter.getMinSalary(), criteriaBuilder);
-
-      SpecificationUtils.addLessThanOrEqualPredicateIfNotNull(
-          predicates, root.get("maxSalary"), filter.getMaxSalary(), criteriaBuilder);
-
-      return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+      return cb.between(root.get("yearsOfExperience"), minExperience, maxExperience);
     };
+  }
+
+  private static Specification<JobPosting> hasMinSalary(Integer minSalary) {
+    return (root, query, cb) -> minSalary == null ? null : cb.greaterThanOrEqualTo(root.get("minSalary"), minSalary);
+  }
+
+  private static Specification<JobPosting> hasMaxSalary(Integer maxSalary) {
+    return (root, query, cb) -> maxSalary == null ? null : cb.lessThanOrEqualTo(root.get("maxSalary"), maxSalary);
   }
 }

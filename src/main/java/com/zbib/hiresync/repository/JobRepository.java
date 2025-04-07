@@ -6,9 +6,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
-import com.zbib.hiresync.entity.Job;
+import com.zbib.hiresync.entity.JobPosting;
 
 @Repository
-public interface JobRepository extends JpaRepository<Job, UUID>, JpaSpecificationExecutor<Job> {
+public interface JobRepository extends JpaRepository<JobPosting, Long>, JpaSpecificationExecutor<JobPosting> {
   boolean existsByIdAndUserId(UUID jobId, UUID userId);
 }

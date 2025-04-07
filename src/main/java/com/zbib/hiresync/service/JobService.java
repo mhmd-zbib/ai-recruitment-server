@@ -14,7 +14,7 @@ import com.zbib.hiresync.dto.JobFilter;
 import com.zbib.hiresync.dto.JobListResponse;
 import com.zbib.hiresync.dto.JobRequest;
 import com.zbib.hiresync.dto.JobResponse;
-import com.zbib.hiresync.entity.Job;
+import com.zbib.hiresync.entity.JobPosting;
 import com.zbib.hiresync.entity.User;
 import com.zbib.hiresync.exceptions.JobException;
 import com.zbib.hiresync.repository.JobRepository;
@@ -33,22 +33,23 @@ public class JobService {
   @Transactional
   public JobResponse createJob(JobRequest jobRequest, UUID userId) {
     User user = userService.getUserById(userId);
-    Job job = JobBuilder.buildJobEntity(jobRequest, user);
-    Job savedJob = jobRepository.save(job);
+    JobPosting job = JobBuilder.buildJobEntity(jobRequest, user);
+    JobPosting savedJob = jobRepository.save(job);
     return buildJobResponseDTO(savedJob);
   }
 
-  public Job getJobById(UUID id) {
-    return jobRepository.findById(id).orElseThrow(() -> JobException.jobNotFound(id));
+  public JobPosting getJobById(Long id) {
+    return jobRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Job not found"));
   }
 
   public JobResponse getJobResponseById(UUID id) {
-    Job job = getJobById(id);
+    JobPosting job = getJobById(id.longValue());
     return buildJobResponseDTO(job);
   }
 
   public Page<JobListResponse> getUserJobs(UUID userId, JobFilter filter, Pageable pageable) {
-    Page<Job> jobs =
+    Page<JobPosting> jobs =
         jobRepository.findAll(JobSpecification.buildSpecification(userId, filter), pageable);
     return jobs.map(JobBuilder::buildJobListResponseDTO);
   }
