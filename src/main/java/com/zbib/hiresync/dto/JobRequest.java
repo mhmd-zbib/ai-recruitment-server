@@ -2,13 +2,11 @@ package com.zbib.hiresync.dto;
 
 import com.zbib.hiresync.enums.EmploymentType;
 import com.zbib.hiresync.enums.LocationType;
-
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import jakarta.validation.constraints.*;
 
 @Data
 @Builder

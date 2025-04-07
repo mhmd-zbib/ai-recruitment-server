@@ -1,8 +1,7 @@
 package com.zbib.hiresync.exceptions;
 
-import org.springframework.http.HttpStatus;
-
 import lombok.Getter;
+import org.springframework.http.HttpStatus;
 
 @Getter
 public class AppException extends RuntimeException {

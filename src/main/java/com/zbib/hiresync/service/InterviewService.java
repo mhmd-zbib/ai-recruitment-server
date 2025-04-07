@@ -1,11 +1,13 @@
 package com.zbib.hiresync.service;
 
+import com.zbib.hiresync.repository.InterviewRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import com.zbib.hiresync.repository.InterviewRepository;
-
+/** Service class for managing interviews. */
 @Service
+@RequiredArgsConstructor
 public class InterviewService {
 
-  private InterviewRepository interviewRepository;
+  private final InterviewRepository interviewRepository;
 }

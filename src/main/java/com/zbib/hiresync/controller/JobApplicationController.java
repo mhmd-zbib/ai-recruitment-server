@@ -1,7 +1,14 @@
 package com.zbib.hiresync.controller;
 
+import com.zbib.hiresync.dto.ApplicationRequest;
+import com.zbib.hiresync.dto.ApplicationResponse;
+import com.zbib.hiresync.dto.JobApplicationFilter;
+import com.zbib.hiresync.dto.JobApplicationListResponse;
+import com.zbib.hiresync.security.UserDetailsImpl;
+import com.zbib.hiresync.service.ApplicationService;
+import jakarta.validation.Valid;
 import java.util.UUID;
-
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -11,25 +18,12 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import com.zbib.hiresync.dto.ApplicationRequest;
-import com.zbib.hiresync.dto.ApplicationResponse;
-import com.zbib.hiresync.dto.JobApplicationFilter;
-import com.zbib.hiresync.dto.JobApplicationListResponse;
-import com.zbib.hiresync.security.UserDetailsImpl;
-import com.zbib.hiresync.service.ApplicationService;
-import com.zbib.hiresync.validator.JobValidator;
-
-import lombok.RequiredArgsConstructor;
-
-import jakarta.validation.Valid;
-
 @RestController
 @RequestMapping("/v1/jobs/{jobId}")
 @RequiredArgsConstructor
 public class JobApplicationController {
 
   private final ApplicationService applicationService;
-  private final JobValidator jobValidator;
 
   @PostMapping("/applications")
   public ResponseEntity<ApplicationResponse> createApplication(

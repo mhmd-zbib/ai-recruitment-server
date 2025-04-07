@@ -1,13 +1,11 @@
 package com.zbib.hiresync.repository;
 
+import com.zbib.hiresync.entity.Application;
 import java.util.UUID;
-
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
-import com.zbib.hiresync.entity.Application;
 
 public interface ApplicationRepository
     extends JpaRepository<Application, UUID>, JpaSpecificationExecutor<Application> {

@@ -1,35 +1,19 @@
 package com.zbib.hiresync.enums;
 
-/**
- * Enum representing different statuses of a job application.
- */
+/** Enum representing different statuses of a job application. */
 public enum ApplicationStatus {
-  /**
-   * Application has been submitted.
-   */
+  /** Application has been submitted. */
   SUBMITTED,
-  /**
-   * Application is under review.
-   */
+  /** Application is under review. */
   UNDER_REVIEW,
-  /**
-   * Application has been shortlisted.
-   */
+  /** Application has been shortlisted. */
   SHORTLISTED,
-  /**
-   * Application is in interview process.
-   */
+  /** Application is in interview process. */
   IN_INTERVIEW,
-  /**
-   * Application has been accepted.
-   */
+  /** Application has been accepted. */
   ACCEPTED,
-  /**
-   * Application has been rejected.
-   */
+  /** Application has been rejected. */
   REJECTED,
-  /**
-   * Application has been withdrawn.
-   */
+  /** Application has been withdrawn. */
   WITHDRAWN
 }

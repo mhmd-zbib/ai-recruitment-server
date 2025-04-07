@@ -1,12 +1,11 @@
 package com.zbib.hiresync.logging;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-
 import org.apache.logging.log4j.ThreadContext;
 import org.springframework.stereotype.Component;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Component for formatting and structuring log messages. Handles different types of log scenarios
@@ -31,9 +30,11 @@ public class LogFormatter {
     try {
       String jsonResponse = result != null ? jacksonObjectMapper.writeValueAsString(result) : "{}";
       ThreadContext.put("response", jsonResponse);
-
-    } catch (Exception e) {
-      ThreadContext.put("response", "{\"error\":\"Could not serialize response\"}");
+    } catch (JsonProcessingException e) {
+      ThreadContext.put(
+          "response", "{\"error\":\"Could not serialize response: " + e.getMessage() + "\"}");
+    } catch (IllegalArgumentException e) {
+      ThreadContext.put("response", "{\"error\":\"Invalid argument in response serialization\"}");
     }
   }
 
@@ -49,10 +50,21 @@ public class LogFormatter {
       Throwable throwable, String message, long executionTime, ObjectMapper jacksonObjectMapper) {
     ThreadContext.put("executionTime", String.valueOf(executionTime));
 
+    if (throwable == null) {
+      ThreadContext.put("errorInfo", "{\"error\": \"No exception details available\"}");
+      ThreadContext.put("response", "{\"error\": \"Client error\"}");
+      return;
+    }
+
     try {
       // Create basic error info without stack trace
+      String exceptionName = throwable.getClass().getName();
+      String exceptionMessage = throwable.getMessage();
+
       ClientErrorInfo errorInfo =
-          new ClientErrorInfo(throwable.getClass().getName(), throwable.getMessage());
+          new ClientErrorInfo(
+              exceptionName != null ? exceptionName : "UnknownException",
+              exceptionMessage != null ? exceptionMessage : "No message");
 
       // Serialize error info to JSON
       String errorJson = jacksonObjectMapper.writeValueAsString(errorInfo);
@@ -61,10 +73,11 @@ public class LogFormatter {
       // Basic error response for the response field
       ThreadContext.put(
           "response", "{\"error\": \"" + escapeSensitiveInfo(throwable.getMessage()) + "\"}");
-
-    } catch (Exception e) {
+    } catch (JsonProcessingException e) {
       // Fallback if serialization fails
-      ThreadContext.put("errorInfo", "{\"error\": \"Error serializing exception details\"}");
+      ThreadContext.put(
+          "errorInfo",
+          "{\"error\": \"Error serializing exception details: " + e.getMessage() + "\"}");
       ThreadContext.put("response", "{\"error\": \"Client error\"}");
     }
   }
@@ -81,6 +94,12 @@ public class LogFormatter {
       Throwable throwable, String message, long executionTime, ObjectMapper jacksonObjectMapper) {
     ThreadContext.put("executionTime", String.valueOf(executionTime));
 
+    if (throwable == null) {
+      ThreadContext.put("errorInfo", "{\"error\": \"No exception details available\"}");
+      ThreadContext.put("response", "{\"error\": \"Internal server error\"}");
+      return;
+    }
+
     try {
       // Get stack trace as string
       StringWriter sw = new StringWriter();
@@ -89,12 +108,16 @@ public class LogFormatter {
       String stackTrace = sw.toString();
 
       // Create structured error info with stack trace
+      String exceptionName = throwable.getClass().getName();
+      String exceptionMessage = throwable.getMessage();
+      String causeMessage = throwable.getCause() != null ? throwable.getCause().getMessage() : null;
+
       ServerErrorInfo errorInfo =
           new ServerErrorInfo(
-              throwable.getClass().getName(),
-              throwable.getMessage(),
-              stackTrace,
-              throwable.getCause() != null ? throwable.getCause().getMessage() : null);
+              exceptionName != null ? exceptionName : "UnknownException",
+              exceptionMessage != null ? exceptionMessage : "No message",
+              stackTrace != null ? stackTrace : "No stack trace available",
+              causeMessage);
 
       // Serialize error info to JSON
       String errorJson = jacksonObjectMapper.writeValueAsString(errorInfo);
@@ -103,10 +126,14 @@ public class LogFormatter {
       // Basic error response for the response field
       ThreadContext.put(
           "response", "{\"error\": \"" + escapeSensitiveInfo(throwable.getMessage()) + "\"}");
-
-    } catch (Exception e) {
+    } catch (JsonProcessingException e) {
       // Fallback if JSON serialization fails
-      ThreadContext.put("errorInfo", "{\"error\": \"Error serializing exception details\"}");
+      ThreadContext.put(
+          "errorInfo",
+          "{\"error\": \"Error serializing exception details: " + e.getMessage() + "\"}");
+      ThreadContext.put("response", "{\"error\": \"Internal server error\"}");
+    } catch (IllegalArgumentException e) {
+      ThreadContext.put("errorInfo", "{\"error\": \"Invalid argument in error processing\"}");
       ThreadContext.put("response", "{\"error\": \"Internal server error\"}");
     }
   }

@@ -1,5 +1,5 @@
 /**
- * Package containing security-related components for the HireSync application.
- * Implements authentication, authorization, and security configurations.
+ * Package containing security-related components for the HireSync application. Implements
+ * authentication, authorization, and security configurations.
  */
-package com.zbib.hiresync.security; 
+package com.zbib.hiresync.security;

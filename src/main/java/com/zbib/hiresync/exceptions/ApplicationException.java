@@ -1,10 +1,9 @@
 package com.zbib.hiresync.exceptions;
 
 import java.util.UUID;
-
 import org.springframework.http.HttpStatus;
 
-public class ApplicationException extends AppException {
+public final class ApplicationException extends AppException {
 
   public ApplicationException(HttpStatus status, String message, String details) {
     super(status, message, details);

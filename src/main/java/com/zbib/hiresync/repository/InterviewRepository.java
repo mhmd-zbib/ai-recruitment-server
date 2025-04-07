@@ -1,12 +1,10 @@
 package com.zbib.hiresync.repository;
 
+import com.zbib.hiresync.entity.Interview;
 import java.util.UUID;
-
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
-
-import com.zbib.hiresync.entity.Interview;
 
 @Repository
 public interface InterviewRepository

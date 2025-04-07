@@ -1,19 +1,16 @@
 package com.zbib.hiresync.logging;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-
+import lombok.RequiredArgsConstructor;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.stereotype.Component;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import lombok.RequiredArgsConstructor;
-
-import jakarta.servlet.http.HttpServletRequest;
 
 @Component
 @RequiredArgsConstructor
@@ -54,10 +51,14 @@ public class LogContextBuilder {
   }
 
   private String formatRequestBody(Object[] args) {
+    if (args == null || args.length == 0 || args[0] == null) {
+      return "{}";
+    }
+
     try {
-      return args.length > 0 ? jacksonObjectMapper.writeValueAsString(args[0]) : "{}";
-    } catch (Exception e) {
-      return "{\"error\":\"Could not serialize request\"}";
+      return jacksonObjectMapper.writeValueAsString(args[0]);
+    } catch (JsonProcessingException e) {
+      return "{\"error\":\"Could not serialize request: " + e.getMessage() + "\"}";
     }
   }
 
@@ -78,24 +79,41 @@ public class LogContextBuilder {
   }
 
   private String getLoggableMessage(ProceedingJoinPoint joinPoint) {
+    if (joinPoint == null || !(joinPoint.getSignature() instanceof MethodSignature)) {
+      return "Method Execution (invalid signature)";
+    }
+
     try {
       MethodSignature signature = (MethodSignature) joinPoint.getSignature();
+      if (signature == null) {
+        return "Method Execution (null signature)";
+      }
+
       Method method = signature.getMethod();
+      if (method == null) {
+        return "Method Execution (null method)";
+      }
 
       Loggable loggable = method.getAnnotation(Loggable.class);
 
-      if (loggable == null) {
+      if (loggable == null && method.getDeclaringClass() != null) {
         loggable = method.getDeclaringClass().getAnnotation(Loggable.class);
       }
+
       if (loggable != null) {
         return loggable.message();
       }
 
-      String className = method.getDeclaringClass().getSimpleName();
+      String className =
+          method.getDeclaringClass() != null
+              ? method.getDeclaringClass().getSimpleName()
+              : "UnknownClass";
       String methodName = method.getName();
       return String.format("Executing %s.%s", className, methodName);
-    } catch (Exception e) {
-      return "Method Execution";
+    } catch (ClassCastException e) {
+      return "Method Execution (non-method signature)";
+    } catch (IllegalArgumentException e) {
+      return "Method Execution (illegal argument)";
     }
   }
 }

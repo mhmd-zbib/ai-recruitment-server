@@ -1,19 +1,17 @@
 package com.zbib.hiresync.specification;
 
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
-
-import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
-import org.springframework.data.jpa.domain.Specification;
-
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.Path;
-import jakarta.persistence.criteria.Predicate;
 import lombok.experimental.UtilityClass;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.util.StringUtils;
 
+/** Utility class for creating JPA Specification predicates. */
 @UtilityClass
 public class SpecificationUtils {
 
@@ -24,7 +22,7 @@ public class SpecificationUtils {
 
   public static <T> void addPredicateIfNotEmpty(
       List<Predicate> predicates, Path<T> path, Collection<?> values) {
-    if (!CollectionUtils.isEmpty(values)) {
+    if (values != null && !values.isEmpty()) {
       predicates.add(path.in(values));
     }
   }
@@ -48,7 +46,9 @@ public class SpecificationUtils {
       Path<LocalDateTime> path,
       LocalDateTime value,
       CriteriaBuilder criteriaBuilder) {
-    addGreaterThanOrEqualPredicateIfNotNull(predicates, path, value, criteriaBuilder);
+    if (value != null) {
+      predicates.add(criteriaBuilder.greaterThanOrEqualTo(path, value));
+    }
   }
 
   public static void addDateLessThanOrEqualPredicateIfNotNull(
@@ -56,7 +56,9 @@ public class SpecificationUtils {
       Path<LocalDateTime> path,
       LocalDateTime value,
       CriteriaBuilder criteriaBuilder) {
-    addLessThanOrEqualPredicateIfNotNull(predicates, path, value, criteriaBuilder);
+    if (value != null) {
+      predicates.add(criteriaBuilder.lessThanOrEqualTo(path, value));
+    }
   }
 
   public static Predicate createLikePredicate(
@@ -71,7 +73,7 @@ public class SpecificationUtils {
       String searchTerm,
       Path<String>... paths) {
     if (StringUtils.hasText(searchTerm)) {
-      String pattern = "%" + searchTerm.toLowerCase() + "%";
+      String pattern = "%" + searchTerm.toLowerCase(Locale.ROOT) + "%";
       Predicate[] searchPredicates = new Predicate[paths.length];
       for (int i = 0; i < paths.length; i++) {
         searchPredicates[i] = createLikePredicate(criteriaBuilder, paths[i], pattern);
@@ -85,14 +87,11 @@ public class SpecificationUtils {
       if (value == null) {
         return null;
       }
-      return cb.like(
-        cb.lower(root.get(field)),
-        "%" + value.toLowerCase(Locale.ROOT) + "%"
-      );
+      return cb.like(cb.lower(root.get(field)), "%" + value.toLowerCase(Locale.ROOT) + "%");
     };
   }
 
-  public static <T> Specification<T> equals(String field, Object value) {
+  public static <T> Specification<T> equalTo(String field, Object value) {
     return (root, query, cb) -> {
       if (value == null) {
         return null;
@@ -106,10 +105,7 @@ public class SpecificationUtils {
       if (value == null) {
         return null;
       }
-      return cb.like(
-        cb.lower(root.get(field)),
-        value.toLowerCase(Locale.ROOT) + "%"
-      );
+      return cb.like(cb.lower(root.get(field)), value.toLowerCase(Locale.ROOT) + "%");
     };
   }
 }

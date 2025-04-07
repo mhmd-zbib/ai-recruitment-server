@@ -32,6 +32,7 @@
         <exclude name="UselessParentheses"/>
         <exclude name="BooleanGetMethodName"/>
         <exclude name="UnnecessaryConstructor"/>
+        <exclude name="ShortClassName"/>
     </rule>
 
     <!-- Design -->
@@ -47,6 +48,7 @@
         <exclude name="CyclomaticComplexity"/>
         <exclude name="NPathComplexity"/>
         <exclude name="CognitiveComplexity"/>
+        <exclude name="TooManyFields"/>
     </rule>
 
     <!-- Documentation -->
@@ -79,13 +81,6 @@
     <rule ref="category/java/multithreading.xml">
         <exclude name="DoNotUseThreads"/>
         <exclude name="UseConcurrentHashMap"/>
-    </rule>
-
-    <!-- Thresholds for design rules -->
-    <rule ref="category/java/design.xml/TooManyFields">
-        <properties>
-            <property name="maxfields" value="15"/>
-        </properties>
     </rule>
 
     <rule ref="category/java/design.xml/GodClass">

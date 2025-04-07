@@ -1,19 +1,17 @@
 package com.zbib.hiresync.service;
 
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-
 import com.zbib.hiresync.dto.AuthRequest;
 import com.zbib.hiresync.dto.AuthResponse;
 import com.zbib.hiresync.entity.User;
 import com.zbib.hiresync.logging.Loggable;
 import com.zbib.hiresync.repository.UserRepository;
 import com.zbib.hiresync.security.JwtUtil;
-
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor

@@ -1,8 +1,10 @@
 package com.zbib.hiresync.service;
 
+import com.zbib.hiresync.entity.User;
+import com.zbib.hiresync.repository.UserRepository;
+import com.zbib.hiresync.security.UserDetailsImpl;
 import java.util.Optional;
 import java.util.UUID;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,10 +16,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.test.context.ActiveProfiles;
-
-import com.zbib.hiresync.entity.User;
-import com.zbib.hiresync.repository.UserRepository;
-import com.zbib.hiresync.security.UserDetailsImpl;
 
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
@@ -36,6 +34,7 @@ class UserServiceTest {
     testUser = new User();
     testUser.setId(userId);
     testUser.setUsername("testuser");
+    testUser.setEmail("testuser@example.com");
     testUser.setPassword("password");
     testUser.setRole("USER");
   }
@@ -50,7 +49,7 @@ class UserServiceTest {
 
     // Assert
     Assertions.assertNotNull(userDetails);
-    Assertions.assertEquals("testuser", userDetails.getUsername());
+    Assertions.assertEquals("testuser@example.com", userDetails.getUsername());
     Assertions.assertTrue(userDetails instanceof UserDetailsImpl);
     Mockito.verify(userRepository, Mockito.times(1)).findByUsername("testuser");
   }

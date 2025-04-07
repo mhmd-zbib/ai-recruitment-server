@@ -1,21 +1,16 @@
 package com.zbib.hiresync.security;
 
+import com.zbib.hiresync.entity.User;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.UUID;
-
+import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import com.zbib.hiresync.entity.User;
-
-import lombok.Getter;
-
-/**
- * Implementation of UserDetails interface for user authentication.
- */
+/** Implementation of UserDetails interface for user authentication. */
 @Getter
 public final class UserDetailsImpl implements UserDetails {
 

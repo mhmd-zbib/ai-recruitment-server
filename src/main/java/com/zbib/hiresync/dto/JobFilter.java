@@ -3,7 +3,6 @@ package com.zbib.hiresync.dto;
 import com.zbib.hiresync.enums.EmploymentType;
 import com.zbib.hiresync.enums.JobStatus;
 import com.zbib.hiresync.enums.LocationType;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

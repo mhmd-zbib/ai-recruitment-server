@@ -6,17 +6,15 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/** 
- * DTO for User responses.
- */
+/** DTO for User responses. */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserResponse {
-  
+
   private UUID id;
   private String username;
   private String email;
   private String role;
-} 
+}

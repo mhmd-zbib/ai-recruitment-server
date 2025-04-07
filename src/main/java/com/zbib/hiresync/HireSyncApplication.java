@@ -4,7 +4,9 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-@SuppressWarnings("PMD.ClassWithOnlyPrivateConstructorsShouldBeFinal") // Cannot be final due to Spring proxying requirements
+@SuppressWarnings(
+    "PMD.ClassWithOnlyPrivateConstructorsShouldBeFinal") // Cannot be final due to Spring proxying
+// requirements
 public class HireSyncApplication {
 
   private HireSyncApplication() {

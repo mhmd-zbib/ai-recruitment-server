@@ -71,7 +71,7 @@ server:
     enabled: true
     mime-types: application/json,application/xml,text/html,text/xml,text/plain
     min-response-size: 2048
-  
+
 # Enable Swagger UI for local development
 springdoc:
   swagger-ui:
@@ -92,16 +92,17 @@ springdoc:
   default-produces-media-type: application/json
   default-consumes-media-type: application/json
 
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION}
+  issuer: hiresync-local
+  audience: hiresync-app
+  refresh-expiration: 604800000 # 7 days in milliseconds
+
 # Security settings for local development
 security:
-  jwt:
-    secret-key: ${JWT_SECRET}
-    token-validity: ${JWT_EXPIRATION}
-    issuer: hiresync-local
-    audience: hiresync-app
-    refresh-token-validity: 604800000 # 7 days in milliseconds
   cors:
-    allowed-origins: 
+    allowed-origins:
       - http://localhost:3000
       - http://127.0.0.1:3000
       - http://localhost:5173

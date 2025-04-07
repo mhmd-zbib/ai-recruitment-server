@@ -76,8 +76,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-hiresync}
       
       # JWT Configuration
-      JWT_SECRET: ${JWT_SECRET:-default_dev_secret_key_replace_in_production}
-      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
       
       # Time zone
       TZ: ${TZ:-UTC}

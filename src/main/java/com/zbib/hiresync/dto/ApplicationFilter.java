@@ -1,18 +1,21 @@
 package com.zbib.hiresync.dto;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
 import com.zbib.hiresync.enums.ApplicationStatus;
 import com.zbib.hiresync.enums.EmploymentType;
 import com.zbib.hiresync.enums.JobStatus;
 import com.zbib.hiresync.enums.LocationType;
+import java.time.LocalDateTime;
+import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import lombok.Getter;
-import lombok.Setter;
-
-@Getter
-@Setter
+/** DTO for filtering job applications based on various criteria. */
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class ApplicationFilter {
 
   // General search query

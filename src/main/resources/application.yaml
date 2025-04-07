@@ -61,7 +61,7 @@ logging:
     org.hibernate.SQL: ${LOG_LEVEL_SQL:ERROR}
     org.hibernate.type.descriptor.sql: ${LOG_LEVEL_SQL_PARAMS:ERROR}
 
-# Actuator configuration 
+# Actuator configuration
 management:
   endpoints:
     web:

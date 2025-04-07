@@ -1,108 +1,98 @@
 #!/usr/bin/env bash
+#
+# Lint.sh - Code quality check script for Checkstyle, PMD, and Spotless
+# Usage: ./lint.sh [--fix|--checkstyle|--pmd|--spotless|--container|--local|--help]
 
-# Description: Runs code quality checks using Checkstyle and PMD. Can fix some issues automatically.
+set -euo pipefail
 
-# Exit on error
-set -e
-
-# Get the project root directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SETTINGS_FILE="settings.xml"
+CONTAINER_NAME="hiresync-devtools"
 
-# Default values
+# Parse command line options
 FIX_ISSUES=false
 CHECKSTYLE_ONLY=false
 PMD_ONLY=false
+SPOTLESS_ONLY=false
 USE_CONTAINER=false
 
-# Parse arguments
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --fix)
-      FIX_ISSUES=true
-      shift
-      ;;
-    --checkstyle)
-      CHECKSTYLE_ONLY=true
-      shift
-      ;;
-    --pmd)
-      PMD_ONLY=true
-      shift
-      ;;
-    --container)
-      USE_CONTAINER=true
-      shift
-      ;;
-    *)
-      echo "Unknown option: $1"
-      echo "Usage: ./lint.sh [--fix] [--checkstyle] [--pmd] [--container]"
-      exit 1
-      ;;
+# Process arguments
+for arg in "$@"; do
+  case "$arg" in
+    --fix) FIX_ISSUES=true ;;
+    --checkstyle) CHECKSTYLE_ONLY=true ;;
+    --pmd) PMD_ONLY=true ;;
+    --spotless) SPOTLESS_ONLY=true ;;
+    --container) USE_CONTAINER=true ;;
+    --local) USE_CONTAINER=false ;;
+    --help) 
+      echo "Usage: ./lint.sh [options]"
+      echo "Options: --fix, --checkstyle, --pmd, --spotless, --container, --local, --help"
+      exit 0 ;;
+    *) echo "Unknown option: $arg"; exit 1 ;;
   esac
 done
 
-echo "=== Code Linting ==="
+# Check for conflicting options
+if [[ "$CHECKSTYLE_ONLY" == true && "$PMD_ONLY" == true ]] || 
+   [[ "$CHECKSTYLE_ONLY" == true && "$SPOTLESS_ONLY" == true ]] || 
+   [[ "$PMD_ONLY" == true && "$SPOTLESS_ONLY" == true ]]; then
+  echo "Error: Cannot use multiple exclusive options"
+  exit 1
+fi
 
-# Function to run commands either in container or locally
+# Configure Maven settings
+if [[ -f "$PROJECT_ROOT/$SETTINGS_FILE" ]]; then
+  SETTINGS_PARAM="-s $SETTINGS_FILE"
+else
+  SETTINGS_PARAM=""
+  if [[ ! -f "$PROJECT_ROOT/$SETTINGS_FILE" && -f "$HOME/.m2/settings.xml" ]]; then
+    cp "$HOME/.m2/settings.xml" "$PROJECT_ROOT/$SETTINGS_FILE"
+    SETTINGS_PARAM="-s $SETTINGS_FILE"
+  fi
+fi
+
+# Execute commands in container or locally
 run_command() {
-  local command=$1
-  
   if [[ "$USE_CONTAINER" == true ]]; then
-    if ! docker ps --format '{{.Names}}' | grep -q "hiresync-devtools"; then
-      echo "Error: Container hiresync-devtools is not running"
+    if ! command -v docker &> /dev/null || ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+      echo "Error: Docker not installed or container not running"
       exit 1
     fi
-    
-    echo "Running in container: $command"
-    docker exec -it "hiresync-devtools" bash -c "cd /workspace && $command"
+    docker exec "$CONTAINER_NAME" bash -c "cd /workspace && $1"
   else
-    echo "Running locally: $command"
-    (cd "$PROJECT_ROOT" && eval "$command")
+    (cd "$PROJECT_ROOT" && eval "$1")
   fi
-  
   return $?
 }
 
-# Determine which linters to run
+# Handle command exit codes
+handle_result() {
+  if [[ $1 -eq 0 ]]; then echo "$2"; else echo "$3"; exit 1; fi
+}
+
+# Run specific checks based on options
+echo "=== Code Linting ==="
+
 if [[ "$CHECKSTYLE_ONLY" == true ]]; then
-  echo "Running Checkstyle only"
-  run_command "mvn checkstyle:check -s settings.xml"
-  
-  EXIT_CODE=$?
-  if [ $EXIT_CODE -eq 0 ]; then
-    echo "Checkstyle passed"
-  else
-    echo "Checkstyle failed"
-    exit 1
-  fi
+  run_command "mvn checkstyle:check $SETTINGS_PARAM"
+  handle_result $? "Checkstyle passed" "Checkstyle failed"
 elif [[ "$PMD_ONLY" == true ]]; then
-  echo "Running PMD only"
-  run_command "mvn pmd:check -s settings.xml"
-  
-  EXIT_CODE=$?
-  if [ $EXIT_CODE -eq 0 ]; then
-    echo "PMD passed"
+  run_command "mvn pmd:check $SETTINGS_PARAM"
+  handle_result $? "PMD passed" "PMD failed"
+elif [[ "$SPOTLESS_ONLY" == true ]]; then
+  if [[ "$FIX_ISSUES" == true ]]; then
+    run_command "mvn spotless:apply $SETTINGS_PARAM"
+    handle_result $? "Code formatting fixed" "Failed to fix formatting"
   else
-    echo "PMD failed"
-    exit 1
+    run_command "mvn spotless:check $SETTINGS_PARAM"
+    handle_result $? "Spotless check passed" "Formatting issues found. Run with --fix to auto-format"
   fi
 else
-  # Run full linting suite
-  echo "Running full linting suite"
-  
   if [[ "$FIX_ISSUES" == true ]]; then
-    echo "Attempting to fix issues where possible"
-    run_command "mvn spotless:apply -s settings.xml"
+    run_command "mvn spotless:apply $SETTINGS_PARAM"
   fi
-  
-  run_command "mvn verify -DskipTests -s settings.xml"
-  
-  EXIT_CODE=$?
-  if [ $EXIT_CODE -eq 0 ]; then
-    echo "All linting checks passed"
-  else
-    echo "Linting failed"
-    exit 1
-  fi
+  run_command "mvn verify -DskipTests $SETTINGS_PARAM -P lint"
+  handle_result $? "All linting checks passed" "Linting failed"
 fi 
