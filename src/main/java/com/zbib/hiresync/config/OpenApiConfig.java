@@ -13,6 +13,9 @@ import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 
+/**
+ * Configuration class for OpenAPI/Swagger documentation.
+ */
 @Configuration
 public class OpenApiConfig {
 
@@ -25,6 +28,11 @@ public class OpenApiConfig {
     this.environment = environment;
   }
 
+  /**
+   * Creates and configures the OpenAPI documentation.
+   *
+   * @return the configured OpenAPI instance
+   */
   @Bean
   public OpenAPI openAPI() {
     boolean isProdProfile = isActiveProfile("prod");

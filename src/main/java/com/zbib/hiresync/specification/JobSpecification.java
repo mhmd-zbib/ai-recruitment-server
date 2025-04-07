@@ -8,6 +8,9 @@ import org.springframework.data.jpa.domain.Specification;
 
 import com.zbib.hiresync.dto.JobFilter;
 import com.zbib.hiresync.entity.JobPosting;
+import com.zbib.hiresync.enums.EmploymentType;
+import com.zbib.hiresync.enums.JobStatus;
+import com.zbib.hiresync.enums.LocationType;
 
 import jakarta.persistence.criteria.Predicate;
 
@@ -32,15 +35,15 @@ public class JobSpecification {
     return (root, query, cb) -> title == null ? null : cb.like(cb.lower(root.get("title")), "%" + title.toLowerCase() + "%");
   }
 
-  private static Specification<JobPosting> hasLocationType(String locationType) {
+  private static Specification<JobPosting> hasLocationType(LocationType locationType) {
     return (root, query, cb) -> locationType == null ? null : cb.equal(root.get("locationType"), locationType);
   }
 
-  private static Specification<JobPosting> hasEmploymentType(String employmentType) {
+  private static Specification<JobPosting> hasEmploymentType(EmploymentType employmentType) {
     return (root, query, cb) -> employmentType == null ? null : cb.equal(root.get("employmentType"), employmentType);
   }
 
-  private static Specification<JobPosting> hasStatus(String status) {
+  private static Specification<JobPosting> hasStatus(JobStatus status) {
     return (root, query, cb) -> status == null ? null : cb.equal(root.get("status"), status);
   }
 

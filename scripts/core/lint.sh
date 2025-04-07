@@ -9,9 +9,6 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Source common utilities
-source "$SCRIPT_DIR/../utils/logging.sh"
-
 # Default values
 FIX_ISSUES=false
 CHECKSTYLE_ONLY=false
@@ -38,14 +35,14 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      log_error "Unknown option: $1"
-      echo "Usage: ./hiresync lint [--fix] [--checkstyle] [--pmd] [--container]"
+      echo "Unknown option: $1"
+      echo "Usage: ./lint.sh [--fix] [--checkstyle] [--pmd] [--container]"
       exit 1
       ;;
   esac
 done
 
-log_section "Code Linting"
+echo "=== Code Linting ==="
 
 # Function to run commands either in container or locally
 run_command() {
@@ -53,14 +50,14 @@ run_command() {
   
   if [[ "$USE_CONTAINER" == true ]]; then
     if ! docker ps --format '{{.Names}}' | grep -q "hiresync-devtools"; then
-      log_error "Container hiresync-devtools is not running"
+      echo "Error: Container hiresync-devtools is not running"
       exit 1
     fi
     
-    log_info "Running in container: $command"
+    echo "Running in container: $command"
     docker exec -it "hiresync-devtools" bash -c "cd /workspace && $command"
   else
-    log_info "Running locally: $command"
+    echo "Running locally: $command"
     (cd "$PROJECT_ROOT" && eval "$command")
   fi
   
@@ -69,43 +66,43 @@ run_command() {
 
 # Determine which linters to run
 if [[ "$CHECKSTYLE_ONLY" == true ]]; then
-  log_info "Running Checkstyle only"
-  run_command "mvn checkstyle:check"
+  echo "Running Checkstyle only"
+  run_command "mvn checkstyle:check -s settings.xml"
   
   EXIT_CODE=$?
   if [ $EXIT_CODE -eq 0 ]; then
-    log_success "Checkstyle passed"
+    echo "Checkstyle passed"
   else
-    log_error "Checkstyle failed"
+    echo "Checkstyle failed"
     exit 1
   fi
 elif [[ "$PMD_ONLY" == true ]]; then
-  log_info "Running PMD only"
-  run_command "mvn pmd:check"
+  echo "Running PMD only"
+  run_command "mvn pmd:check -s settings.xml"
   
   EXIT_CODE=$?
   if [ $EXIT_CODE -eq 0 ]; then
-    log_success "PMD passed"
+    echo "PMD passed"
   else
-    log_error "PMD failed"
+    echo "PMD failed"
     exit 1
   fi
 else
   # Run full linting suite
-  log_info "Running full linting suite"
+  echo "Running full linting suite"
   
   if [[ "$FIX_ISSUES" == true ]]; then
-    log_info "Attempting to fix issues where possible"
-    run_command "mvn spotless:apply"
+    echo "Attempting to fix issues where possible"
+    run_command "mvn spotless:apply -s settings.xml"
   fi
   
-  run_command "mvn verify -DskipTests"
+  run_command "mvn verify -DskipTests -s settings.xml"
   
   EXIT_CODE=$?
   if [ $EXIT_CODE -eq 0 ]; then
-    log_success "All linting checks passed"
+    echo "All linting checks passed"
   else
-    log_error "Linting failed"
+    echo "Linting failed"
     exit 1
   fi
 fi 

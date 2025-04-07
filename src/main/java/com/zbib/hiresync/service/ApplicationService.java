@@ -1,75 +1,191 @@
 package com.zbib.hiresync.service;
 
-import static com.zbib.hiresync.builder.ApplicationBuilder.buildApplication;
-import static com.zbib.hiresync.builder.ApplicationBuilder.buildApplicationResponse;
-
-import java.util.UUID;
-
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.zbib.hiresync.builder.ApplicationBuilder;
-import com.zbib.hiresync.dto.ApplicationFilter;
-import com.zbib.hiresync.dto.ApplicationListResponse;
 import com.zbib.hiresync.dto.ApplicationRequest;
 import com.zbib.hiresync.dto.ApplicationResponse;
+import com.zbib.hiresync.dto.ApplicationFilter;
 import com.zbib.hiresync.dto.JobApplicationFilter;
-import com.zbib.hiresync.dto.JobApplicationListResponse;
 import com.zbib.hiresync.entity.Application;
 import com.zbib.hiresync.entity.JobPosting;
 import com.zbib.hiresync.entity.User;
+import com.zbib.hiresync.enums.ApplicationStatus;
 import com.zbib.hiresync.exceptions.ApplicationException;
 import com.zbib.hiresync.repository.ApplicationRepository;
+import com.zbib.hiresync.repository.JobRepository;
+import com.zbib.hiresync.repository.UserRepository;
 import com.zbib.hiresync.specification.ApplicationSpecification;
 import com.zbib.hiresync.specification.JobApplicationSpecification;
+import com.zbib.hiresync.validator.ApplicationValidator;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-@Log4j2
+import java.util.UUID;
+
+/**
+ * Service class for managing job applications.
+ */
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
-public class ApplicationService {
+public final class ApplicationService {
 
-  private final ApplicationRepository applicationRepository;
-  private final JobService jobService;
-  private final UserService userService;
-  private final ApplicationBuilder applicationBuilder;
+    private final ApplicationRepository applicationRepository;
+    private final JobRepository jobRepository;
+    private final UserRepository userRepository;
+    private final ApplicationValidator applicationValidator;
 
-  @Transactional
-  public ApplicationResponse createApplication(ApplicationRequest request, UUID userId, Long jobId) {
-    JobPosting job = jobService.getJobById(jobId);
-    User user = userService.getUserById(userId);
-    Application application = applicationBuilder.buildApplication(request, user, job);
-    Application savedApplication = applicationRepository.save(application);
-    return applicationBuilder.buildApplicationResponse(savedApplication);
-  }
+    /**
+     * Creates a new job application.
+     *
+     * @param request the application request
+     * @param userId the user ID
+     * @param jobId the job ID
+     * @return the created application response
+     */
+    @Transactional
+    public ApplicationResponse createApplication(
+            final ApplicationRequest request,
+            final UUID userId,
+            final UUID jobId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApplicationException(
+                        HttpStatus.NOT_FOUND,
+                        "User not found",
+                        "User with id " + userId + " does not exist"));
+        JobPosting job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new ApplicationException(
+                        HttpStatus.NOT_FOUND,
+                        "Job not found",
+                        "Job with id " + jobId + " does not exist"));
 
-  public ApplicationResponse getApplicationById(UUID id) {
-    Application application = applicationRepository.findById(id)
+        Application application = Application.builder()
+                .user(user)
+                .job(job)
+                .status(ApplicationStatus.SUBMITTED)
+                .build();
+
+        return ApplicationResponse.builder()
+                .id(applicationRepository.save(application).getId())
+                .status(application.getStatus())
+                .build();
+    }
+
+    /**
+     * Gets an application response by ID.
+     *
+     * @param id the application ID
+     * @return the application response
+     */
+    public ApplicationResponse getApplicationResponseById(final UUID id) {
+        return applicationRepository.findById(id)
+            .map(application -> ApplicationResponse.builder()
+                .id(application.getId())
+                .jobId(application.getJob().getId())
+                .firstName(application.getFirstName())
+                .lastName(application.getLastName())
+                .email(application.getEmail())
+                .phoneNumber(application.getPhoneNumber())
+                .linkedInUrl(application.getLinkedinUrl())
+                .websiteUrl(application.getWebsiteUrl())
+                .cvUrl(application.getCvUrl())
+                .status(application.getStatus())
+                .referredBy(application.getReferredBy())
+                .appliedAt(application.getCreatedAt())
+                .build())
             .orElseThrow(() -> ApplicationException.applicationNotFound(id));
-    return applicationBuilder.buildApplicationResponse(application);
-  }
+    }
 
-  public Page<JobApplicationListResponse> geJobApplications(
-      UUID jobId, JobApplicationFilter filter, Pageable pageable) {
-    Page<Application> applications =
-        applicationRepository.findAll(
-            JobApplicationSpecification.buildSpecification(jobId, filter), pageable);
-    return applications.map(ApplicationBuilder::buildJobApplicationListResponse);
-  }
+    /**
+     * Gets an application by ID.
+     *
+     * @param id the application ID
+     * @return the application
+     */
+    public Application getApplicationById(final UUID id) {
+        return applicationRepository.findById(id)
+                .orElseThrow(() -> new ApplicationException(
+                    HttpStatus.NOT_FOUND,
+                    "Application not found",
+                    "Application with id " + id + " does not exist"));
+    }
 
-  public Page<ApplicationListResponse> getUserApplications(UUID userId, ApplicationFilter filter, Pageable pageable) {
-    Page<Application> applications = applicationRepository.findAll(
-            ApplicationSpecification.buildSpecification(userId, filter), pageable);
-    return applications.map(applicationBuilder::buildApplicationListResponse);
-  }
+    /**
+     * Gets all applications for a job.
+     *
+     * @param jobId the job ID
+     * @param filter the filter criteria
+     * @param pageable the pagination information
+     * @return a page of application responses
+     */
+    public Page<ApplicationResponse> getJobApplications(
+            final UUID jobId,
+            final JobApplicationFilter filter,
+            final Pageable pageable) {
+        return applicationRepository.findAll(
+            JobApplicationSpecification.buildSpecification(jobId, filter),
+            pageable)
+            .map(application -> ApplicationResponse.builder()
+                .id(application.getId())
+                .jobId(application.getJob().getId())
+                .firstName(application.getFirstName())
+                .lastName(application.getLastName())
+                .email(application.getEmail())
+                .phoneNumber(application.getPhoneNumber())
+                .linkedInUrl(application.getLinkedinUrl())
+                .websiteUrl(application.getWebsiteUrl())
+                .cvUrl(application.getCvUrl())
+                .status(application.getStatus())
+                .referredBy(application.getReferredBy())
+                .appliedAt(application.getCreatedAt())
+                .build());
+    }
 
-  public void deleteApplicationById(UUID id) {
-    Application application = getApplicationById(id);
-    applicationRepository.delete(application);
-  }
+    /**
+     * Gets all applications for a user.
+     *
+     * @param userId the user ID
+     * @param filter the filter criteria
+     * @param pageable the pagination information
+     * @return a page of application responses
+     */
+    public Page<ApplicationResponse> getApplications(
+            final UUID userId,
+            final ApplicationFilter filter,
+            final Pageable pageable) {
+        return applicationRepository.findAll(
+            ApplicationSpecification.buildSpecification(userId, filter),
+            pageable)
+            .map(application -> ApplicationResponse.builder()
+                .id(application.getId())
+                .jobId(application.getJob().getId())
+                .firstName(application.getFirstName())
+                .lastName(application.getLastName())
+                .email(application.getEmail())
+                .phoneNumber(application.getPhoneNumber())
+                .linkedInUrl(application.getLinkedinUrl())
+                .websiteUrl(application.getWebsiteUrl())
+                .cvUrl(application.getCvUrl())
+                .status(application.getStatus())
+                .referredBy(application.getReferredBy())
+                .appliedAt(application.getCreatedAt())
+                .build());
+    }
+
+    /**
+     * Deletes an application by ID.
+     *
+     * @param id the application ID
+     */
+    @Transactional
+    public void deleteApplicationById(final UUID id) {
+        Application application = applicationRepository.findById(id)
+            .orElseThrow(() -> new ApplicationException(
+                HttpStatus.NOT_FOUND,
+                "Application not found",
+                "Application with id " + id + " does not exist"));
+        applicationRepository.delete(application);
+    }
 }

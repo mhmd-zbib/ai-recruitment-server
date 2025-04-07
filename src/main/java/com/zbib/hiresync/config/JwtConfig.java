@@ -12,16 +12,30 @@ import java.security.Key;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.security.core.AuthenticationException;
 
+/**
+ * Configuration class for JWT (JSON Web Token) settings.
+ */
 @Configuration
-public class JwtConfig {
+public final class JwtConfig {
     private static final Logger LOGGER = LogManager.getLogger(JwtConfig.class);
 
+    /**
+     * JWT signing key from application properties.
+     */
     @Value("${jwt.secret}")
     private String jwtSecret;
 
+    /**
+     * JWT expiration time in milliseconds from application properties.
+     */
     @Value("${jwt.expiration}")
-    private int jwtExpiration;
+    private long jwtExpiration;
 
+    /**
+     * Creates a signing key for JWT tokens.
+     *
+     * @return the JWT signing key
+     */
     @Bean
     public Key jwtSigningKey() {
         LOGGER.debug("Initializing JWT signing key");
@@ -36,6 +50,11 @@ public class JwtConfig {
         }
     }
 
+    /**
+     * Gets the JWT secret key.
+     *
+     * @return the JWT secret key
+     */
     public String getJwtSecret() {
         if (jwtSecret == null || jwtSecret.trim().isEmpty()) {
             LOGGER.error("JWT secret is not configured");
@@ -44,7 +63,12 @@ public class JwtConfig {
         return jwtSecret;
     }
 
-    public int getJwtExpiration() {
+    /**
+     * Gets the JWT expiration time in milliseconds.
+     *
+     * @return the JWT expiration time
+     */
+    public long getJwtExpiration() {
         return jwtExpiration;
     }
 } 

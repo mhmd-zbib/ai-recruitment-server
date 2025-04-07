@@ -1,6 +1,6 @@
 package com.zbib.hiresync.builder;
 
-import java.time.LocalDateTime;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -20,11 +20,16 @@ public class JobBuilder {
     return JobPosting.builder()
             .title(request.getTitle())
             .description(request.getDescription())
-            .requirements(request.getRequirements())
-            .location(request.getLocation())
+            .responsibilities(request.getResponsibilities())
+            .qualifications(request.getQualifications())
+            .benefits(request.getBenefits())
+            .yearsOfExperience(request.getYearsOfExperience())
+            .locationType(request.getLocationType())
             .department(request.getDepartment())
             .employmentType(request.getEmploymentType())
-            .status(request.getStatus())
+            .minSalary(request.getMinSalary())
+            .maxSalary(request.getMaxSalary())
+            .status(JobStatus.DRAFT)
             .build();
   }
 
@@ -33,10 +38,15 @@ public class JobBuilder {
             .id(job.getId())
             .title(job.getTitle())
             .description(job.getDescription())
-            .requirements(job.getRequirements())
-            .location(job.getLocation())
+            .responsibilities(job.getResponsibilities())
+            .qualifications(job.getQualifications())
+            .benefits(job.getBenefits())
+            .yearsOfExperience(job.getYearsOfExperience())
+            .locationType(job.getLocationType())
             .department(job.getDepartment())
             .employmentType(job.getEmploymentType())
+            .minSalary(job.getMinSalary())
+            .maxSalary(job.getMaxSalary())
             .status(job.getStatus())
             .createdAt(job.getCreatedAt())
             .updatedAt(job.getUpdatedAt())
@@ -50,13 +60,19 @@ public class JobBuilder {
   // Static methods needed by JobService
   public static JobPosting buildJobEntity(JobRequest request, User user) {
     return JobPosting.builder()
+            .user(user)
             .title(request.getTitle())
             .description(request.getDescription())
-            .requirements(request.getRequirements())
-            .location(request.getLocation())
+            .responsibilities(request.getResponsibilities())
+            .qualifications(request.getQualifications())
+            .benefits(request.getBenefits())
+            .yearsOfExperience(request.getYearsOfExperience())
+            .locationType(request.getLocationType())
             .department(request.getDepartment())
             .employmentType(request.getEmploymentType())
-            .status(request.getStatus())
+            .minSalary(request.getMinSalary())
+            .maxSalary(request.getMaxSalary())
+            .status(JobStatus.DRAFT)
             .build();
   }
 
@@ -65,10 +81,15 @@ public class JobBuilder {
             .id(job.getId())
             .title(job.getTitle())
             .description(job.getDescription())
-            .requirements(job.getRequirements())
-            .location(job.getLocation())
+            .responsibilities(job.getResponsibilities())
+            .qualifications(job.getQualifications())
+            .benefits(job.getBenefits())
+            .yearsOfExperience(job.getYearsOfExperience())
+            .locationType(job.getLocationType())
             .department(job.getDepartment())
             .employmentType(job.getEmploymentType())
+            .minSalary(job.getMinSalary())
+            .maxSalary(job.getMaxSalary())
             .status(job.getStatus())
             .createdAt(job.getCreatedAt())
             .updatedAt(job.getUpdatedAt())

@@ -33,9 +33,11 @@ public class JobApplicationController {
 
   @PostMapping("/applications")
   public ResponseEntity<ApplicationResponse> createApplication(
-      @Valid @RequestBody ApplicationRequest applicationRequest, @PathVariable UUID jobId) {
+      @AuthenticationPrincipal UserDetailsImpl userDetailsImpl,
+      @Valid @RequestBody ApplicationRequest applicationRequest,
+      @PathVariable UUID jobId) {
     ApplicationResponse applicationResponse =
-        applicationService.createApplication(applicationRequest, jobId);
+        applicationService.createApplication(applicationRequest, userDetailsImpl.getId(), jobId);
     return ResponseEntity.ok(applicationResponse);
   }
 
@@ -48,7 +50,7 @@ public class JobApplicationController {
       @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
           Pageable pageable) {
     Page<JobApplicationListResponse> applications =
-        applicationService.geJobApplications(jobId, filter, pageable);
+        applicationService.getJobApplications(jobId, filter, pageable);
     return ResponseEntity.ok(applications);
   }
 }

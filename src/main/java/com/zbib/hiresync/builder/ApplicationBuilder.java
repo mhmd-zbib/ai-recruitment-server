@@ -1,7 +1,5 @@
 package com.zbib.hiresync.builder;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 
@@ -17,7 +15,7 @@ import com.zbib.hiresync.enums.ApplicationStatus;
 @Component
 public class ApplicationBuilder {
 
-  public ApplicationResponse buildApplicationResponse(Application application) {
+  public static ApplicationResponse buildApplicationResponse(Application application) {
     return ApplicationResponse.builder()
         .id(application.getId())
         .jobId(application.getJob().getId())
@@ -46,7 +44,7 @@ public class ApplicationBuilder {
         .build();
   }
 
-  public Application buildApplication(ApplicationRequest request, User user, JobPosting job) {
+  public static Application buildApplication(ApplicationRequest request, User user, JobPosting job) {
     return Application.builder()
         .job(job)
         .user(user)
@@ -62,7 +60,7 @@ public class ApplicationBuilder {
         .build();
   }
 
-  public ApplicationListResponse buildApplicationListResponse(Application application) {
+  public static ApplicationListResponse buildApplicationListResponse(Application application) {
     return ApplicationListResponse.builder()
         .id(application.getId())
         .firstName(application.getFirstName())

@@ -31,4 +31,5 @@ public class JobResponse {
   private int minSalary;
   private int maxSalary;
   private LocalDateTime createdAt;
+  private LocalDateTime updatedAt;
 }

@@ -35,6 +35,9 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Security configuration class for the application.
+ */
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -67,6 +70,13 @@ public class SecurityConfig {
     return handler;
   }
 
+  /**
+   * Configures the security filter chain.
+   *
+   * @param http the HttpSecurity to configure
+   * @return the configured SecurityFilterChain
+   * @throws Exception if an error occurs during configuration
+   */
   @Bean
   public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
     logger.info("Configuring security filter chain");
@@ -119,11 +129,23 @@ public class SecurityConfig {
     return provider;
   }
 
+  /**
+   * Creates a password encoder bean.
+   *
+   * @return the password encoder
+   */
   @Bean
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder(12);
   }
 
+  /**
+   * Creates an authentication manager bean.
+   *
+   * @param config the authentication configuration
+   * @return the authentication manager
+   * @throws Exception if an error occurs during creation
+   */
   @Bean
   public AuthenticationManager authenticationManager(AuthenticationConfiguration config)
       throws Exception {

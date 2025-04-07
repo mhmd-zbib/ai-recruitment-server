@@ -38,13 +38,13 @@ public class JobService {
     return buildJobResponseDTO(savedJob);
   }
 
-  public JobPosting getJobById(Long id) {
+  public JobPosting getJobById(UUID id) {
     return jobRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Job not found"));
+            .orElseThrow(() -> JobException.jobNotFound(id));
   }
 
   public JobResponse getJobResponseById(UUID id) {
-    JobPosting job = getJobById(id.longValue());
+    JobPosting job = getJobById(id);
     return buildJobResponseDTO(job);
   }
 

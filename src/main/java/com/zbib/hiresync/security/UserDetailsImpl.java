@@ -13,12 +13,21 @@ import com.zbib.hiresync.entity.User;
 
 import lombok.Getter;
 
+/**
+ * Implementation of UserDetails interface for user authentication.
+ */
 @Getter
-public class UserDetailsImpl implements UserDetails {
+public final class UserDetailsImpl implements UserDetails {
 
+  private static final long serialVersionUID = 1L;
   private final User user;
 
-  public UserDetailsImpl(User user) {
+  /**
+   * Creates a new UserDetailsImpl instance.
+   *
+   * @param user the user entity
+   */
+  public UserDetailsImpl(final User user) {
     this.user = Objects.requireNonNull(user, "User cannot be null");
   }
 
@@ -34,7 +43,7 @@ public class UserDetailsImpl implements UserDetails {
 
   @Override
   public String getUsername() {
-    return user.getUsername();
+    return user.getEmail();
   }
 
   @Override
@@ -57,10 +66,20 @@ public class UserDetailsImpl implements UserDetails {
     return true;
   }
 
+  /**
+   * Gets the user's ID.
+   *
+   * @return the user's ID
+   */
   public UUID getId() {
     return user.getId();
   }
 
+  /**
+   * Gets the user entity.
+   *
+   * @return the user entity
+   */
   public User getUser() {
     return user;
   }
