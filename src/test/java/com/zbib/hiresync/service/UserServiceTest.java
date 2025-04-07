@@ -3,6 +3,7 @@ package com.zbib.hiresync.service;
 import com.zbib.hiresync.entity.User;
 import com.zbib.hiresync.repository.UserRepository;
 import com.zbib.hiresync.security.UserDetailsImpl;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Assertions;
@@ -90,9 +91,12 @@ class UserServiceTest {
     Mockito.when(userRepository.findById(nonExistentId)).thenReturn(Optional.empty());
 
     // Act & Assert
-    Assertions.assertThrows(
-        NullPointerException.class, () -> userService.getUserById(nonExistentId));
-
+    Exception exception = Assertions.assertThrows(
+        NoSuchElementException.class, 
+        () -> userService.getUserById(nonExistentId)
+    );
+    
+    Assertions.assertTrue(exception.getMessage().contains("User not found with id"));
     Mockito.verify(userRepository, Mockito.times(1)).findById(nonExistentId);
   }
 }
