@@ -15,7 +15,11 @@ import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 
-public class ApplicationSpecification {
+public final class ApplicationSpecification {
+
+  private ApplicationSpecification() {
+    throw new IllegalStateException("Utility class");
+  }
 
   public static Specification<Application> buildSpecification(UUID userId, ApplicationFilter filter) {
     return (root, query, cb) -> {

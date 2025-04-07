@@ -12,9 +12,11 @@ import com.zbib.hiresync.repository.UserRepository;
 import com.zbib.hiresync.security.UserDetailsImpl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserService implements UserDetailsService {
 
   private final UserRepository userRepository;
@@ -31,5 +33,25 @@ public class UserService implements UserDetailsService {
 
   public User getUserById(UUID id) {
     return userRepository.findById(id).orElseThrow(null);
+  }
+
+  public UserResponse createUser(UserRequest userRequest) {
+    // ... existing code ...
+  }
+
+  public UserResponse getUserById(UUID id) {
+    // ... existing code ...
+  }
+
+  public UserResponse updateUser(UUID id, UserRequest userRequest) {
+    // ... existing code ...
+  }
+
+  public void deleteUser(UUID id) {
+    // ... existing code ...
+  }
+
+  public User getUserByEmail(String email) {
+    // ... existing code ...
   }
 }

@@ -1,5 +1,6 @@
 package com.zbib.hiresync.entity;
 
+import java.io.Serializable;
 import java.util.UUID;
 
 import lombok.AllArgsConstructor;
@@ -18,7 +19,9 @@ import jakarta.persistence.Table;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+public class User implements Serializable {
+  private static final long serialVersionUID = 1L;
+
   @Id @GeneratedValue private UUID id;
 
   private String username;
