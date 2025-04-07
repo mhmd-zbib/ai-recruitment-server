@@ -311,8 +311,10 @@
                     <skipProvidedScope>true</skipProvidedScope>
                     <skipTestScope>true</skipTestScope>
                     <skipSystemScope>true</skipSystemScope>
-                    <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
                     <failOnError>false</failOnError>
+                    <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
+                    <cveValidForHours>24</cveValidForHours>
+                    <autoUpdate>false</autoUpdate>
                 </configuration>
                 <executions>
                     <execution>

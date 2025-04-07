@@ -1,11 +1,15 @@
 package com.zbib.hiresync.config;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.CannotGetJdbcConnectionException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +21,8 @@ import jakarta.annotation.PostConstruct;
 @RequiredArgsConstructor
 @Profile({"dev", "prod"})
 public class DatabaseHealthIndicator implements HealthIndicator {
+
+  private static final Logger LOGGER = LogManager.getLogger(DatabaseHealthIndicator.class);
 
   private final JdbcTemplate jdbcTemplate;
 
@@ -37,23 +43,22 @@ public class DatabaseHealthIndicator implements HealthIndicator {
   @Override
   public Health health() {
     try {
-      int result = jdbcTemplate.queryForObject("SELECT 1", Integer.class);
-      if (result == 1) {
-        return Health.up()
-            .withDetail("database", extractDatabaseName(datasourceUrl))
-            .withDetail("status", "Available")
-            .build();
-      } else {
-        return Health.down()
-            .withDetail("database", extractDatabaseName(datasourceUrl))
-            .withDetail("status", "Unexpected response")
-            .build();
-      }
-    } catch (Exception e) {
-      return Health.down()
+      jdbcTemplate.queryForObject("SELECT 1", Integer.class);
+      return Health.up()
           .withDetail("database", extractDatabaseName(datasourceUrl))
-          .withDetail("status", "Unavailable")
-          .withDetail("error", e.getMessage())
+          .withDetail("status", "Available")
+          .build();
+    } catch (CannotGetJdbcConnectionException e) {
+      LOGGER.error("Database connection failed", e);
+      return Health.down()
+          .withException(e)
+          .withDetail("error", "Database connection failed")
+          .build();
+    } catch (DataAccessException e) {
+      LOGGER.error("Database access error", e);
+      return Health.down()
+          .withException(e)
+          .withDetail("error", "Database access error")
           .build();
     }
   }

@@ -3,14 +3,18 @@ package com.zbib.hiresync.specification;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.data.jpa.domain.Specification;
 
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Predicate;
+import lombok.experimental.UtilityClass;
 
+@UtilityClass
 public class SpecificationUtils {
 
   public static Predicate createEqualPredicate(
@@ -74,5 +78,38 @@ public class SpecificationUtils {
       }
       predicates.add(criteriaBuilder.or(searchPredicates));
     }
+  }
+
+  public static <T> Specification<T> like(String field, String value) {
+    return (root, query, cb) -> {
+      if (value == null) {
+        return null;
+      }
+      return cb.like(
+        cb.lower(root.get(field)),
+        "%" + value.toLowerCase(Locale.ROOT) + "%"
+      );
+    };
+  }
+
+  public static <T> Specification<T> equals(String field, Object value) {
+    return (root, query, cb) -> {
+      if (value == null) {
+        return null;
+      }
+      return cb.equal(root.get(field), value);
+    };
+  }
+
+  public static <T> Specification<T> startsWith(String field, String value) {
+    return (root, query, cb) -> {
+      if (value == null) {
+        return null;
+      }
+      return cb.like(
+        cb.lower(root.get(field)),
+        value.toLowerCase(Locale.ROOT) + "%"
+      );
+    };
   }
 }

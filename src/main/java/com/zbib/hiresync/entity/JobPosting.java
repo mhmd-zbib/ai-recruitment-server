@@ -17,8 +17,8 @@ import jakarta.persistence.*;
 @NoArgsConstructor
 @Builder
 @Entity
-@Table(name = "jobs")
-public class Job {
+@Table(name = "job_postings")
+public class JobPosting {
 
   @Id @GeneratedValue private UUID id;
 
@@ -65,4 +65,18 @@ public class Job {
 
   @Column(nullable = false)
   private LocalDateTime createdAt;
+
+  @Column(name = "updated_at")
+  private LocalDateTime updatedAt;
+
+  @PrePersist
+  protected void onCreate() {
+    createdAt = LocalDateTime.now();
+    updatedAt = LocalDateTime.now();
+  }
+
+  @PreUpdate
+  protected void onUpdate() {
+    updatedAt = LocalDateTime.now();
+  }
 }
