@@ -48,10 +48,12 @@ if [[ -n "${CI}" ]]; then
   if [[ -n "${GITHUB_ACTIONS}" ]]; then
     REGISTRY="${REGISTRY:-ghcr.io}"
     
-    # For GitHub Container Registry, we need to include the owner in the image name
+    # For GitHub Container Registry, we need to use the correct format
     if [[ "${REGISTRY}" == "ghcr.io" ]]; then
+      # Use personal account for publishing, not organization
       GITHUB_OWNER=$(echo "${GITHUB_REPOSITORY}" | cut -d'/' -f1 | tr '[:upper:]' '[:lower:]')
-      IMAGE_NAME="${GITHUB_OWNER}/${IMAGE_NAME:-${GITHUB_REPOSITORY##*/}}"
+      IMAGE_NAME="${IMAGE_NAME:-${GITHUB_REPOSITORY##*/}}"
+      # Don't include owner in the image name as it will be included in the registry path
     else
       IMAGE_NAME="${IMAGE_NAME:-${GITHUB_REPOSITORY##*/}}"
     fi
@@ -84,8 +86,12 @@ if [[ -z "${REGISTRY}" || -z "${IMAGE_NAME}" ]]; then
   exit 1
 fi
 
-# Full image name
-FULL_IMAGE_NAME="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+# Full image name - for GHCR, the format is ghcr.io/username/image:tag
+if [[ "${REGISTRY}" == "ghcr.io" ]]; then
+  FULL_IMAGE_NAME="${REGISTRY}/${GITHUB_ACTOR}/${IMAGE_NAME}:${IMAGE_TAG}"
+else
+  FULL_IMAGE_NAME="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+fi
 
 echo -e "${BLUE}Building Docker image: ${FULL_IMAGE_NAME}${NC}"
 
@@ -116,7 +122,11 @@ if [[ "${PUSH_IMAGE}" == "true" ]]; then
   
   # Push additional tag if specified
   if [[ -n "${ADDITIONAL_TAG}" ]]; then
-    ADDITIONAL_IMAGE_NAME="${REGISTRY}/${IMAGE_NAME}:${ADDITIONAL_TAG}"
+    if [[ "${REGISTRY}" == "ghcr.io" ]]; then
+      ADDITIONAL_IMAGE_NAME="${REGISTRY}/${GITHUB_ACTOR}/${IMAGE_NAME}:${ADDITIONAL_TAG}"
+    else
+      ADDITIONAL_IMAGE_NAME="${REGISTRY}/${IMAGE_NAME}:${ADDITIONAL_TAG}"
+    fi
     echo -e "${BLUE}Tagging and pushing additional tag: ${ADDITIONAL_IMAGE_NAME}${NC}"
     docker tag "${FULL_IMAGE_NAME}" "${ADDITIONAL_IMAGE_NAME}"
     docker push "${ADDITIONAL_IMAGE_NAME}"
