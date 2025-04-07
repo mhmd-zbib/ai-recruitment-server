@@ -1,18 +1,23 @@
 package com.zbib.hiresync.builder;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
+
+import org.springframework.stereotype.Component;
 
 import com.zbib.hiresync.dto.ApplicationListResponse;
 import com.zbib.hiresync.dto.ApplicationRequest;
 import com.zbib.hiresync.dto.ApplicationResponse;
 import com.zbib.hiresync.dto.JobApplicationListResponse;
 import com.zbib.hiresync.entity.Application;
-import com.zbib.hiresync.entity.Job;
+import com.zbib.hiresync.entity.JobPosting;
+import com.zbib.hiresync.entity.User;
 import com.zbib.hiresync.enums.ApplicationStatus;
 
+@Component
 public class ApplicationBuilder {
 
-  public static ApplicationResponse buildApplicationResponse(Application application) {
+  public ApplicationResponse buildApplicationResponse(Application application) {
     return ApplicationResponse.builder()
         .id(application.getId())
         .jobId(application.getJob().getId())
@@ -20,11 +25,11 @@ public class ApplicationBuilder {
         .lastName(application.getLastName())
         .email(application.getEmail())
         .phoneNumber(application.getPhoneNumber())
-        .linkedInUrl(application.getLinkedinUrl())
         .websiteUrl(application.getWebsiteUrl())
+        .linkedInUrl(application.getLinkedinUrl())
         .cvUrl(application.getCvUrl())
-        .status(application.getStatus())
         .referredBy(application.getReferredBy())
+        .status(application.getStatus())
         .appliedAt(application.getCreatedAt())
         .build();
   }
@@ -41,23 +46,23 @@ public class ApplicationBuilder {
         .build();
   }
 
-  public static Application buildApplication(ApplicationRequest request, Job job) {
+  public Application buildApplication(ApplicationRequest request, User user, JobPosting job) {
     return Application.builder()
         .job(job)
+        .user(user)
         .firstName(request.getFirstName())
         .lastName(request.getLastName())
         .email(request.getEmail())
         .phoneNumber(request.getPhoneNumber())
-        .linkedinUrl(request.getLinkedInUrl())
         .websiteUrl(request.getWebsiteUrl())
+        .linkedinUrl(request.getLinkedInUrl())
         .cvUrl(request.getCvUrl())
-        .status(ApplicationStatus.NEW)
         .referredBy(request.getReferredBy())
-        .createdAt(LocalDateTime.now())
+        .status(ApplicationStatus.NEW)
         .build();
   }
 
-  public static ApplicationListResponse buildApplicationListResponse(Application application) {
+  public ApplicationListResponse buildApplicationListResponse(Application application) {
     return ApplicationListResponse.builder()
         .id(application.getId())
         .firstName(application.getFirstName())
@@ -65,13 +70,12 @@ public class ApplicationBuilder {
         .email(application.getEmail())
         .status(application.getStatus())
         .createdAt(application.getCreatedAt())
-        .job(
-            ApplicationListResponse.ApplicationJobResponse.builder()
-                .id(application.getJob().getId())
-                .title(application.getJob().getTitle())
-                .department(application.getJob().getDepartment())
-                .status(application.getJob().getStatus())
-                .build())
+        .job(ApplicationListResponse.ApplicationJobResponse.builder()
+            .id(application.getJob().getId())
+            .title(application.getJob().getTitle())
+            .department(application.getJob().getDepartment())
+            .status(application.getJob().getStatus())
+            .build())
         .build();
   }
 }

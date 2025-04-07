@@ -15,6 +15,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import jakarta.persistence.*;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 
 @Entity
 @Table(name = "interviews")
@@ -29,18 +31,24 @@ public class Interview {
   private UUID id;
 
   @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "application_id", nullable = false)
-  private Application application;
+  @JoinColumn(name = "job_id", nullable = false)
+  private JobPosting job;
 
   @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "job_id")
-  private Job job;
+  @JoinColumn(name = "user_id", nullable = false)
+  private User user;
 
   @Column(nullable = false)
-  private LocalDateTime scheduledStartTime;
+  private String title;
 
   @Column(nullable = false)
-  private LocalDateTime scheduledEndTime;
+  private String description;
+
+  @Column(nullable = false)
+  private LocalDateTime scheduledAt;
+
+  @Column(nullable = false)
+  private Integer duration;
 
   @Column(length = 100)
   private String location;
@@ -65,7 +73,20 @@ public class Interview {
   @Column(nullable = false)
   private boolean reminderSent;
 
-  @CreationTimestamp private LocalDateTime createdAt;
+  @Column(name = "created_at", nullable = false)
+  private LocalDateTime createdAt;
 
-  @UpdateTimestamp private LocalDateTime updatedAt;
+  @Column(name = "updated_at", nullable = false)
+  private LocalDateTime updatedAt;
+
+  @PrePersist
+  protected void onCreate() {
+    createdAt = LocalDateTime.now();
+    updatedAt = LocalDateTime.now();
+  }
+
+  @PreUpdate
+  protected void onUpdate() {
+    updatedAt = LocalDateTime.now();
+  }
 }
