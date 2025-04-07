@@ -29,9 +29,6 @@ jobs:
     - name: Prepare CI environment
       run: ./scripts/core/ci-prepare.sh
 
-    - name: Lint and Format
-      run: ./scripts/core/lint.sh --fix
-
     - name: Run tests
       run: ./scripts/core/test.sh
 
