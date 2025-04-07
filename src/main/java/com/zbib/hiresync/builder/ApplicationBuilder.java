@@ -1,7 +1,5 @@
 package com.zbib.hiresync.builder;
 
-import org.springframework.stereotype.Component;
-
 import com.zbib.hiresync.dto.ApplicationListResponse;
 import com.zbib.hiresync.dto.ApplicationRequest;
 import com.zbib.hiresync.dto.ApplicationResponse;
@@ -11,8 +9,14 @@ import com.zbib.hiresync.entity.JobPosting;
 import com.zbib.hiresync.entity.User;
 import com.zbib.hiresync.enums.ApplicationStatus;
 
-@Component
-public class ApplicationBuilder {
+/** Utility class for building Application entities and DTOs. */
+public final class ApplicationBuilder {
+
+  /** Private constructor to prevent instantiation of utility class. */
+  private ApplicationBuilder() {
+    throw new UnsupportedOperationException(
+        "ApplicationBuilder is a utility class and cannot be instantiated");
+  }
 
   public static ApplicationResponse buildApplicationResponse(Application application) {
     return ApplicationResponse.builder()
@@ -43,7 +47,8 @@ public class ApplicationBuilder {
         .build();
   }
 
-  public static Application buildApplication(ApplicationRequest request, User user, JobPosting job) {
+  public static Application buildApplication(
+      ApplicationRequest request, User user, JobPosting job) {
     return Application.builder()
         .job(job)
         .user(user)
@@ -67,12 +72,13 @@ public class ApplicationBuilder {
         .email(application.getEmail())
         .status(application.getStatus())
         .createdAt(application.getCreatedAt())
-        .job(ApplicationListResponse.ApplicationJobResponse.builder()
-            .id(application.getJob().getId())
-            .title(application.getJob().getTitle())
-            .department(application.getJob().getDepartment())
-            .status(application.getJob().getStatus())
-            .build())
+        .job(
+            ApplicationListResponse.ApplicationJobResponse.builder()
+                .id(application.getJob().getId())
+                .title(application.getJob().getTitle())
+                .department(application.getJob().getDepartment())
+                .status(application.getJob().getStatus())
+                .build())
         .build();
   }
 }

@@ -1,27 +1,30 @@
 package com.zbib.hiresync.specification;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
-import org.springframework.data.jpa.domain.Specification;
-
 import com.zbib.hiresync.dto.ApplicationFilter;
 import com.zbib.hiresync.entity.Application;
 import com.zbib.hiresync.entity.JobPosting;
-import com.zbib.hiresync.enums.ApplicationStatus;
-
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import lombok.experimental.UtilityClass;
+import org.springframework.data.jpa.domain.Specification;
 
-public final class ApplicationSpecification {
+/** Utility class for creating Application specifications. */
+@UtilityClass
+public class ApplicationSpecification {
 
-  private ApplicationSpecification() {
-    throw new IllegalStateException("Utility class");
-  }
-
-  public static Specification<Application> buildSpecification(UUID userId, ApplicationFilter filter) {
+  /**
+   * Build a specification for Application entities based on the provided filter.
+   *
+   * @param userId the user ID for filtering
+   * @param filter the filter containing search criteria
+   * @return a specification based on the filter
+   */
+  public static Specification<Application> buildSpecification(
+      UUID userId, ApplicationFilter filter) {
     return (root, query, cb) -> {
       List<Predicate> predicates = new ArrayList<>();
 

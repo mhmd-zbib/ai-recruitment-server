@@ -9,13 +9,20 @@ import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.UUID;
+import lombok.experimental.UtilityClass;
 import org.springframework.data.jpa.domain.Specification;
 
-public final class JobSpecification {
-  private JobSpecification() {
-    throw new IllegalStateException("Utility class");
-  }
+/** Utility class for creating Job specifications. */
+@UtilityClass
+public class JobSpecification {
 
+  /**
+   * Build a specification for JobPosting entities based on the provided filter.
+   *
+   * @param userId user ID to filter by
+   * @param filter the filter containing search criteria
+   * @return a specification based on the filter
+   */
   public static Specification<JobPosting> buildSpecification(UUID userId, JobFilter filter) {
     return (root, query, cb) -> {
       var predicates = new ArrayList<Predicate>();
@@ -75,7 +82,8 @@ public final class JobSpecification {
   }
 
   private static Specification<JobPosting> withMinExperience(Integer minExperience) {
-    return (root, query, cb) -> cb.greaterThanOrEqualTo(root.get("yearsOfExperience"), minExperience);
+    return (root, query, cb) ->
+        cb.greaterThanOrEqualTo(root.get("yearsOfExperience"), minExperience);
   }
 
   private static Specification<JobPosting> withMinSalary(Integer minSalary) {

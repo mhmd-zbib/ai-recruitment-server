@@ -1,22 +1,18 @@
 package com.zbib.hiresync.config;
 
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.context.annotation.Profile;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Component;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
-import jakarta.annotation.PostConstruct;
-
-@Slf4j
 @Component
 @RequiredArgsConstructor
 @Profile({"dev", "prod"})
@@ -34,10 +30,10 @@ public class DatabaseHealthIndicator implements HealthIndicator {
 
   @PostConstruct
   public void init() {
-    log.info("Database connection configuration:");
-    log.info("URL: {}", maskConnectionString(datasourceUrl));
-    log.info("Username: {}", datasourceUsername);
-    log.info("Connection pool: HikariCP");
+    LOGGER.info("Database connection configuration:");
+    LOGGER.info("URL: {}", maskConnectionString(datasourceUrl));
+    LOGGER.info("Username: {}", datasourceUsername);
+    LOGGER.info("Connection pool: HikariCP");
   }
 
   @Override
@@ -56,10 +52,7 @@ public class DatabaseHealthIndicator implements HealthIndicator {
           .build();
     } catch (DataAccessException e) {
       LOGGER.error("Database access error", e);
-      return Health.down()
-          .withException(e)
-          .withDetail("error", "Database access error")
-          .build();
+      return Health.down().withException(e).withDetail("error", "Database access error").build();
     }
   }
 
@@ -72,8 +65,21 @@ public class DatabaseHealthIndicator implements HealthIndicator {
       // Extract the database name from JDBC URL
       // Format: jdbc:postgresql://host:port/dbname
       String[] parts = url.split("/");
-      return parts[parts.length - 1].split("\\?")[0];
-    } catch (Exception e) {
+      if (parts.length < 1) {
+        LOGGER.warn("Invalid database URL format: {}", url);
+        return "unknown";
+      }
+
+      String lastPart = parts[parts.length - 1];
+      if (lastPart == null) {
+        LOGGER.warn("Invalid database URL format, null last part: {}", url);
+        return "unknown";
+      }
+
+      String[] queryParts = lastPart.split("\\?");
+      return queryParts[0];
+    } catch (ArrayIndexOutOfBoundsException e) {
+      LOGGER.warn("Invalid database URL format: {}", url, e);
       return "unknown";
     }
   }
@@ -85,8 +91,8 @@ public class DatabaseHealthIndicator implements HealthIndicator {
 
     // Mask password if present in URL
     if (url.contains("@")) {
-      int startIndex = url.indexOf("://") + 3;
-      int endIndex = url.indexOf("@");
+      int startIndex = url.indexOf(':') + 3; // indexOf(char) is faster than indexOf(String)
+      int endIndex = url.indexOf('@'); // indexOf(char) is faster than indexOf(String)
       String credentials = url.substring(startIndex, endIndex);
 
       if (credentials.contains(":")) {
