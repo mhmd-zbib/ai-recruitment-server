@@ -1,6 +1,5 @@
 package com.zbib.hiresync.builder;
 
-
 import org.springframework.stereotype.Component;
 
 import com.zbib.hiresync.dto.ApplicationListResponse;
@@ -56,7 +55,7 @@ public class ApplicationBuilder {
         .linkedinUrl(request.getLinkedInUrl())
         .cvUrl(request.getCvUrl())
         .referredBy(request.getReferredBy())
-        .status(ApplicationStatus.SUBMITTED
+        .status(ApplicationStatus.SUBMITTED)
         .build();
   }
 
