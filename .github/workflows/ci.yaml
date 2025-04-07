@@ -48,6 +48,11 @@ jobs:
     outputs:
       should_skip: ${{ steps.changes.outputs.should_skip }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for accurate change detection
+
       - name: Check if workflow should be skipped
         id: changes
         uses: dorny/paths-filter@v2
