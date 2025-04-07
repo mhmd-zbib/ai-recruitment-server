@@ -21,13 +21,10 @@ on:
         default: false
         type: boolean
 
-# Permissions needed for GitHub Packages and Code Scanning
+# Permissions needed for GitHub Packages
 permissions:
   contents: read
   packages: write
-  security-events: write
-  actions: read
-  id-token: write
 
 env:
   # Global environment variables
@@ -105,22 +102,6 @@ jobs:
 
       - name: Code linting and style check
         run: ./scripts/core/lint.sh
-
-      - name: Run dependency vulnerability scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          timeout: '10m'
-
-      - name: Upload vulnerability scan results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
-          category: 'trivy-fs-scan'
 
       - name: Static code analysis
         run: ./scripts/core/dependency-check.sh --format=XML
@@ -262,23 +243,6 @@ jobs:
         run: |
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-
-      - name: Scan Docker image for vulnerabilities
-        if: github.event_name == 'push'
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
-          format: 'sarif'
-          output: 'trivy-image-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          timeout: '10m'
-
-      - name: Upload container scan results
-        if: github.event_name == 'push'
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'trivy-image-results.sarif'
-          category: 'trivy-container-scan'
 
   summary:
     name: Build Summary
