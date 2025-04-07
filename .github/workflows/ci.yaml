@@ -9,6 +9,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
+    env:
+      # Set environment variables for scripts
+      CI: true
+      SPRING_PROFILES_ACTIVE: ci
+      REGISTRY: ghcr.io
+      IMAGE_NAME: hiresync
 
     steps:
     - name: Checkout code
@@ -27,26 +34,36 @@ jobs:
         chmod +x ./scripts/utils/*.sh
         chmod +x ./hiresync
 
-    - name: Create .env file
-      run: cp .env.example .env
-
-    - name: Set up Docker environment
-      run: |
-        docker-compose -f docker/docker-compose.local.yaml up -d
-
-    - name: Prepare CI environment
+    - name: Run CI prepare script
       run: ./scripts/core/ci-prepare.sh
 
-    - name: Run tests
-      run: ./scripts/core/test.sh
-
+    - name: Run code quality checks
+      run: ./scripts/core/code-quality.sh
+    
+    - name: Run security scan
+      run: ./scripts/core/dependency-check.sh --format=XML
+      continue-on-error: true
+    
+    - name: Run unit tests
+      run: ./scripts/core/run-tests.sh --type=unit --profile=ci --no-container
+      
     - name: Build application
-      run: ./scripts/core/build.sh --package --skip-tests
+      run: ./scripts/core/build-app.sh --skip-tests --profile=ci --no-container
 
-    - name: Build Docker image
+    - name: Log in to GitHub Container Registry
+      if: github.event_name == 'push'
       run: |
-        docker build -t hiresync:${GITHUB_SHA::8} -f docker/Dockerfile .
-        docker tag hiresync:${GITHUB_SHA::8} hiresync:latest
+        ./scripts/core/registry-login.sh --username=${{ github.actor }} --password=${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build and push Docker image
+      run: |
+        # For PR, just build the image
+        if [ "${{ github.event_name }}" == "pull_request" ]; then
+          ./scripts/core/ci-image-build.sh
+        else
+          # For push to branches, build and push
+          ./scripts/core/ci-image-build.sh --push
+        fi
 
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
@@ -55,6 +72,3 @@ jobs:
         path: target/*.jar
         retention-days: 5
         
-    - name: Clean up
-      if: always()
-      run: docker-compose -f docker/docker-compose.local.yaml down 
