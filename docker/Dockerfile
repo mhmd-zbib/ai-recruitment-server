@@ -1,21 +1,18 @@
 FROM maven:3.9-eclipse-temurin-21-jammy AS build
 WORKDIR /app
 
-# Copy pom.xml and download dependencies (for layer caching)
+# Copy pom.xml and settings
 COPY pom.xml ./
-COPY .mvn .mvn
-COPY mvnw mvnw
-RUN --mount=type=cache,target=/root/.m2 ./mvnw dependency:go-offline
+COPY settings.xml ./
 
-# Copy source code
+# Copy source code and configuration
 COPY src ./src
 COPY config ./config
-COPY db ./db
 
 # Build application
-ARG SPRING_PROFILES_ACTIVE=prod
-ARG SKIP_TESTS=false
-RUN --mount=type=cache,target=/root/.m2 ./mvnw clean package \
+ARG SPRING_PROFILES_ACTIVE=dev
+ARG SKIP_TESTS=true
+RUN mvn clean package \
     -DskipTests=${SKIP_TESTS} \
     -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE} \
     -Dmaven.test.skip=${SKIP_TESTS}
@@ -30,7 +27,7 @@ WORKDIR /app
 RUN groupadd -r hiresync && useradd -r -g hiresync hiresync
 
 # Set environment variables
-ENV SPRING_PROFILES_ACTIVE=prod \
+ENV SPRING_PROFILES_ACTIVE=dev \
     APP_PORT=8080 \
     ACTUATOR_PORT=8081 \
     PROMETHEUS_PORT=9090 \

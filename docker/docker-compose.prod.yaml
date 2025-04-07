@@ -1,8 +1,8 @@
 version: '3.8'
 
-# Production-specific overrides
+# Production-specific overrides with dev profile
 services:
-  # Production app config 
+  # App config with dev profile 
   app:
     image: ${REGISTRY:-ghcr.io}/${REPO_OWNER:-zbib}/${IMAGE_NAME:-hiresync}:${IMAGE_TAG:-latest}
     container_name: hiresync-app
@@ -11,7 +11,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${DB_NAME:-hiresync}
       - SPRING_DATASOURCE_USERNAME=${DB_USER:-hiresync}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-hiresync}
