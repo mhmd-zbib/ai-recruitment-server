@@ -409,6 +409,14 @@
                 </configuration>
                 <executions>
                     <execution>
+                        <id>spotless-apply</id>
+                        <goals>
+                            <goal>apply</goal>
+                        </goals>
+                        <phase>process-sources</phase>
+                    </execution>
+                    <execution>
+                        <id>spotless-check</id>
                         <goals>
                             <goal>check</goal>
                         </goals>
