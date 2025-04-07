@@ -12,13 +12,11 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # Source common utilities
 source "$SCRIPT_DIR/../utils/logging.sh"
 
-# Container name
-DEVTOOLS_CONTAINER="hiresync-devtools"
-
 # Default values
 FIX_ISSUES=false
 CHECKSTYLE_ONLY=false
 PMD_ONLY=false
+USE_CONTAINER=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -35,9 +33,13 @@ while [[ $# -gt 0 ]]; do
       PMD_ONLY=true
       shift
       ;;
+    --container)
+      USE_CONTAINER=true
+      shift
+      ;;
     *)
       log_error "Unknown option: $1"
-      echo "Usage: ./hiresync lint [--fix] [--checkstyle] [--pmd]"
+      echo "Usage: ./hiresync lint [--fix] [--checkstyle] [--pmd] [--container]"
       exit 1
       ;;
   esac
@@ -45,10 +47,30 @@ done
 
 log_section "Code Linting"
 
+# Function to run commands either in container or locally
+run_command() {
+  local command=$1
+  
+  if [[ "$USE_CONTAINER" == true ]]; then
+    if ! docker ps --format '{{.Names}}' | grep -q "hiresync-devtools"; then
+      log_error "Container hiresync-devtools is not running"
+      exit 1
+    fi
+    
+    log_info "Running in container: $command"
+    docker exec -it "hiresync-devtools" bash -c "cd /workspace && $command"
+  else
+    log_info "Running locally: $command"
+    (cd "$PROJECT_ROOT" && eval "$command")
+  fi
+  
+  return $?
+}
+
 # Determine which linters to run
 if [[ "$CHECKSTYLE_ONLY" == true ]]; then
   log_info "Running Checkstyle only"
-  docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn checkstyle:check"
+  run_command "mvn checkstyle:check"
   
   EXIT_CODE=$?
   if [ $EXIT_CODE -eq 0 ]; then
@@ -59,7 +81,7 @@ if [[ "$CHECKSTYLE_ONLY" == true ]]; then
   fi
 elif [[ "$PMD_ONLY" == true ]]; then
   log_info "Running PMD only"
-  docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn pmd:check"
+  run_command "mvn pmd:check"
   
   EXIT_CODE=$?
   if [ $EXIT_CODE -eq 0 ]; then
@@ -74,10 +96,10 @@ else
   
   if [[ "$FIX_ISSUES" == true ]]; then
     log_info "Attempting to fix issues where possible"
-    docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn spotless:apply"
+    run_command "mvn spotless:apply"
   fi
   
-  docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn verify -DskipTests"
+  run_command "mvn verify -DskipTests"
   
   EXIT_CODE=$?
   if [ $EXIT_CODE -eq 0 ]; then
