@@ -25,7 +25,7 @@ NC='\033[0m' # No Color
 PUSH_IMAGE=false
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-DOCKERFILE="${PROJECT_ROOT}/Dockerfile"
+DOCKERFILE="${PROJECT_ROOT}/docker/Dockerfile"
 IMAGE_TAG="latest"
 
 # Parse arguments
@@ -85,7 +85,16 @@ echo -e "${BLUE}Building Docker image: ${FULL_IMAGE_NAME}${NC}"
 # Check if Dockerfile exists
 if [[ ! -f "${DOCKERFILE}" ]]; then
   echo -e "${RED}Error: Dockerfile not found at ${DOCKERFILE}${NC}"
-  exit 1
+  echo -e "${YELLOW}Checking for Dockerfile in project root...${NC}"
+  
+  # Try alternative locations
+  if [[ -f "${PROJECT_ROOT}/Dockerfile" ]]; then
+    DOCKERFILE="${PROJECT_ROOT}/Dockerfile"
+    echo -e "${GREEN}Found Dockerfile in project root. Using: ${DOCKERFILE}${NC}"
+  else
+    echo -e "${RED}No Dockerfile found. Exiting.${NC}"
+    exit 1
+  fi
 fi
 
 # Build the Docker image
