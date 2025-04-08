@@ -12,16 +12,28 @@ source "$SCRIPT_DIR/../utils/logging.sh"
 # Container name
 DEVTOOLS_CONTAINER="hiresync-devtools"
 
+# Generate test JWT secret if not exists
+generate_test_jwt_secret() {
+  local test_props="src/test/resources/application-test.properties"
+  if [ ! -f "$test_props" ] || ! grep -q "^jwt.secret=" "$test_props"; then
+    log_info "Generating test JWT secret..."
+    mkdir -p "$(dirname "$test_props")"
+    echo "jwt.secret=test-secret-key-with-minimum-length-of-32-characters" > "$test_props"
+  fi
+}
+
 # Run all tests
 run_all_tests() {
   log_info "Running All Tests"
-  docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn test"
+  generate_test_jwt_secret
+  docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn test -Dspring.profiles.active=test"
 }
 
 # Run unit tests only
 run_unit_tests() {
   log_info "Running Unit Tests"
-  docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn test -Dtest=\"*Test\" -DexcludedGroups=\"integration,e2e\""
+  generate_test_jwt_secret
+  docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn test -Dtest=\"*Test\" -DexcludedGroups=\"integration,e2e\" -Dspring.profiles.active=test"
 }
 
 # Check if running unit tests only

@@ -24,6 +24,7 @@ import org.springframework.stereotype.Component;
 public final class JwtUtil {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(JwtUtil.class);
+  private static final int MIN_KEY_LENGTH = 32; // 256 bits
 
   private final Key signingKey;
 
@@ -36,13 +37,13 @@ public final class JwtUtil {
   /**
    * Creates a new JwtUtil instance.
    *
-   * @param jwtSigningKey the JWT signing key
+   * @param jwtSecret the JWT secret
    */
-  public JwtUtil(final byte[] jwtSigningKey) {
-    // Create a copy of the signing key to prevent external modification
-    byte[] keyBytes = new byte[jwtSigningKey.length];
-    System.arraycopy(jwtSigningKey, 0, keyBytes, 0, jwtSigningKey.length);
-    this.signingKey = Keys.hmacShaKeyFor(keyBytes);
+  public JwtUtil(@Value("${jwt.secret}") String jwtSecret) {
+    if (jwtSecret == null || jwtSecret.length() < MIN_KEY_LENGTH) {
+      throw new IllegalArgumentException("JWT secret must be at least " + MIN_KEY_LENGTH + " characters long");
+    }
+    this.signingKey = Keys.hmacShaKeyFor(jwtSecret.getBytes());
   }
 
   /**

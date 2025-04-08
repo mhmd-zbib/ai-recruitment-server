@@ -60,89 +60,23 @@ logging:
 # Server configuration
 server:
   port: ${APP_PORT:8080}
-  servlet:
-    context-path: /api
-  error:
-    include-message: always
-    include-binding-errors: always
-    include-stacktrace: never
-    include-exception: false
-  compression:
-    enabled: true
-    mime-types: application/json,application/xml,text/html,text/xml,text/plain
-    min-response-size: 2048
 
 # Enable Swagger UI for local development
 springdoc:
   swagger-ui:
-    enabled: true
     operationsSorter: method
-    tagsSorter: alpha
     filter: true
     display-request-duration: true
-    path: /swagger-ui.html
-    url: /v3/api-docs
     doc-expansion: none
-  api-docs:
-    enabled: true
-    path: /v3/api-docs
-    groups:
-      enabled: true
   show-actuator: true
   default-produces-media-type: application/json
   default-consumes-media-type: application/json
 
+# Override specific JWT settings for local environment if needed
 jwt:
-  secret: ${JWT_SECRET}
-  expiration: ${JWT_EXPIRATION}
   issuer: hiresync-local
-  audience: hiresync-app
-  refresh-expiration: 604800000 # 7 days in milliseconds
 
-# Security settings for local development
-security:
-  cors:
-    allowed-origins:
-      - http://localhost:3000
-      - http://127.0.0.1:3000
-      - http://localhost:5173
-      - http://127.0.0.1:5173
-    allowed-methods:
-      - GET
-      - POST
-      - PUT
-      - DELETE
-      - OPTIONS
-      - PATCH
-    allowed-headers:
-      - Authorization
-      - Content-Type
-      - Accept
-      - X-Requested-With
-      - X-API-Key
-    allow-credentials: true
-    max-age: 3600
-
-# Actuator configuration
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics,loggers
-      base-path: /actuator
-  endpoint:
-    health:
-      show-details: always
-    info:
-      enabled: true
-
-# Application specific configuration
+# Local specific application features
 hiresync:
-  app:
-    name: HireSync API
-    version: 1.0.0
-    description: HireSync backend API for recruitment automation
   features:
-    enable-email-notifications: ${ENABLE_EMAIL:false}
-    enable-file-upload: ${ENABLE_FILE_UPLOAD:true}
-    debug-mode: ${DEBUG_MODE:true}
+    debug-mode: true

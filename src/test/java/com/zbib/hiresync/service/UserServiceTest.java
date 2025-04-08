@@ -91,11 +91,10 @@ class UserServiceTest {
     Mockito.when(userRepository.findById(nonExistentId)).thenReturn(Optional.empty());
 
     // Act & Assert
-    Exception exception = Assertions.assertThrows(
-        NoSuchElementException.class, 
-        () -> userService.getUserById(nonExistentId)
-    );
-    
+    Exception exception =
+        Assertions.assertThrows(
+            NoSuchElementException.class, () -> userService.getUserById(nonExistentId));
+
     Assertions.assertTrue(exception.getMessage().contains("User not found with id"));
     Mockito.verify(userRepository, Mockito.times(1)).findById(nonExistentId);
   }

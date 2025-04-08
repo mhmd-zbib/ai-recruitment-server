@@ -31,19 +31,18 @@ logging:
 
 # Enable documentation UI in development (with authentication)
 springdoc:
-  api-docs:
-    enabled: true
   swagger-ui:
-    enabled: true
     operationsSorter: method
     tagsSorter: alpha
     filter: true
     display-request-duration: true
   show-actuator: true
 
-# Server configuration
-server:
-  compression:
-    enabled: true
-    mime-types: text/html,text/xml,text/plain,text/css,application/javascript,application/json
-    min-response-size: 1024
+# Override specific JWT settings for dev environment if needed
+jwt:
+  issuer: hiresync-dev
+
+# Development specific application features
+hiresync:
+  features:
+    debug-mode: true

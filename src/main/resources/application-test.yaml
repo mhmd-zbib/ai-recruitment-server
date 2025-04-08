@@ -32,3 +32,15 @@ springdoc:
     enabled: true
   api-docs:
     enabled: true
+
+# Test environment specific JWT configuration
+jwt:
+  secret: test-secret-key-with-minimum-length-of-32-characters
+  issuer: hiresync-test
+  expiration: 86400000 # 24 hours in milliseconds
+  refresh-expiration: 604800000 # 7 days in milliseconds
+  
+# Test environment specific features
+hiresync:
+  features:
+    debug-mode: true

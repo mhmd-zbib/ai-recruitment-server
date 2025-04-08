@@ -15,6 +15,11 @@
         <exclude name="JUnitAssertionsShouldIncludeMessage"/>
         <exclude name="JUnitTestsShouldIncludeAssert"/>
         <exclude name="UseVarargs"/>
+        <exclude name="ClassWithOnlyPrivateConstructorsShouldBeFinal">
+            <properties>
+                <property name="violationSuppressXPath" value="//ClassOrInterfaceDeclaration[contains(@Image, 'Application')]"/>
+            </properties>
+        </exclude>
     </rule>
 
     <!-- Code Style -->
@@ -37,6 +42,11 @@
 
     <!-- Design -->
     <rule ref="category/java/design.xml">
+        <exclude name="UseUtilityClass">
+            <properties>
+                <property name="violationSuppressXPath" value="//ClassOrInterfaceDeclaration[contains(@Image, 'Application') and contains(Annotation//Name/@Image, 'SpringBootApplication')]"/>
+            </properties>
+        </exclude>
         <exclude name="LawOfDemeter"/>
         <exclude name="LoosePackageCoupling"/>
         <exclude name="DataClass"/>
