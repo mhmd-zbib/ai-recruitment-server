@@ -116,12 +116,26 @@ jobs:
         test-type: [unit, integration]
         include:
           - test-type: unit
-            profile: ci
-            use-container: false
+            profile: test
+            use-container: true
           - test-type: integration
-            profile: ci
-            use-container: false
+            profile: test
+            use-container: true
       fail-fast: false
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: sa
+          POSTGRES_PASSWORD:
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -149,7 +163,16 @@ jobs:
           chmod +x ./hiresync
 
       - name: Run ${{ matrix.test-type }} tests
-        run: ./scripts/core/run-tests.sh --type=${{ matrix.test-type }} --profile=${{ matrix.profile }} --no-container
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/testdb
+          SPRING_DATASOURCE_USERNAME: sa
+          SPRING_DATASOURCE_PASSWORD:
+        run: |
+          if [ "${{ matrix.test-type }}" = "unit" ]; then
+            mvn test -P${{ matrix.profile }} -DskipITs=true
+          else
+            mvn verify -P${{ matrix.profile }} -DskipTests=true
+          fi
 
       - name: Upload test results
         if: always()
