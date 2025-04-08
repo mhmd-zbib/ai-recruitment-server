@@ -1,0 +1,23 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+
+security:
+  jwt:
+    secret: test-secret-key-that-is-at-least-32-characters-long
+    expiration: 3600000
+    refresh-expiration: 86400000
+    issuer: hiresync-test
+    audience: hiresync-app-test
+
+logging:
+  level:
+    root: ERROR
+    com.zbib.hiresync: DEBUG 
