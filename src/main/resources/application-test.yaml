@@ -3,8 +3,16 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/testdb}
     username: ${SPRING_DATASOURCE_USERNAME:sa}
-    password: ${SPRING_DATASOURCE_PASSWORD:}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres_password}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      idle-timeout: 30000
+      connection-timeout: 10000
+      max-lifetime: 60000
+      auto-commit: false
+      pool-name: HikariCP-Test
   jpa:
     hibernate:
       ddl-auto: create-drop
@@ -13,6 +21,9 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        connection:
+          provider_disables_autocommit: true
+    open-in-view: false
 
 # Test-specific logging
 logging:
@@ -21,6 +32,7 @@ logging:
     com.zbib.hiresync: DEBUG
     org.hibernate.SQL: DEBUG
     org.springframework.test: INFO
+    com.zaxxer.hikari: INFO
 
 # Disable API docs for testing
 springdoc:
@@ -31,7 +43,7 @@ springdoc:
 
 # Test environment specific JWT configuration
 jwt:
-  secret: test-secret-key-with-minimum-length-of-32-characters
+  secret: ${JWT_TEST_SECRET:test-secret-key-with-minimum-length-of-32-characters}
   issuer: hiresync-test
   expiration: 86400000 # 24 hours in milliseconds
   refresh-expiration: 604800000 # 7 days in milliseconds
@@ -40,3 +52,13 @@ jwt:
 hiresync:
   features:
     debug-mode: true
+
+# Actuator settings for tests
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never

@@ -22,9 +22,20 @@ generate_test_jwt_secret() {
   fi
 }
 
+# Check if devtools container is running
+check_devtools_container() {
+  if ! docker ps | grep -q "$DEVTOOLS_CONTAINER"; then
+    log_error "Devtools container ($DEVTOOLS_CONTAINER) is not running!"
+    log_info "Please start the development environment first:"
+    log_info "docker-compose -f docker/docker-compose.local.yaml up -d"
+    exit 1
+  fi
+}
+
 # Run all tests
 run_all_tests() {
   log_info "Running All Tests"
+  check_devtools_container
   generate_test_jwt_secret
   docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn test -Dspring.profiles.active=test"
 }
@@ -32,13 +43,37 @@ run_all_tests() {
 # Run unit tests only
 run_unit_tests() {
   log_info "Running Unit Tests"
+  check_devtools_container
   generate_test_jwt_secret
   docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn test -Dtest=\"*Test\" -DexcludedGroups=\"integration,e2e\" -Dspring.profiles.active=test"
 }
 
-# Check if running unit tests only
-if [[ "$1" == "--unit" ]]; then
-  run_unit_tests
-else
-  run_all_tests
-fi
+# Run integration tests only
+run_integration_tests() {
+  log_info "Running Integration Tests"
+  check_devtools_container
+  generate_test_jwt_secret
+  docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn verify -DskipTests=true -Dspring.profiles.active=test"
+}
+
+# Parse command line arguments
+case "$1" in
+  --unit)
+    run_unit_tests
+    ;;
+  --integration)
+    run_integration_tests
+    ;;
+  --help|-h)
+    echo "Usage: $0 [OPTION]"
+    echo "Options:"
+    echo "  --unit          Run only unit tests"
+    echo "  --integration   Run only integration tests"
+    echo "  --help, -h      Show this help message"
+    echo "  (no option)     Run all tests"
+    exit 0
+    ;;
+  *)
+    run_all_tests
+    ;;
+esac

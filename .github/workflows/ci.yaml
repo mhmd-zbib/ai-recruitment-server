@@ -122,20 +122,6 @@ jobs:
             profile: test
             use-container: true
       fail-fast: false
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: sa
-          POSTGRES_PASSWORD:
-          POSTGRES_DB: testdb
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -162,16 +148,25 @@ jobs:
           chmod +x ./scripts/utils/*.sh
           chmod +x ./hiresync
 
+      - name: Set up Docker Compose
+        run: |
+          docker-compose -f docker/docker-compose.local.yaml up -d postgres
+          echo "Waiting for PostgreSQL to start up..."
+          docker-compose -f docker/docker-compose.local.yaml ps
+          # Wait for PostgreSQL to be ready
+          timeout 30s bash -c 'until docker-compose -f docker/docker-compose.local.yaml exec -T postgres pg_isready -U ${DB_USER:-hiresync} -d ${DB_NAME:-hiresync}; do sleep 1; done' || echo "PostgreSQL did not start in time"
+
       - name: Run ${{ matrix.test-type }} tests
         env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/testdb
-          SPRING_DATASOURCE_USERNAME: sa
-          SPRING_DATASOURCE_PASSWORD:
+          SPRING_PROFILES_ACTIVE: test
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:${DB_PORT:-5433}/testdb
+          SPRING_DATASOURCE_USERNAME: ${DB_USER:-hiresync}
+          SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-hiresync}
         run: |
           if [ "${{ matrix.test-type }}" = "unit" ]; then
-            mvn test -P${{ matrix.profile }} -DskipITs=true
+            ./scripts/core/test.sh --unit
           else
-            mvn verify -P${{ matrix.profile }} -DskipTests=true
+            ./scripts/core/test.sh
           fi
 
       - name: Upload test results
@@ -183,6 +178,10 @@ jobs:
             target/surefire-reports/*.xml
             target/failsafe-reports/*.xml
           retention-days: 7
+          
+      - name: Cleanup Docker environment
+        if: always()
+        run: docker-compose -f docker/docker-compose.local.yaml down -v
 
   build:
     name: Build & Package
