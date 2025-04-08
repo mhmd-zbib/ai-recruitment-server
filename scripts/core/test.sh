@@ -27,7 +27,7 @@ check_devtools_container() {
   if ! docker ps | grep -q "$DEVTOOLS_CONTAINER"; then
     log_error "Devtools container ($DEVTOOLS_CONTAINER) is not running!"
     log_info "Please start the development environment first:"
-    log_info "docker-compose -f docker/docker-compose.local.yaml up -d"
+    log_info "docker compose -f docker/docker-compose.local.yaml up -d"
     exit 1
   fi
 }

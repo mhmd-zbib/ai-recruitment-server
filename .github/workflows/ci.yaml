@@ -150,11 +150,11 @@ jobs:
 
       - name: Set up Docker Compose
         run: |
-          docker-compose -f docker/docker-compose.local.yaml up -d postgres
+          docker compose -f docker/docker-compose.local.yaml up -d postgres
           echo "Waiting for PostgreSQL to start up..."
-          docker-compose -f docker/docker-compose.local.yaml ps
+          docker compose -f docker/docker-compose.local.yaml ps
           # Wait for PostgreSQL to be ready
-          timeout 30s bash -c 'until docker-compose -f docker/docker-compose.local.yaml exec -T postgres pg_isready -U ${DB_USER:-hiresync} -d ${DB_NAME:-hiresync}; do sleep 1; done' || echo "PostgreSQL did not start in time"
+          timeout 30s bash -c 'until docker compose -f docker/docker-compose.local.yaml exec -T postgres pg_isready -U ${DB_USER:-hiresync} -d ${DB_NAME:-hiresync}; do sleep 1; done' || echo "PostgreSQL did not start in time"
 
       - name: Run ${{ matrix.test-type }} tests
         env:
@@ -181,7 +181,7 @@ jobs:
           
       - name: Cleanup Docker environment
         if: always()
-        run: docker-compose -f docker/docker-compose.local.yaml down -v
+        run: docker compose -f docker/docker-compose.local.yaml down -v
 
   build:
     name: Build & Package
