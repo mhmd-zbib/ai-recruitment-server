@@ -150,23 +150,34 @@ jobs:
 
       - name: Set up Docker Compose
         run: |
-          docker compose -f docker/docker-compose.local.yaml up -d postgres
+          # Setup docker compose v2
+          DOCKER_COMPOSE_VERSION="v2.23.0"
+          sudo curl -fL "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          docker-compose --version
+          
+          # Start test database
+          docker-compose -f docker/docker-compose.test.yaml up -d postgres
           echo "Waiting for PostgreSQL to start up..."
-          docker compose -f docker/docker-compose.local.yaml ps
+          docker-compose -f docker/docker-compose.test.yaml ps
           # Wait for PostgreSQL to be ready
-          timeout 30s bash -c 'until docker compose -f docker/docker-compose.local.yaml exec -T postgres pg_isready -U ${DB_USER:-hiresync} -d ${DB_NAME:-hiresync}; do sleep 1; done' || echo "PostgreSQL did not start in time"
+          timeout 30s bash -c 'until docker exec $(docker-compose -f docker/docker-compose.test.yaml ps -q postgres) pg_isready -U hiresync -d testdb; do sleep 1; done' || echo "PostgreSQL did not start in time"
 
       - name: Run ${{ matrix.test-type }} tests
         env:
           SPRING_PROFILES_ACTIVE: test
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:${DB_PORT:-5433}/testdb
-          SPRING_DATASOURCE_USERNAME: ${DB_USER:-hiresync}
-          SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-hiresync}
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/testdb
+          SPRING_DATASOURCE_USERNAME: hiresync
+          SPRING_DATASOURCE_PASSWORD: hiresync
         run: |
+          # Create test reports directory to ensure it exists for artifact upload
+          mkdir -p target/surefire-reports
+          mkdir -p target/failsafe-reports
+          
           if [ "${{ matrix.test-type }}" = "unit" ]; then
-            ./scripts/core/test.sh --unit
+            ./scripts/core/run-tests.sh --type=unit --profile=test --no-container
           else
-            ./scripts/core/test.sh
+            ./scripts/core/run-tests.sh --type=integration --profile=test --no-container
           fi
 
       - name: Upload test results
@@ -175,13 +186,13 @@ jobs:
         with:
           name: test-results-${{ matrix.test-type }}
           path: |
-            target/surefire-reports/*.xml
-            target/failsafe-reports/*.xml
+            target/surefire-reports/
+            target/failsafe-reports/
           retention-days: 7
           
       - name: Cleanup Docker environment
         if: always()
-        run: docker compose -f docker/docker-compose.local.yaml down -v
+        run: docker-compose -f docker/docker-compose.test.yaml down -v
 
   build:
     name: Build & Package

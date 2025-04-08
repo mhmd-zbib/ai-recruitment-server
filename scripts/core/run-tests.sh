@@ -24,8 +24,12 @@ GENERATE_REPORTS=true
 TEST_ARGS=""
 
 # Check if running in CI environment
-if [ -z "$CI" ] && docker ps --format '{{.Names}}' | grep -q "$DEVTOOLS_CONTAINER"; then
+if [ -n "$CI" ]; then
+  USE_CONTAINER=false
+  log_info "Running in CI environment"
+elif docker ps --format '{{.Names}}' | grep -q "$DEVTOOLS_CONTAINER"; then
   USE_CONTAINER=true
+  log_info "Found development container, will use it for tests"
 fi
 
 # Parse arguments
@@ -75,7 +79,7 @@ run_maven() {
   
   if [ "$USE_CONTAINER" = true ]; then
     log_info "Running in container: $command"
-    docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && $command"
+    docker exec "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && $command"
     return $?
   else
     log_info "Running locally: $command"
@@ -88,7 +92,7 @@ run_maven() {
 case "$TEST_TYPE" in
   all)
     log_info "Running all tests"
-    TEST_CMD="mvn test $MAVEN_OPTS"
+    TEST_CMD="mvn verify $MAVEN_OPTS"
     ;;
   unit)
     log_info "Running unit tests only"
@@ -96,11 +100,11 @@ case "$TEST_TYPE" in
     ;;
   integration)
     log_info "Running integration tests only"
-    TEST_CMD="mvn test -Dgroups=\"integration\" $MAVEN_OPTS"
+    TEST_CMD="mvn verify -Dgroups=\"integration\" -DskipUnitTests=true $MAVEN_OPTS"
     ;;
   e2e)
     log_info "Running end-to-end tests only"
-    TEST_CMD="mvn test -Dgroups=\"e2e\" $MAVEN_OPTS"
+    TEST_CMD="mvn verify -Dgroups=\"e2e\" -DskipUnitTests=true $MAVEN_OPTS"
     ;;
   *)
     log_error "Unknown test type: $TEST_TYPE"
@@ -117,8 +121,11 @@ fi
 
 # Add report generation flags
 if [ "$GENERATE_REPORTS" = true ]; then
-  TEST_CMD="$TEST_CMD -Djacoco.skip=false"
+  TEST_CMD="$TEST_CMD -Djacoco.skip=false -Dsurefire-report.skip=false"
   log_info "Generating test reports"
+else
+  TEST_CMD="$TEST_CMD -Djacoco.skip=true -Dsurefire-report.skip=true"
+  log_info "Skipping test reports"
 fi
 
 # Add any additional test arguments
@@ -126,6 +133,10 @@ if [ -n "$TEST_ARGS" ]; then
   TEST_CMD="$TEST_CMD $TEST_ARGS"
   log_info "Adding test arguments: $TEST_ARGS"
 fi
+
+# Ensure test directories exist
+mkdir -p "$PROJECT_ROOT/target/surefire-reports"
+mkdir -p "$PROJECT_ROOT/target/failsafe-reports"
 
 # Run the tests
 log_info "Executing test command"
@@ -142,5 +153,6 @@ else
   if [ "$GENERATE_REPORTS" = true ]; then
     log_info "Test reports available at: target/site/jacoco/index.html"
     log_info "Surefire reports available at: target/surefire-reports"
+    log_info "Failsafe reports available at: target/failsafe-reports"
   fi
 fi 

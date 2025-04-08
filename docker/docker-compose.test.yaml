@@ -1,0 +1,45 @@
+name: hiresync-test
+
+services:
+  # Test Database service
+  postgres:
+    image: postgres:16-alpine
+    container_name: hiresync-postgres-test
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: hiresync
+      POSTGRES_PASSWORD: hiresync
+      POSTGRES_DB: testdb
+      TZ: UTC
+      PGTZ: UTC
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hiresync -d testdb"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    command: >
+      postgres
+        -c shared_buffers=128MB
+        -c max_connections=100
+        -c work_mem=8MB
+    networks:
+      - hiresync-test-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "1"
+
+# Shared networks
+networks:
+  hiresync-test-network:
+    driver: bridge 
