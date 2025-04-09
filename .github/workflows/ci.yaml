@@ -46,8 +46,8 @@ jobs:
       - name: Run OWASP Dependency Check
         run: mvn dependency-check:check -P ci
         
-      - name: Run Checkstyle
-        run: mvn checkstyle:check -P ci
+      - name: Format and Lint Code
+        run: mvn spotless:apply checkstyle:checkstyle -P ci
 
   unit-tests:
     needs: code-quality

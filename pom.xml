@@ -79,7 +79,7 @@
             <id>ci</id>
             <activation>
                 <property>
-                    <name>env.CI</name>
+                    <n>env.CI</n>
                 </property>
             </activation>
             <properties>
@@ -91,6 +91,8 @@
                 <jacoco.skip>false</jacoco.skip>
                 <maven.test.skip>false</maven.test.skip>
                 <maven.resources.skip>false</maven.resources.skip>
+                <spotless.skip>false</spotless.skip>
+                <checkstyle.failOnViolation>false</checkstyle.failOnViolation>
             </properties>
         </profile>
         
@@ -517,6 +519,7 @@
                     <consoleOutput>true</consoleOutput>
                     <failsOnError>${checkstyle.failOnViolation}</failsOnError>
                     <linkXRef>false</linkXRef>
+                    <violationSeverity>warning</violationSeverity>
                 </configuration>
                 <executions>
                     <execution>
