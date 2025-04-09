@@ -54,6 +54,14 @@
                 <skip.tests>true</skip.tests>
             </properties>
         </profile>
+        
+        <profile>
+            <id>ci</id>
+            <properties>
+                <skip.checks>false</skip.checks>
+                <skip.tests>false</skip.tests>
+            </properties>
+        </profile>
     </profiles>
     
     <dependencies>
@@ -275,6 +283,28 @@
                     <encoding>UTF-8</encoding>
                     <consoleOutput>true</consoleOutput>
                     <linkXRef>false</linkXRef>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <phase>verify</phase>
+                    </execution>
+                </executions>
+            </plugin>
+            
+            <!-- OWASP Dependency Check -->
+            <plugin>
+                <groupId>org.owasp</groupId>
+                <artifactId>dependency-check-maven</artifactId>
+                <version>8.4.3</version>
+                <configuration>
+                    <skip>${skip.checks}</skip>
+                    <failBuildOnCVSS>8</failBuildOnCVSS>
+                    <suppressionFiles>
+                        <suppressionFile>${project.basedir}/src/main/resources/dependency-check-suppressions.xml</suppressionFile>
+                    </suppressionFiles>
                 </configuration>
                 <executions>
                     <execution>

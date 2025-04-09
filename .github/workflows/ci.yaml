@@ -69,7 +69,7 @@ jobs:
         run: mvn spotbugs:check -P ci
         
       - name: Run OWASP Dependency Check
-        run: mvn dependency-check:check -P ci
+        run: mvn org.owasp:dependency-check-maven:check -P ci
         
       - name: Run Checkstyle Validation
         run: mvn checkstyle:check -P ci

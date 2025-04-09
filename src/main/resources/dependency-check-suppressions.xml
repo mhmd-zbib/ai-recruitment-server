@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <!-- 
+    Suppress false positives and vulnerabilities that are accepted risks.
+    Format:
+    <suppress>
+        <notes>Reason for suppression</notes>
+        <gav>groupId:artifactId:version</gav>
+        <cve>CVE-ID</cve>
+    </suppress>
+    -->
+    
+    <!-- Example of a suppression that might be added later:
+    <suppress>
+        <notes>This CVE affects Spring prior to version x.y.z, but we're using a newer version</notes>
+        <cve>CVE-20XX-YYYY</cve>
+    </suppress>
+    -->
+</suppressions> 
