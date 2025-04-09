@@ -334,7 +334,7 @@
                         <format>HTML</format>
                         <format>JSON</format>
                     </formats>
-                    <suppressionFile>${project.basedir}/config/dependency-check-suppressions.xml</suppressionFile>
+                    <suppressionFile>${project.basedir}/src/main/resources/dependency-suppressions.xml</suppressionFile>
                     <skipProvidedScope>true</skipProvidedScope>
                     <skipTestScope>true</skipTestScope>
                     <skipSystemScope>true</skipSystemScope>
@@ -459,7 +459,7 @@
                     <sourceEncoding>${project.build.sourceEncoding}</sourceEncoding>
                     <targetJdk>${java.version}</targetJdk>
                     <rulesets>
-                        <ruleset>config/pmd-ruleset.xml</ruleset>
+                        <ruleset>${project.basedir}/src/main/resources/pmd-rules.xml</ruleset>
                     </rulesets>
                     <excludeRoots>
                         <excludeRoot>target/generated-sources</excludeRoot>
