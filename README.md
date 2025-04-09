@@ -284,6 +284,38 @@ scripts/
     ├── migrate.sh    # Database migrations
     └── seed.sh       # Data seeding
 ```
-#   T e s t   c o m m e n t 
- 
- 
+
+## Git Hooks
+
+This project uses Git hooks to ensure code quality before commits. To install the hooks:
+
+### On Unix/Linux/MacOS:
+```bash
+# Make the scripts executable
+chmod +x .git-hooks/install-hooks.sh .git-hooks/pre-commit
+
+# Install the hooks
+./.git-hooks/install-hooks.sh
+```
+
+### On Windows:
+```powershell
+# Install the hooks using PowerShell
+# This will create a symlink to the pre-commit hook
+git config core.hooksPath .git-hooks
+```
+
+The pre-commit hook performs the following lightweight checks:
+- Checks for merge conflicts
+- Detects large files (>500KB)
+- Validates commit message format (conventional commits)
+- Compiles the code
+- Runs checkstyle on changed files only
+- Runs PMD rules on changed files only using the main ruleset
+
+To bypass the pre-commit hook temporarily, use:
+```bash
+SKIP_HOOKS=1 git commit
+# or on Windows
+set SKIP_HOOKS=1 && git commit
+```

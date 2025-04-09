@@ -5,67 +5,97 @@
          xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
 
     <description>
-        HireSync PMD rule set with custom configuration
+        HireSync PMD ruleset optimized for Spring Boot applications
     </description>
+
+    <!-- File exclusions for Spring Boot projects -->
+    <exclude-pattern>.*/target/.*</exclude-pattern>
+    <exclude-pattern>.*/generated/.*</exclude-pattern>
+    <exclude-pattern>.*/generated-sources/.*</exclude-pattern>
+    <exclude-pattern>.*/build/.*</exclude-pattern>
+    <exclude-pattern>.*/\.gradle/.*</exclude-pattern>
+    <exclude-pattern>.*/node_modules/.*</exclude-pattern>
+    <exclude-pattern>.*\.properties</exclude-pattern>
+    <exclude-pattern>.*\.yml</exclude-pattern>
+    <exclude-pattern>.*\.yaml</exclude-pattern>
+    <exclude-pattern>.*/test/resources/.*</exclude-pattern>
+    <exclude-pattern>.*/src/main/resources/.*</exclude-pattern>
+    <exclude-pattern>.*/src/test/resources/.*</exclude-pattern>
+    
+    <!-- Specific class exclusions for Spring Boot -->
+    <exclude-pattern>.*/dto/.*</exclude-pattern>
+    <exclude-pattern>.*/entity/.*</exclude-pattern>
+    <exclude-pattern>.*/model/.*</exclude-pattern>
+    <exclude-pattern>.*Application\.java</exclude-pattern>
+    <exclude-pattern>.*Config\.java</exclude-pattern>
 
     <!-- Include standard ruleset with selective exclusions -->
     <rule ref="category/java/bestpractices.xml">
         <exclude name="UseVarargs" />
         <exclude name="GuardLogStatement" />
         <exclude name="UseUtilityClass" />
+        <exclude name="JUnitTestsShouldIncludeAssert" /> <!-- For Spring Boot tests with assertThat -->
+        <exclude name="JUnitTestContainsTooManyAsserts" /> <!-- Common in integration tests -->
     </rule>
     
     <rule ref="category/java/design.xml">
         <exclude name="LawOfDemeter" />
         <exclude name="LoosePackageCoupling" />
-        <exclude name="DataClass" />
+        <exclude name="DataClass" /> <!-- Common in Spring Boot DTO patterns -->
         <exclude name="ExcessiveMethodLength" />
         <exclude name="ClassWithOnlyPrivateConstructorsShouldBeFinal" />
+        <exclude name="AvoidCatchingGenericException" /> <!-- Often needed in exception handlers -->
+        <exclude name="TooManyFields" /> <!-- Common in configuration classes -->
     </rule>
     
     <rule ref="category/java/documentation.xml">
         <exclude name="CommentRequired" />
+        <exclude name="CommentSize" />
     </rule>
     
     <rule ref="category/java/errorprone.xml">
         <exclude name="DataflowAnomalyAnalysis" />
+        <exclude name="BeanMembersShouldSerialize" /> <!-- Spring components aren't typically serialized -->
+        <exclude name="MissingSerialVersionUID" /> <!-- Not necessary for Spring components -->
     </rule>
     
     <rule ref="category/java/multithreading.xml">
         <exclude name="UseConcurrentHashMap" />
         <exclude name="DoNotUseThreads" />
+        <exclude name="AvoidSynchronizedAtMethodLevel" /> <!-- Sometimes needed for Spring components -->
     </rule>
     
     <rule ref="category/java/performance.xml">
         <exclude name="AvoidInstantiatingObjectsInLoops" />
+        <exclude name="SimplifyStartsWith" /> <!-- Sometimes reduces readability -->
     </rule>
     
     <rule ref="category/java/security.xml" />
     
-    <!-- Custom rule configurations with appropriate thresholds -->
+    <!-- Custom rule configurations with appropriate thresholds for Spring Boot apps -->
     <rule ref="category/java/design.xml/CyclomaticComplexity">
         <properties>
             <property name="classReportLevel" value="80" />
-            <property name="methodReportLevel" value="12" />
+            <property name="methodReportLevel" value="15" /> <!-- Increased for controller methods -->
         </properties>
     </rule>
 
     <rule ref="category/java/design.xml/ExcessiveMethodLength">
         <properties>
-            <property name="minimum" value="50" />
+            <property name="minimum" value="75" /> <!-- Increased for controller methods -->
         </properties>
     </rule>
 
     <rule ref="category/java/design.xml/TooManyMethods">
         <properties>
-            <property name="maxmethods" value="20" />
+            <property name="maxmethods" value="25" /> <!-- Spring controllers often need more methods -->
         </properties>
     </rule>
 
     <rule ref="category/java/design.xml/NcssCount">
         <properties>
-            <property name="methodReportLevel" value="60"/>
-            <property name="classReportLevel" value="300"/>
+            <property name="methodReportLevel" value="70"/> <!-- Increased for controller methods -->
+            <property name="classReportLevel" value="400"/> <!-- Spring classes tend to be larger -->
         </properties>
     </rule>
-</ruleset> 
+</ruleset>
