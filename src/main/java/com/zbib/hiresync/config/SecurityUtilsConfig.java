@@ -12,13 +12,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @Configuration
 public class SecurityUtilsConfig {
 
-    /**
-     * Creates a password encoder bean.
-     *
-     * @return the password encoder
-     */
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
-    }
-} 
+  /**
+   * Creates a password encoder bean.
+   *
+   * @return the password encoder
+   */
+  @Bean
+  public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder(12);
+  }
+}
