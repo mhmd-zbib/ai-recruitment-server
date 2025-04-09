@@ -38,6 +38,25 @@ services:
       options:
         max-size: "5m"
         max-file: "1"
+  
+  # Test Runner service - temporarily commented out as it will be added dynamically by CI pipeline
+  # test-runner:
+  #   image: ${REGISTRY}/${GITHUB_ACTOR}/${IMAGE_NAME}:ci-latest
+  #   container_name: hiresync-test-runner
+  #   volumes:
+  #     - ../:/app
+  #     - ~/.m2:/root/.m2
+  #   working_dir: /app
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   environment:
+  #     SPRING_PROFILES_ACTIVE: test
+  #     SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/testdb
+  #     SPRING_DATASOURCE_USERNAME: hiresync
+  #     SPRING_DATASOURCE_PASSWORD: hiresync
+  #   networks:
+  #     - hiresync-test-network
 
 # Shared networks
 networks:
