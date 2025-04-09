@@ -12,6 +12,10 @@
     </module>
 
     <module name="TreeWalker">
+        <module name="LineLength">
+            <property name="max" value="120"/>
+            <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
+        </module>
         <module name="OuterTypeFilename"/>
         <module name="IllegalTokenText">
             <property name="tokens" value="STRING_LITERAL, CHAR_LITERAL"/>
@@ -23,11 +27,9 @@
             <property name="allowByTailComment" value="true"/>
             <property name="allowNonPrintableEscapes" value="true"/>
         </module>
-        <module name="LineLength">
-            <property name="max" value="120"/>
-            <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
+        <module name="AvoidStarImport">
+            <property name="excludes" value="java.io,java.util,java.net,java.math,java.awt"/>
         </module>
-        <module name="AvoidStarImport"/>
         <module name="OneTopLevelClass"/>
         <module name="NoLineWrap"/>
         <module name="EmptyBlock">
@@ -35,9 +37,7 @@
             <property name="tokens" value="LITERAL_TRY, LITERAL_FINALLY, LITERAL_IF, LITERAL_ELSE, LITERAL_SWITCH"/>
         </module>
         <module name="NeedBraces"/>
-        <module name="LeftCurly">
-            <property name="maxLineLength" value="120"/>
-        </module>
+        <module name="LeftCurly"/>
         <module name="RightCurly"/>
         <module name="RightCurly">
             <property name="option" value="alone"/>
@@ -134,23 +134,27 @@
             <message key="ws.notPreceded" value="GenericWhitespace ''{0}'' is not preceded with whitespace."/>
         </module>
         <module name="Indentation">
-            <property name="basicOffset" value="4"/>
+            <property name="basicOffset" value="2"/>
             <property name="braceAdjustment" value="0"/>
-            <property name="caseIndent" value="4"/>
-            <property name="throwsIndent" value="4"/>
-            <property name="lineWrappingIndentation" value="4"/>
-            <property name="arrayInitIndent" value="4"/>
+            <property name="caseIndent" value="2"/>
+            <property name="throwsIndent" value="2"/>
+            <property name="lineWrappingIndentation" value="2"/>
+            <property name="arrayInitIndent" value="2"/>
         </module>
         <module name="AbbreviationAsWordInName">
-            <property name="ignoreFinal" value="false"/>
-            <property name="allowedAbbreviationLength" value="1"/>
+            <property name="allowedAbbreviationLength" value="4"/>
+            <property name="allowedAbbreviations" value="XML,URL,URI,DTO,API,JWT,UUID,IO"/>
         </module>
         <module name="OverloadMethodsDeclarationOrder"/>
         <module name="VariableDeclarationUsageDistance"/>
         <module name="CustomImportOrder">
-            <property name="sortImportsInGroupAlphabetically" value="true"/>
+            <property name="customImportOrderRules"
+                      value="STATIC###STANDARD_JAVA_PACKAGE###SPECIAL_IMPORTS###THIRD_PARTY_PACKAGE"/>
+            <property name="standardPackageRegExp" value="^java\.|^javax\.|^jakarta\."/>
+            <property name="specialImportsRegExp" value="^com\.zbib\."/>
+            <property name="thirdPartyPackageRegExp" value="^org\.|^lombok\.|^io\."/>
             <property name="separateLineBetweenGroups" value="true"/>
-            <property name="customImportOrderRules" value="STATIC###SPECIAL_IMPORTS###THIRD_PARTY_PACKAGE###STANDARD_JAVA_PACKAGE###STATIC"/>
+            <property name="sortImportsInGroupAlphabetically" value="true"/>
         </module>
         <module name="MethodParamPad"/>
         <module name="NoWhitespaceBefore">
@@ -163,9 +167,11 @@
             <property name="tokens" value="BAND, BOR, BSR, BXOR, DIV, EQUAL, GE, GT, LAND, LE, LITERAL_INSTANCEOF, LOR, LT, MINUS, MOD, NOT_EQUAL, PLUS, QUESTION, SL, SR, STAR, METHOD_REF"/>
         </module>
         <module name="AnnotationLocation">
+            <property name="id" value="AnnotationLocationMostCases"/>
             <property name="tokens" value="CLASS_DEF, INTERFACE_DEF, ENUM_DEF, METHOD_DEF, CTOR_DEF"/>
         </module>
         <module name="AnnotationLocation">
+            <property name="id" value="AnnotationLocationVariables"/>
             <property name="tokens" value="VARIABLE_DEF"/>
             <property name="allowSamelineMultipleAnnotations" value="true"/>
         </module>
@@ -180,10 +186,10 @@
             <property name="target" value="CLASS_DEF, INTERFACE_DEF, ENUM_DEF, METHOD_DEF, CTOR_DEF, VARIABLE_DEF"/>
         </module>
         <module name="JavadocMethod">
-            <property name="scope" value="public"/>
+            <property name="accessModifiers" value="public"/>
             <property name="allowMissingParamTags" value="true"/>
             <property name="allowMissingReturnTag" value="true"/>
-            <property name="allowedAnnotations" value="Override, Test"/>
+            <property name="tokens" value="METHOD_DEF, ANNOTATION_FIELD_DEF"/>
         </module>
         <module name="MethodName">
             <property name="format" value="^[a-z][a-z0-9][a-zA-Z0-9_]*$"/>
