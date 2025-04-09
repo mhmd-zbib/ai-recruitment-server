@@ -6,9 +6,11 @@ import com.zbib.hiresync.dto.JobResponse;
 import com.zbib.hiresync.entity.JobPosting;
 import com.zbib.hiresync.entity.User;
 import com.zbib.hiresync.enums.JobStatus;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Component;
 import lombok.NonNull;
 

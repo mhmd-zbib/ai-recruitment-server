@@ -40,6 +40,9 @@ jobs:
       - name: Run PMD Static Analysis
         run: mvn pmd:pmd -P ci
         
+      - name: Run SpotBugs Analysis
+        run: mvn spotbugs:spotbugs -P ci
+        
       - name: Run OWASP Dependency Check
         run: mvn dependency-check:check -P ci
         
