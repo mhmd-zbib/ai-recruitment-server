@@ -38,16 +38,16 @@ jobs:
           cache: 'maven'
           
       - name: Run PMD Static Analysis
-        run: mvn pmd:pmd -P ci
+        run: mvn pmd:check -P ci
         
       - name: Run SpotBugs Analysis
-        run: mvn spotbugs:spotbugs -P ci
+        run: mvn spotbugs:check -P ci
         
       - name: Run OWASP Dependency Check
         run: mvn dependency-check:check -P ci
         
-      - name: Format and Lint Code
-        run: mvn spotless:apply checkstyle:checkstyle -P ci
+      - name: Run Checkstyle Validation
+        run: mvn checkstyle:check -P ci
 
   unit-tests:
     needs: code-quality

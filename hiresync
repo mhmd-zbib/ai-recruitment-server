@@ -3,7 +3,6 @@ set -e
 
 # Simple bash script router
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts"
-SCRIPT_CORE="$SCRIPT_DIR/core"
 
 # Get command from first argument
 COMMAND="$1"
@@ -17,8 +16,8 @@ if [ -z "$COMMAND" ]; then
 fi
 
 # Route to appropriate script
-if [ -f "$SCRIPT_CORE/${COMMAND}.sh" ]; then
-  bash "$SCRIPT_CORE/${COMMAND}.sh" "$@"
+if [ -f "$SCRIPT_DIR/${COMMAND}.sh" ]; then
+  bash "$SCRIPT_DIR/${COMMAND}.sh" "$@"
 else
   echo "Unknown command: $COMMAND"
   exit 1

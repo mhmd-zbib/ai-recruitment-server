@@ -38,7 +38,7 @@ springdoc:
 # Production environment specific JWT configuration
 jwt:
   issuer: hiresync-prod
-  
+
 # Production environment specific features
 hiresync:
   features:

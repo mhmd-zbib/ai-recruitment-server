@@ -1,23 +1,21 @@
 # Configuration for local development
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
-    username: ${DB_USER}
-    password: ${DB_PASSWORD}
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:hiresync}
+    username: ${DB_USER:hiresync}
+    password: ${DB_PASSWORD:hiresync}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: ${DB_MAX_POOL_SIZE:5}
-      minimum-idle: ${DB_MIN_IDLE:2}
+      maximum-pool-size: 5
+      minimum-idle: 2
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
       auto-commit: true
       pool-name: HireSyncHikariPool
-      validation-timeout: 5000
-      leak-detection-threshold: 60000
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:update}
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
@@ -25,58 +23,37 @@ spring:
         format_sql: true
         jdbc:
           time_zone: UTC
-        order_inserts: true
-        order_updates: true
-        generate_statistics: ${HIBERNATE_STATS:false}
-        cache:
-          use_second_level_cache: false
-        search:
-          enabled: false
   devtools:
     restart:
       enabled: true
       additional-paths: src/main/java,src/main/resources
-      exclude: static/**,public/**,META-INF/**
-      poll-interval: 1s
-      quiet-period: 400ms
+      exclude: static/**,public/**
     livereload:
       enabled: true
-      port: ${LIVERELOAD_PORT:35729}
-
-# Configure logging for local development
-logging:
-  level:
-    root: ${LOG_LEVEL_ROOT:INFO}
-    com.zbib.hiresync: ${LOG_LEVEL_APP:DEBUG}
-    org.hibernate.SQL: ${LOG_LEVEL_SQL:INFO}
-    org.springframework.web: INFO
-    org.springframework.security: INFO
-  file:
-    name: ${LOG_FILE_PATH:logs/hiresync-local.log}
-  pattern:
-    console: "%d{HH:mm:ss} %highlight(%-5level) [%blue(%t)] %yellow(%C{1.}): %msg%n%throwable"
-    file: "%d{yyyy-MM-dd HH:mm:ss} %-5level [%t] %C{1.}: %msg%n%throwable"
+  # Fix for map syntax errors in properties
+  main:
+    cloud-platform: none
 
 # Server configuration
 server:
-  port: ${APP_PORT:8080}
+  port: 8080
 
-# Enable Swagger UI for local development
+# API Documentation
 springdoc:
   swagger-ui:
+    path: /swagger-ui.html
     operationsSorter: method
     filter: true
     display-request-duration: true
-    doc-expansion: none
   show-actuator: true
   default-produces-media-type: application/json
-  default-consumes-media-type: application/json
 
-# Override specific JWT settings for local environment if needed
+# JWT settings
 jwt:
   issuer: hiresync-local
+  expiration: 86400000  # 24 hours in milliseconds
 
-# Local specific application features
+# Local development features
 hiresync:
   features:
     debug-mode: true

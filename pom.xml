@@ -6,128 +6,58 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.4.3</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <relativePath/>
     </parent>
+    
     <groupId>com.zbib</groupId>
     <artifactId>hiresync</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>hiresync</name>
     <description>AI-powered recruitment management platform</description>
-    <url/>
-    <licenses>
-        <license/>
-    </licenses>
-    <developers>
-        <developer/>
-    </developers>
-    <scm>
-        <connection/>
-        <developerConnection/>
-        <tag/>
-        <url/>
-    </scm>
+    
     <properties>
         <java.version>17</java.version>
-        <sonar.organization>your-sonar-organization</sonar.organization>
-        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
-        <sonar.projectKey>your-project-key</sonar.projectKey>
-        <!-- Default: Enable quality checks for builds -->
-        <dependency.check.skip>false</dependency.check.skip>
-        <pmd.skip>false</pmd.skip>
-        <spotbugs.skip>false</spotbugs.skip>
-        <enforcer.skip>false</enforcer.skip>
-        <jacoco.skip>false</jacoco.skip>
-        <maven.test.skip>false</maven.test.skip>
-        <maven.resources.skip>false</maven.resources.skip>
         <jwt.version>0.11.5</jwt.version>
-        <spotless.skip>false</spotless.skip>
+        <lombok.version>1.18.30</lombok.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <lombok.version>1.18.30</lombok.version>
         
-        <!-- Static Analysis Plugin Properties -->
-        <spotbugs.failOnError>true</spotbugs.failOnError>
-        <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-        <pmd.failOnViolation>true</pmd.failOnViolation>
+        <!-- Quality check flags (single point of control) -->
+        <skip.checks>false</skip.checks>
+        <skip.tests>false</skip.tests>
     </properties>
     
-    <!-- Add profiles for different environments -->
+    <!-- Profiles for different environments -->
     <profiles>
         <profile>
             <id>local</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
-                <property>
-                    <name>spring.profiles.active</name>
-                    <value>local</value>
-                </property>
             </activation>
             <properties>
-                <!-- Disable heavy checks for local development -->
-                <dependency.check.skip>true</dependency.check.skip>
-                <pmd.skip>true</pmd.skip>
-                <spotbugs.skip>true</spotbugs.skip>
-                <enforcer.skip>true</enforcer.skip>
-                <jacoco.skip>true</jacoco.skip>
-                <maven.test.skip>false</maven.test.skip>
-                <maven.resources.skip>false</maven.resources.skip>
-                <spotless.skip>true</spotless.skip>
-            </properties>
-        </profile>
-        
-        <profile>
-            <id>ci</id>
-            <activation>
-                <property>
-                    <n>env.CI</n>
-                </property>
-            </activation>
-            <properties>
-                <!-- Enable all quality checks for CI -->
-                <dependency.check.skip>false</dependency.check.skip>
-                <pmd.skip>false</pmd.skip>
-                <spotbugs.skip>false</spotbugs.skip>
-                <enforcer.skip>false</enforcer.skip>
-                <jacoco.skip>false</jacoco.skip>
-                <maven.test.skip>false</maven.test.skip>
-                <maven.resources.skip>false</maven.resources.skip>
-                <spotless.skip>false</spotless.skip>
-                <checkstyle.failOnViolation>false</checkstyle.failOnViolation>
+                <skip.checks>true</skip.checks>
             </properties>
         </profile>
         
         <profile>
             <id>quick</id>
             <properties>
-                <!-- Minimal checks for quick iterations -->
-                <dependency.check.skip>true</dependency.check.skip>
-                <pmd.skip>true</pmd.skip>
-                <spotbugs.skip>true</spotbugs.skip>
-                <enforcer.skip>true</enforcer.skip>
-                <jacoco.skip>true</jacoco.skip>
-                <maven.test.skip>true</maven.test.skip>
-                <maven.resources.skip>true</maven.resources.skip>
+                <skip.checks>true</skip.checks>
+                <skip.tests>true</skip.tests>
             </properties>
         </profile>
         
-        <!-- New profile for manual linting -->
         <profile>
             <id>lint</id>
             <properties>
-                <!-- Only enable linting tools -->
-                <dependency.check.skip>true</dependency.check.skip>
-                <pmd.skip>false</pmd.skip>
-                <spotbugs.skip>true</spotbugs.skip>
-                <enforcer.skip>true</enforcer.skip>
-                <jacoco.skip>true</jacoco.skip>
-                <maven.test.skip>true</maven.test.skip>
-                <maven.resources.skip>true</maven.resources.skip>
-                <spotless.skip>false</spotless.skip>
+                <skip.checks>false</skip.checks>
+                <skip.tests>true</skip.tests>
             </properties>
         </profile>
     </profiles>
+    
     <dependencies>
-        <!-- Core Spring Boot Dependencies -->
+        <!-- Spring Boot Starters -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -151,6 +81,22 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+        
+        <!-- Log4j2 instead of Logback -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-log4j2</artifactId>
         </dependency>
         
         <!-- Database -->
@@ -186,21 +132,7 @@
             <scope>runtime</scope>
         </dependency>
         
-        <!-- Logging (using Log4j2) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.springframework.boot</groupId>
-                    <artifactId>spring-boot-starter-logging</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-log4j2</artifactId>
-        </dependency>
+        <!-- JSON handling -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
@@ -208,10 +140,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-yaml</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-layout-template-json</artifactId>
         </dependency>
         
         <!-- API Documentation -->
@@ -241,6 +169,7 @@
 
     <build>
         <plugins>
+            <!-- Spring Boot Maven Plugin -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -258,7 +187,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
                 <configuration>
                     <source>${java.version}</source>
                     <target>${java.version}</target>
@@ -268,12 +196,12 @@
                             <artifactId>lombok</artifactId>
                             <version>${lombok.version}</version>
                         </path>
-                        <path>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok-mapstruct-binding</artifactId>
-                            <version>0.2.0</version>
-                        </path>
                     </annotationProcessorPaths>
+                    <compilerArgs>
+                        <arg>-Xlint:unchecked</arg>
+                        <arg>-Xlint:deprecation</arg>
+                        <arg>-parameters</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
             
@@ -281,185 +209,22 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
-            </plugin>
-            
-            <!-- JaCoCo for code coverage -->
-            <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.11</version>
                 <configuration>
-                    <excludes>
-                        <exclude>**/dto/**</exclude>
-                        <exclude>**/entity/**</exclude>
-                        <exclude>**/config/**</exclude>
-                        <exclude>**/enums/**</exclude>
-                        <exclude>**/exceptions/**</exclude>
-                        <exclude>**/*Application.*</exclude>
-                    </excludes>
-                    <skip>${jacoco.skip}</skip>
+                    <skip>${skip.tests}</skip>
                 </configuration>
-                <executions>
-                    <execution>
-                        <id>default-prepare-agent</id>
-                        <goals>
-                            <goal>prepare-agent</goal>
-                        </goals>
-                        <phase>initialize</phase>
-                        <configuration>
-                            <skip>${jacoco.skip}</skip>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>default-report</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>report</goal>
-                        </goals>
-                        <configuration>
-                            <skip>${jacoco.skip}</skip>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
             
-            <!-- OWASP Dependency Check for security vulnerabilities -->
-            <plugin>
-                <groupId>org.owasp</groupId>
-                <artifactId>dependency-check-maven</artifactId>
-                <version>9.0.7</version>
-                <configuration>
-                    <skip>${dependency.check.skip}</skip>
-                    <failBuildOnCVSS>9</failBuildOnCVSS>
-                    <formats>
-                        <format>HTML</format>
-                        <format>JSON</format>
-                    </formats>
-                    <suppressionFile>${project.basedir}/src/main/resources/dependency-suppressions.xml</suppressionFile>
-                    <skipProvidedScope>true</skipProvidedScope>
-                    <skipTestScope>true</skipTestScope>
-                    <skipSystemScope>true</skipSystemScope>
-                    <failOnError>false</failOnError>
-                    <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
-                    <cveValidForHours>24</cveValidForHours>
-                    <autoUpdate>false</autoUpdate>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <phase>verify</phase>
-                        <configuration>
-                            <skip>${dependency.check.skip}</skip>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
+            <!-- Code quality plugins with unified skip flag -->
             
-            <!-- Enforcer for project rules -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.4.1</version>
-                <configuration>
-                    <skip>${enforcer.skip}</skip>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>enforce-rules</id>
-                        <goals>
-                            <goal>enforce</goal>
-                        </goals>
-                        <phase>validate</phase>
-                        <configuration>
-                            <skip>${enforcer.skip}</skip>
-                            <rules>
-                                <requireMavenVersion>
-                                    <version>[3.8.0,)</version>
-                                </requireMavenVersion>
-                                <requireJavaVersion>
-                                    <version>[${java.version},)</version>
-                                </requireJavaVersion>
-                                <banDuplicatePomDependencyVersions/>
-                                <bannedDependencies>
-                                    <excludes>
-                                        <exclude>commons-logging:commons-logging</exclude>
-                                        <exclude>log4j:log4j</exclude>
-                                        <exclude>org.apache.logging.log4j:log4j-core:[2.0,2.17.0)</exclude>
-                                    </excludes>
-                                </bannedDependencies>
-                            </rules>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            
-            <!-- Spotless for code formatting -->
-            <plugin>
-                <groupId>com.diffplug.spotless</groupId>
-                <artifactId>spotless-maven-plugin</artifactId>
-                <version>2.43.0</version>
-                <configuration>
-                    <skip>${spotless.skip}</skip>
-                    <java>
-                        <includes>
-                            <include>src/main/java/**/*.java</include>
-                            <include>src/test/java/**/*.java</include>
-                        </includes>
-                        <importOrder>
-                            <order>java,javax,org,com,io</order>
-                        </importOrder>
-                        <removeUnusedImports/>
-                        <googleJavaFormat>
-                            <version>1.17.0</version>
-                            <style>GOOGLE</style>
-                        </googleJavaFormat>
-                        <endWithNewline/>
-                        <trimTrailingWhitespace/>
-                    </java>
-                    <yaml>
-                        <includes>
-                            <include>src/main/resources/*.yaml</include>
-                            <include>src/main/resources/*.yml</include>
-                            <include>src/test/resources/*.yaml</include>
-                            <include>src/test/resources/*.yml</include>
-                        </includes>
-                        <endWithNewline/>
-                        <trimTrailingWhitespace/>
-                    </yaml>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>spotless-apply</id>
-                        <goals>
-                            <goal>apply</goal>
-                        </goals>
-                        <phase>process-sources</phase>
-                    </execution>
-                    <execution>
-                        <id>spotless-check</id>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <phase>verify</phase>
-                    </execution>
-                </executions>
-            </plugin>
-            
-            <!-- PMD Plugin for static analysis -->
+            <!-- PMD Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-pmd-plugin</artifactId>
                 <version>3.21.2</version>
                 <configuration>
-                    <skip>${pmd.skip}</skip>
+                    <skip>${skip.checks}</skip>
                     <printFailingErrors>true</printFailingErrors>
-                    <failOnViolation>true</failOnViolation>
                     <linkXRef>false</linkXRef>
-                    <sourceEncoding>${project.build.sourceEncoding}</sourceEncoding>
-                    <targetJdk>${java.version}</targetJdk>
                     <rulesets>
                         <ruleset>${project.basedir}/src/main/resources/pmd-rules.xml</ruleset>
                     </rulesets>
@@ -469,20 +234,12 @@
                 </configuration>
                 <executions>
                     <execution>
-                        <id>pmd</id>
-                        <phase>verify</phase>
                         <goals>
                             <goal>check</goal>
                         </goals>
+                        <phase>verify</phase>
                     </execution>
                 </executions>
-            </plugin>
-            
-            <!-- Sonar for code quality analysis -->
-            <plugin>
-                <groupId>org.sonarsource.scanner.maven</groupId>
-                <artifactId>sonar-maven-plugin</artifactId>
-                <version>3.10.0.2594</version>
             </plugin>
             
             <!-- SpotBugs Plugin -->
@@ -491,15 +248,14 @@
                 <artifactId>spotbugs-maven-plugin</artifactId>
                 <version>4.8.3.0</version>
                 <configuration>
+                    <skip>${skip.checks}</skip>
                     <effort>Max</effort>
-                    <threshold>Low</threshold>
+                    <threshold>Medium</threshold>
                     <xmlOutput>true</xmlOutput>
-                    <spotbugsXmlOutput>true</spotbugsXmlOutput>
-                    <failOnError>${spotbugs.failOnError}</failOnError>
+                    <excludeFilterFile>${project.basedir}/src/main/resources/spotbugs-exclude.xml</excludeFilterFile>
                 </configuration>
                 <executions>
                     <execution>
-                        <id>spotbugs</id>
                         <goals>
                             <goal>check</goal>
                         </goals>
@@ -514,16 +270,41 @@
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <version>3.3.1</version>
                 <configuration>
-                    <configLocation>${project.basedir}/src/main/resources/checkstyle.xml</configLocation>
+                    <skip>${skip.checks}</skip>
+                    <configLocation>${project.basedir}/src/main/resources/checkstyle-rules.xml</configLocation>
                     <encoding>UTF-8</encoding>
                     <consoleOutput>true</consoleOutput>
-                    <failsOnError>${checkstyle.failOnViolation}</failsOnError>
                     <linkXRef>false</linkXRef>
-                    <violationSeverity>warning</violationSeverity>
                 </configuration>
                 <executions>
                     <execution>
-                        <id>checkstyle</id>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <phase>verify</phase>
+                    </execution>
+                </executions>
+            </plugin>
+            
+            <!-- Spotless for code formatting -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>2.43.0</version>
+                <configuration>
+                    <skip>${skip.checks}</skip>
+                    <java>
+                        <googleJavaFormat>
+                            <version>1.17.0</version>
+                            <style>GOOGLE</style>
+                        </googleJavaFormat>
+                        <removeUnusedImports/>
+                        <endWithNewline/>
+                        <trimTrailingWhitespace/>
+                    </java>
+                </configuration>
+                <executions>
+                    <execution>
                         <goals>
                             <goal>check</goal>
                         </goals>

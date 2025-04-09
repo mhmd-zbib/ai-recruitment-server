@@ -47,7 +47,7 @@ jwt:
   issuer: hiresync-test
   expiration: 86400000 # 24 hours in milliseconds
   refresh-expiration: 604800000 # 7 days in milliseconds
-  
+
 # Test environment specific features
 hiresync:
   features:
