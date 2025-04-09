@@ -1,79 +1,105 @@
-#!/usr/bin/env bash
+#!/bin/bash
+set -e
 
-# Description: Runs unit tests or all tests in the development container.
-
-# Get the project root directory
+# Get directories and setup logging
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+if [ -f "$SCRIPT_DIR/../utils/logging.sh" ]; then source "$SCRIPT_DIR/../utils/logging.sh"; else
+  log_info() { echo -e "[INFO] $1"; }; log_error() { echo -e "[ERROR] $1"; }; log_success() { echo -e "[SUCCESS] $1"; }
+fi
 
-# Source common utilities
-source "$SCRIPT_DIR/../utils/logging.sh"
-
-# Container name
+# Default configuration
+TEST_TYPE="all"; TEST_ENV="auto"; TEST_PROFILE="test"; BUILD_IMAGE=false; KEEP_CONTAINERS=false
+GENERATE_REPORTS=true; MAVEN_OPTS="-B -ntp"; TEST_ARGS=""
 DEVTOOLS_CONTAINER="hiresync-devtools"
+DOCKER_COMPOSE_FILE="${PROJECT_ROOT}/docker/docker-compose.test.yaml"
 
-# Generate test JWT secret if not exists
-generate_test_jwt_secret() {
-  local test_props="src/test/resources/application-test.properties"
-  if [ ! -f "$test_props" ] || ! grep -q "^jwt.secret=" "$test_props"; then
-    log_info "Generating test JWT secret..."
-    mkdir -p "$(dirname "$test_props")"
-    echo "jwt.secret=test-secret-key-with-minimum-length-of-32-characters" > "$test_props"
-  fi
-}
+# Parse arguments (with backward compatibility)
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --unit) TEST_TYPE="unit"; shift ;;
+    --integration) TEST_TYPE="integration"; shift ;;
+    --type=*) TEST_TYPE="${1#*=}"; shift ;;
+    --env=*) TEST_ENV="${1#*=}"; shift ;;
+    --profile=*) TEST_PROFILE="${1#*=}"; shift ;;
+    --container) TEST_ENV="container"; shift ;;
+    --build-image) BUILD_IMAGE=true; shift ;;
+    --keep-containers) KEEP_CONTAINERS=true; shift ;;
+    --no-reports) GENERATE_REPORTS=false; shift ;;
+    --maven-opts=*) MAVEN_OPTS="${1#*=}"; shift ;;
+    --args=*) TEST_ARGS="${1#*=}"; shift ;;
+    --help|-h) echo "Usage: ./scripts/core/test.sh [--type=unit|integration|e2e|all] [--env=local|container|docker]"; exit 0 ;;
+    *) log_error "Unknown option: $1"; exit 1 ;;
+  esac
+done
 
-# Check if devtools container is running
-check_devtools_container() {
-  if ! docker ps | grep -q "$DEVTOOLS_CONTAINER"; then
-    log_error "Devtools container ($DEVTOOLS_CONTAINER) is not running!"
-    log_info "Please start the development environment first:"
-    log_info "docker-compose -f docker/docker-compose.local.yaml up -d"
-    exit 1
-  fi
-}
+# Auto-detect environment
+if [ "$TEST_ENV" = "auto" ]; then
+  if [ -n "$CI" ]; then TEST_ENV="local"; 
+  elif docker ps --format '{{.Names}}' 2>/dev/null | grep -q "$DEVTOOLS_CONTAINER"; then TEST_ENV="container";
+  elif command -v docker-compose >/dev/null && [ -f "$DOCKER_COMPOSE_FILE" ]; then TEST_ENV="docker";
+  else TEST_ENV="local"; fi
+  log_info "Auto-detected environment: $TEST_ENV"
+fi
 
-# Run all tests
-run_all_tests() {
-  log_info "Running All Tests"
-  check_devtools_container
-  generate_test_jwt_secret
-  docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn test -Dspring.profiles.active=test"
-}
+# Create Maven command based on test type
+case "$TEST_TYPE" in
+  unit) TEST_CMD="mvn test -Dtest=\"*Test\" -DexcludedGroups=\"integration,e2e\" $MAVEN_OPTS" ;;
+  integration) TEST_CMD="mvn verify -Dgroups=\"integration\" -DskipUnitTests=true $MAVEN_OPTS" ;;
+  e2e) TEST_CMD="mvn verify -Dgroups=\"e2e\" -DskipUnitTests=true $MAVEN_OPTS" ;;
+  all|*) TEST_CMD="mvn verify $MAVEN_OPTS" ;;
+esac
+TEST_CMD="$TEST_CMD -Dspring.profiles.active=$TEST_PROFILE"
+[ "$GENERATE_REPORTS" = true ] && TEST_CMD="$TEST_CMD -Djacoco.skip=false -Dsurefire-report.skip=false" || TEST_CMD="$TEST_CMD -Djacoco.skip=true -Dsurefire-report.skip=true"
+[ -n "$TEST_ARGS" ] && TEST_CMD="$TEST_CMD $TEST_ARGS"
 
-# Run unit tests only
-run_unit_tests() {
-  log_info "Running Unit Tests"
-  check_devtools_container
-  generate_test_jwt_secret
-  docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn test -Dtest=\"*Test\" -DexcludedGroups=\"integration,e2e\" -Dspring.profiles.active=test"
-}
+# Setup test environment
+mkdir -p "$PROJECT_ROOT/target/surefire-reports" "$PROJECT_ROOT/target/failsafe-reports"
+test_props="${PROJECT_ROOT}/src/test/resources/application-test.properties"
+if [ ! -f "$test_props" ] || ! grep -q "^jwt.secret=" "$test_props"; then
+  mkdir -p "$(dirname "$test_props")"
+  echo "jwt.secret=test-secret-key-with-minimum-length-of-32-characters" > "$test_props"
+fi
 
-# Run integration tests only
-run_integration_tests() {
-  log_info "Running Integration Tests"
-  check_devtools_container
-  generate_test_jwt_secret
-  docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && mvn verify -DskipTests=true -Dspring.profiles.active=test"
-}
-
-# Parse command line arguments
-case "$1" in
-  --unit)
-    run_unit_tests
+# Execute tests based on environment
+log_info "Running $TEST_TYPE tests in $TEST_ENV environment"
+case "$TEST_ENV" in
+  docker)
+    # Build image if needed
+    if [ "$BUILD_IMAGE" = true ]; then
+      export REGISTRY=${REGISTRY:-ghcr.io}; export GITHUB_ACTOR=${GITHUB_ACTOR:-local}
+      export IMAGE_NAME=${IMAGE_NAME:-hiresync}; export IMAGE_TAG=${IMAGE_TAG:-ci-latest}
+      docker build -t "${REGISTRY}/${GITHUB_ACTOR}/${IMAGE_NAME}:${IMAGE_TAG}" -f "${PROJECT_ROOT}/docker/Dockerfile" "${PROJECT_ROOT}"
+    fi
+    # Start containers and run tests
+    docker-compose -f "$DOCKER_COMPOSE_FILE" up -d postgres app-builder
+    docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T postgres pg_isready -U hiresync -d testdb
+    # Wait for builder to complete
+    while docker-compose -f "$DOCKER_COMPOSE_FILE" ps | grep -q app-builder | grep -q "Up"; do sleep 2; done
+    # Run tests
+    docker-compose -f "$DOCKER_COMPOSE_FILE" run --rm -e SPRING_PROFILES_ACTIVE=$TEST_PROFILE test-runner /bin/bash -c "cd /app && $TEST_CMD"
+    EXIT_CODE=$?
+    # Copy reports and cleanup
+    docker ps -a | grep -q hiresync-test-runner && {
+      docker cp hiresync-test-runner:/app/target/surefire-reports/. "${PROJECT_ROOT}/target/surefire-reports/" 2>/dev/null || true
+      docker cp hiresync-test-runner:/app/target/failsafe-reports/. "${PROJECT_ROOT}/target/failsafe-reports/" 2>/dev/null || true
+    }
+    [ "$KEEP_CONTAINERS" != "true" ] && docker-compose -f "$DOCKER_COMPOSE_FILE" down -v
     ;;
-  --integration)
-    run_integration_tests
+  container)
+    # Run in dev container
+    if ! docker ps --format '{{.Names}}' | grep -q "$DEVTOOLS_CONTAINER"; then
+      log_error "Dev container not running! Start with: docker-compose -f docker/docker-compose.local.yaml up -d"
+      exit 1
+    fi
+    docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /workspace && $TEST_CMD"
+    EXIT_CODE=$?
     ;;
-  --help|-h)
-    echo "Usage: $0 [OPTION]"
-    echo "Options:"
-    echo "  --unit          Run only unit tests"
-    echo "  --integration   Run only integration tests"
-    echo "  --help, -h      Show this help message"
-    echo "  (no option)     Run all tests"
-    exit 0
-    ;;
-  *)
-    run_all_tests
+  local)
+    # Run locally
+    (cd "$PROJECT_ROOT" && eval "$TEST_CMD")
+    EXIT_CODE=$?
     ;;
 esac
+
+[ $EXIT_CODE -eq 0 ] && log_success "Tests completed successfully" || { log_error "Tests failed with exit code $EXIT_CODE"; exit $EXIT_CODE; } 
