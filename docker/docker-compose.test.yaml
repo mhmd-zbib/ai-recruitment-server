@@ -5,6 +5,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+    container_name: hiresync-test-app
+    restart: on-failure
     environment:
       - SPRING_PROFILES_ACTIVE=test
       - TZ=UTC
@@ -27,7 +29,12 @@ services:
       - MANAGEMENT_ENDPOINT_HEALTH_SHOW-DETAILS=never
       - HIRESYNC_FEATURES_DEBUG-MODE=true
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"  # Only expose locally
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
     depends_on:
       postgres:
         condition: service_healthy
@@ -36,18 +43,41 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    networks:
+      - test-network
 
   postgres:
     image: postgres:15-alpine
+    container_name: hiresync-test-db
+    restart: on-failure
     environment:
       - POSTGRES_DB=hiresync_test
       - POSTGRES_USER=test
       - POSTGRES_PASSWORD=test
       - TZ=UTC
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"  # Only bind to localhost
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U test -d hiresync_test"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - test-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  test-network:
+    driver: bridge
+
+volumes:
+  postgres_test_data:
+    driver: local
