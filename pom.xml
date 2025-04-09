@@ -21,6 +21,8 @@
         <lombok.version>1.18.30</lombok.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <spring-security.version>6.4.5</spring-security.version>
+        <springdoc.version>2.5.0</springdoc.version>
         
         <!-- Quality check flags (single point of control) -->
         <skip.checks>false</skip.checks>
@@ -154,7 +156,7 @@
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.4.0</version>
+            <version>${springdoc.version}</version>
         </dependency>
         
         <!-- Testing Dependencies -->
