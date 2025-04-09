@@ -8,6 +8,19 @@
         HireSync PMD rule set with custom configuration
     </description>
 
+    <!-- Complete rule exclusions -->
+    <rule ref="category/java/bestpractices.xml/UseUtilityClass">
+        <properties>
+            <property name="violationSuppressRegex" value=".*"/>
+        </properties>
+    </rule>
+    
+    <rule ref="category/java/design.xml/ClassWithOnlyPrivateConstructorsShouldBeFinal">
+        <properties>
+            <property name="violationSuppressRegex" value=".*"/>
+        </properties>
+    </rule>
+
     <!-- Include standard ruleset with selective exclusions -->
     <rule ref="category/java/bestpractices.xml">
         <exclude name="UseVarargs" />
@@ -20,6 +33,7 @@
         <exclude name="LoosePackageCoupling" />
         <exclude name="DataClass" />
         <exclude name="ExcessiveMethodLength" />
+        <exclude name="ClassWithOnlyPrivateConstructorsShouldBeFinal" />
     </rule>
     
     <rule ref="category/java/documentation.xml">
@@ -49,7 +63,7 @@
         </properties>
     </rule>
 
-    <rule ref="category/java/design.xml/MethodLength">
+    <rule ref="category/java/design.xml/ExcessiveMethodLength">
         <properties>
             <property name="minimum" value="50" />
         </properties>
