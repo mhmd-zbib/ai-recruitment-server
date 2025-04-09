@@ -117,7 +117,7 @@ case "$COMMAND" in
     else
       echo -e "${RED}${BOLD}Error: Unknown command: $COMMAND${NC}"
       echo -e "Run ${YELLOW}./hiresync help${NC} to see available commands."
-      exit 1
-    fi
+  exit 1
+fi
     ;;
 esac
