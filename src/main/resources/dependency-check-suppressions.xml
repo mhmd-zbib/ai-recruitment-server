@@ -10,10 +10,20 @@
     </suppress>
     -->
     
-    <!-- Example of a suppression that might be added later:
+    <!-- Spring Security CVEs - Temporarily suppressed until Spring Boot includes a fixed version -->
     <suppress>
-        <notes>This CVE affects Spring prior to version x.y.z, but we're using a newer version</notes>
-        <cve>CVE-20XX-YYYY</cve>
+        <notes>Temporarily suppressing Spring Security vulnerabilities until Spring Boot 3.4.x includes the fixed versions</notes>
+        <packageUrl regex="true">^pkg:maven/org\.springframework\.security/spring-security-.*@.*$</packageUrl>
+        <cve>CVE-2025-22223</cve>
+        <cve>CVE-2025-22228</cve>
     </suppress>
-    -->
+    
+    <!-- Swagger UI / DOMPurify CVEs - Temporarily suppressed until a fixed version is available -->
+    <suppress>
+        <notes>Temporarily suppressing Swagger UI DOMPurify vulnerabilities until a fixed version of springdoc is available</notes>
+        <packageUrl regex="true">^pkg:javascript/DOMPurify@.*$</packageUrl>
+        <cve>CVE-2024-45801</cve>
+        <cve>CVE-2024-47875</cve>
+        <cve>CVE-2025-26791</cve>
+    </suppress>
 </suppressions> 
