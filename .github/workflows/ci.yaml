@@ -213,7 +213,7 @@ jobs:
       
       - name: Run Integration Tests
         run: |
-          docker-compose -f docker/docker-compose.test.yaml up -d
+          docker compose -f docker/docker-compose.test.yaml up -d
           # Better wait strategy using health check
           echo "Waiting for services to be ready..."
           attempt=1
@@ -226,7 +226,7 @@ jobs:
           
           if [ $attempt -gt $max_attempts ]; then
             echo "Application failed to start in time. Checking logs:"
-            docker-compose -f docker/docker-compose.test.yaml logs app
+            docker compose -f docker/docker-compose.test.yaml logs app
             exit 1
           fi
           
@@ -242,4 +242,4 @@ jobs:
       
       - name: Stop services and clean up
         if: always()
-        run: docker-compose -f docker/docker-compose.test.yaml down -v
+        run: docker compose -f docker/docker-compose.test.yaml down -v
