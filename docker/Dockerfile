@@ -7,9 +7,8 @@ COPY pom.xml settings.xml* ./
 # Download dependencies separately (will be cached if POM doesn't change)
 RUN mvn dependency:go-offline -B
 
-# Copy source code and configuration
+# Copy source code
 COPY src ./src
-COPY config ./config
 
 # Build application with specified profile and test skipping
 ARG SPRING_PROFILES_ACTIVE=dev
@@ -38,10 +37,10 @@ ENV SPRING_PROFILES_ACTIVE=dev \
 # Copy only the built JAR file from the build stage
 COPY --from=build /app/target/*.jar /app/app.jar
 
-# Create log and config directories with appropriate permissions
-RUN mkdir -p /app/logs /app/config \
+# Create log directory with appropriate permissions
+RUN mkdir -p /app/logs \
     && chown -R hiresync:hiresync /app \
-    && chmod -R 755 /app/logs /app/config
+    && chmod -R 755 /app/logs
 
 # Set security limits
 RUN echo "hiresync soft nofile 65536" >> /etc/security/limits.conf \
