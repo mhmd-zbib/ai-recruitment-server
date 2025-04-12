@@ -34,6 +34,7 @@
         <exclude name="UseVarargs" />
         <exclude name="GuardLogStatement" />
         <exclude name="UseUtilityClass" />
+        <exclude name="GuardLogStatement" />
         <exclude name="JUnitTestsShouldIncludeAssert" /> <!-- For Spring Boot tests with assertThat -->
         <exclude name="JUnitTestContainsTooManyAsserts" /> <!-- Common in integration tests -->
     </rule>
