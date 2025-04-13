@@ -14,12 +14,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHANGED_JAVA_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E "\.java$" || true)
 CHANGED_FILES_COUNT=$(echo "$CHANGED_JAVA_FILES" | wc -l)
 
-# Make hooks skippable with SKIP_HOOKS=1
-if [ "$SKIP_HOOKS" = "1" ]; then
-  echo "⚠️ Pre-commit hooks skipped by SKIP_HOOKS=1"
-  exit 0
-fi
-
 # Detect if this is a merge commit
 if [ -f .git/MERGE_HEAD ]; then
   echo "🔄 Merge commit detected, skipping pre-commit hooks"
@@ -131,6 +125,5 @@ if [ -n "$CHANGED_JAVA_FILES" ]; then
 fi
 
 echo -e "\n✨ All pre-commit checks passed!"
-echo "You can bypass these checks with: SKIP_HOOKS=1 git commit"
 
 exit 0 
