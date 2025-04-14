@@ -32,7 +32,8 @@ services:
     image: maven:3.9-eclipse-temurin-21-jammy
     container_name: hiresync-devtools
     volumes:
-      - ../:/app:cached
+      # Explicitly mount parent directory to /app
+      - ../:/app
       - maven_repo:/root/.m2/repository
     working_dir: /app
     ports:

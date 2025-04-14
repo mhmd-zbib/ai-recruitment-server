@@ -19,7 +19,10 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Date;
 import java.util.UUID;
@@ -110,6 +113,24 @@ public class JwtTokenProvider {
         }
     }
 
+    public String getEmailFromToken(String token) {
+        return extractClaims(token).getSubject();
+    }
+
+    public Collection<GrantedAuthority> getAuthorities(String token) {
+        Claims claims = extractClaims(token);
+        
+        if (claims.get(AUTHORITIES_KEY) != null) {
+            return Arrays.stream(claims.get(AUTHORITIES_KEY).toString().split(","))
+                    .filter(auth -> !auth.isEmpty())
+                    .map(SimpleGrantedAuthority::new)
+                    .collect(Collectors.toList());
+        }
+        
+        // Default authority if none specified in token
+        return Arrays.asList(new SimpleGrantedAuthority("ROLE_USER"));
+    }
+
     public Claims extractClaims(String token) {
         try {
             return Jwts.parserBuilder()
@@ -121,6 +142,36 @@ public class JwtTokenProvider {
             log.error("Failed to extract claims from token: {}", e.getMessage());
             throw e;
         }
+    }
+
+    /**
+     * Calculates SHA-256 hash of the token for stateless validation.
+     * This allows validating tokens without requiring a database lookup.
+     * 
+     * @param token The JWT token to hash
+     * @return Base64 encoded SHA-256 hash of the token
+     */
+    public String calculateTokenHash(String token) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
+            return Base64.getEncoder().encodeToString(hash);
+        } catch (NoSuchAlgorithmException e) {
+            log.error("Failed to calculate token hash: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Verifies if a token hash matches the provided token.
+     * 
+     * @param token The JWT token to verify
+     * @param storedHash The previously stored hash to compare against
+     * @return true if the calculated hash matches the stored hash
+     */
+    public boolean verifyTokenHash(String token, String storedHash) {
+        String calculatedHash = calculateTokenHash(token);
+        return calculatedHash != null && calculatedHash.equals(storedHash);
     }
 
     public boolean validateToken(String token) {

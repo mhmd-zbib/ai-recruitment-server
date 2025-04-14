@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-# Get the absolute path of the script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts"
+# Get the absolute path of the script directory using Windows paths
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/scripts" && pwd)"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.local.yaml"
 DEVTOOLS_CONTAINER="hiresync-devtools"
@@ -14,17 +14,6 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
-
-# Detect Windows under Git Bash and fix path if needed
-if [[ "$(uname -s)" == MINGW* ]] || [[ "$(uname -s)" == CYGWIN* ]]; then
-  echo -e "${BLUE}Windows environment detected. Adjusting paths...${NC}"
-  # Convert Windows path to Docker compatible path if needed
-  PROJECT_ROOT_DOCKER=$(echo "$PROJECT_ROOT" | sed 's/^\///' | sed 's/\\/\//g' | sed 's/://')
-  echo -e "Docker compatible path: $PROJECT_ROOT_DOCKER"
-  
-  # Set Docker Compose project name to avoid path issues
-  export COMPOSE_PROJECT_NAME="hiresync"
-fi
 
 # Load environment variables
 if [ -f "$PROJECT_ROOT/.env" ]; then
@@ -43,7 +32,7 @@ show_help() {
   echo -e "  ${BOLD}restart${NC}     - Restart Docker containers and application"
   echo -e "  ${BOLD}logs${NC}        - View application logs"
   echo -e "  ${BOLD}shell${NC}       - Open a shell in the dev container"
-  echo -e "  ${BOLD}debug${NC}       - Debug Docker mount issues"
+  echo -e "  ${BOLD}init${NC}        - Initialize project structure"
   echo -e "  ${BOLD}quality${NC}     - Run code quality checks"
   echo -e "  ${BOLD}test${NC}        - Run tests (unit, integration)"
   echo -e "  ${BOLD}build${NC}       - Build the application"
@@ -63,7 +52,7 @@ script_exists() {
 check_docker() {
   if ! docker info &>/dev/null; then
     echo -e "${RED}${BOLD}Error: Docker is not running.${NC}"
-    echo -e "Please start Docker and try again."
+    echo -e "Please start Docker Desktop and try again."
     exit 1
   fi
 }
@@ -78,21 +67,14 @@ container_running() {
   docker ps | grep -q "$DEVTOOLS_CONTAINER"
 }
 
-# Go to the docker directory for consistent relative path handling
-go_to_docker_dir() {
-  cd "$PROJECT_ROOT/docker"
-  echo -e "Working from $(pwd)"
-}
-
 # Function to start containers
 start_containers() {
   echo -e "${BLUE}Starting Docker containers...${NC}"
-  go_to_docker_dir
-  docker compose -f "$COMPOSE_FILE" up -d
+  docker compose -f "$COMPOSE_FILE" up -d --quiet-pull
   
   # Wait for containers to be ready
   echo -e "${BLUE}Waiting for containers to be ready...${NC}"
-  sleep 5
+  sleep 3
   
   if ! container_running; then
     echo -e "${RED}${BOLD}Error: Container $DEVTOOLS_CONTAINER failed to start.${NC}"
@@ -106,35 +88,75 @@ start_containers() {
 # Function to stop containers
 stop_containers() {
   echo -e "${BLUE}Stopping Docker containers...${NC}"
-  go_to_docker_dir
   docker compose -f "$COMPOSE_FILE" down
   echo -e "${GREEN}Docker containers stopped.${NC}"
 }
 
-# Debug function
-debug_container() {
-  echo -e "${BLUE}Debugging container mount...${NC}"
-  echo -e "Project root: $PROJECT_ROOT"
-  echo -e "Current working directory: $(pwd)"
+# Function to initialize project structure
+initialize_project() {
+  echo -e "${BLUE}Initializing project structure...${NC}"
   
-  # Print system info
-  echo -e "${BLUE}System information:${NC}"
-  uname -a
-  docker version --format '{{.Server.Version}}'
+  # Create basic project structure if it doesn't exist
+  mkdir -p src/main/java/com/zbib/hiresync
+  mkdir -p src/main/resources
   
-  # Print container info
-  echo -e "${BLUE}Container information:${NC}"
-  docker inspect "$DEVTOOLS_CONTAINER" -f '{{.Mounts}}'
+  # Create pom.xml if it doesn't exist
+  if [ ! -f "pom.xml" ] && [ -f "docker/pom.xml.template" ]; then
+    echo -e "${YELLOW}Creating pom.xml from template...${NC}"
+    cp docker/pom.xml.template pom.xml
+  fi
   
-  # Print file structure
-  echo -e "${BLUE}Container file structure:${NC}"
-  docker exec "$DEVTOOLS_CONTAINER" bash -c "ls -la /"
-  docker exec "$DEVTOOLS_CONTAINER" bash -c "ls -la /app"
-  docker exec "$DEVTOOLS_CONTAINER" bash -c "ls -la /app/src 2>/dev/null || echo 'No src directory'"
-  docker exec "$DEVTOOLS_CONTAINER" bash -c "if [ -f /app/pom.xml ]; then echo 'pom.xml exists'; else echo 'pom.xml NOT FOUND'; fi"
+  # Create main application class if it doesn't exist
+  MAIN_CLASS="src/main/java/com/zbib/hiresync/HireSyncApplication.java"
+  if [ ! -f "$MAIN_CLASS" ]; then
+    echo -e "${YELLOW}Creating main application class...${NC}"
+    mkdir -p "$(dirname "$MAIN_CLASS")"
+    cat > "$MAIN_CLASS" << 'EOL'
+package com.zbib.hiresync;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class HireSyncApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(HireSyncApplication.class, args);
+    }
+}
+EOL
+  fi
   
-  # Print mount information
-  docker exec "$DEVTOOLS_CONTAINER" bash -c "mount | grep app || echo 'No mount for /app'"
+  # Create application.properties if it doesn't exist
+  APP_PROPERTIES="src/main/resources/application.properties"
+  if [ ! -f "$APP_PROPERTIES" ]; then
+    echo -e "${YELLOW}Creating application.properties...${NC}"
+    mkdir -p "$(dirname "$APP_PROPERTIES")"
+    cat > "$APP_PROPERTIES" << 'EOL'
+# Database Configuration
+spring.datasource.url=jdbc:postgresql://postgres:5432/hiresync
+spring.datasource.username=hiresync
+spring.datasource.password=hiresync
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# JPA/Hibernate Configuration
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+
+# Server Configuration
+server.port=8080
+server.servlet.context-path=/api
+
+# Logging Configuration
+logging.level.root=INFO
+logging.level.com.zbib.hiresync=DEBUG
+logging.level.org.springframework.web=INFO
+logging.level.org.hibernate=ERROR
+EOL
+  fi
+  
+  echo -e "${GREEN}Project structure initialized.${NC}"
 }
 
 # Get command from first argument
@@ -149,22 +171,33 @@ fi
 
 # Version command
 if [ "$COMMAND" == "version" ]; then
-  VERSION=$(grep -m 1 "<version>" "$PROJECT_ROOT/pom.xml" 2>/dev/null | sed 's/<[^>]*>//g' | tr -d ' \t\n\r' || echo "Unknown")
+  if [ -f "$PROJECT_ROOT/pom.xml" ]; then
+    VERSION=$(grep -m 1 "<version>" "$PROJECT_ROOT/pom.xml" 2>/dev/null | sed 's/<[^>]*>//g' | tr -d ' \t\n\r' || echo "Unknown")
+  else
+    VERSION="0.0.1-SNAPSHOT (from template)"
+  fi
   echo -e "${BLUE}${BOLD}HireSync${NC} version ${GREEN}${VERSION}${NC}"
   exit 0
 fi
 
 # Route to appropriate script or command
 case "$COMMAND" in
+  init)
+    initialize_project
+    ;;
+    
   start)
     check_docker
     
-    # IMPORTANT: Never stop running containers when using start command
+    # Initialize project if needed
+    if [ ! -f "pom.xml" ]; then
+      echo -e "${YELLOW}Project not initialized. Initializing...${NC}"
+      initialize_project
+    fi
+    
+    # Start containers if not already running
     if ! container_running; then
-      # Only start containers if they're not already running
       start_containers
-    else
-      echo -e "${GREEN}Containers are already running. Will NOT stop them.${NC}"
     fi
     
     # Execute the start script
@@ -174,14 +207,6 @@ case "$COMMAND" in
       echo -e "${RED}Error: Start script not found at $SCRIPT_DIR/start.sh${NC}"
       exit 1
     fi
-    ;;
-    
-  debug)
-    check_docker
-    if ! container_running; then
-      start_containers
-    fi
-    debug_container
     ;;
     
   stop)
@@ -215,7 +240,6 @@ case "$COMMAND" in
     fi
     
     echo -e "${BLUE}Showing logs (Ctrl+C to exit)...${NC}"
-    go_to_docker_dir
     docker compose -f "$COMPOSE_FILE" logs -f
     ;;
     

@@ -1,6 +1,8 @@
 package com.zbib.hiresync.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.zbib.hiresync.logging.SensitiveData;
+import com.zbib.hiresync.logging.SensitiveData.SensitiveType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,9 +29,11 @@ public class AuthResponse {
     private String lastName;
     
     @JsonProperty("access_token")
+    @SensitiveData(type = SensitiveType.CREDENTIALS)
     private String accessToken;
     
     @JsonProperty("refresh_token")
+    @SensitiveData(type = SensitiveType.CREDENTIALS)
     private String refreshToken;
     
     @JsonProperty("token_type")
@@ -37,4 +41,7 @@ public class AuthResponse {
     
     @JsonProperty("expires_in")
     private Long expiresIn;
+    
+    @JsonProperty("session_id")
+    private String sessionId;
 } 

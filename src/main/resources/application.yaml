@@ -48,6 +48,10 @@ spring:
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher
+  # AOP configuration
+  aop:
+    auto: true
+    proxy-target-class: true
 
 # JWT Security configuration
 jwt:
@@ -91,6 +95,10 @@ logging:
     com.zbib.hiresync: ${LOG_LEVEL_APP:INFO}
     org.hibernate.SQL: ${LOG_LEVEL_SQL:ERROR}
     org.hibernate.type.descriptor.sql: ${LOG_LEVEL_SQL_PARAMS:ERROR}
+    # AOP logging settings
+    com.zbib.hiresync.logging: DEBUG
+    # Reduce noise from Spring AOP
+    org.springframework.aop: WARN
 
 # Actuator configuration
 management:
@@ -140,3 +148,24 @@ hiresync:
     enable-email-notifications: ${ENABLE_EMAIL:false}
     enable-file-upload: ${ENABLE_FILE_UPLOAD:true}
     debug-mode: ${DEBUG_MODE:false}
+  # Logging configuration
+  logging:
+    # Mask these fields in all logs
+    sensitive-fields:
+      - password
+      - token
+      - secret
+      - key
+      - credential
+      - ssn
+      - socialSecurityNumber
+      - creditCard
+    # Enable all aspects by default - can disable specific ones if needed
+    enabled-aspects:
+      - service
+      - controller
+      - repository
+    # Force logging for specific packages even in production
+    force-debug-packages:
+      - com.zbib.hiresync.auth
+      - com.zbib.hiresync.security

@@ -1,8 +1,8 @@
 package com.zbib.hiresync.exception;
 
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -15,7 +15,6 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -68,8 +67,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleAllUncaughtException(Exception ex) {
-        log.error("Unexpected error occurred", ex);
-
         Map<String, String> errors = new HashMap<>();
         errors.put("error", "An unexpected error occurred");
 
@@ -82,12 +79,36 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
 
-    @Data
-    @AllArgsConstructor
+    /**
+     * Standard error response format for the application.
+     */
     static class ErrorResponse {
         private int status;
         private String message;
         private Map<String, String> errors;
         private LocalDateTime timestamp;
+        
+        public ErrorResponse(int status, String message, Map<String, String> errors, LocalDateTime timestamp) {
+            this.status = status;
+            this.message = message;
+            this.errors = errors;
+            this.timestamp = timestamp;
+        }
+        
+        public int getStatus() {
+            return status;
+        }
+        
+        public String getMessage() {
+            return message;
+        }
+        
+        public Map<String, String> getErrors() {
+            return errors;
+        }
+        
+        public LocalDateTime getTimestamp() {
+            return timestamp;
+        }
     }
 }
