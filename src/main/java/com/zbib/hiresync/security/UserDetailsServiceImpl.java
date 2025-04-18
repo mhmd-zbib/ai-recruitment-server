@@ -25,7 +25,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     @Transactional(readOnly = true)
-    @LoggableService(message = "Loading user details for: ${email}", level = LogLevel.INFO, logReturnValue = false, sensitiveFields = {"password"})
+    @LoggableService(message = "Loading user details for: ${email}", level = LogLevel.INFO)
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         try {
             User user = userRepository.findByEmail(email)

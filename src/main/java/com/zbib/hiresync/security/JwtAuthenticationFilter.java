@@ -1,22 +1,27 @@
 package com.zbib.hiresync.security;
 
+import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+/**
+ * Filter that authenticates users via JWT tokens
+ */
 @Component
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
-
+@Order(10)
+public class JwtAuthenticationFilter implements Filter {
     private static final Logger log = LogManager.getLogger(JwtAuthenticationFilter.class);
     private final JwtTokenProvider tokenProvider;
 
@@ -25,23 +30,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
+        
+        HttpServletRequest httpRequest = (HttpServletRequest) request;
+        String requestUri = httpRequest.getRequestURI();
+        
+        try {
+            authenticateRequest(httpRequest);
+            log.debug("Authentication filter processed request: {}", requestUri);
+        } catch (Exception e) {
+            log.error("Authentication error for {}: {}", requestUri, e.getMessage());
+            SecurityContextHolder.clearContext();
+        }
+        
+        chain.doFilter(request, response);
+    }
+    
+    private void authenticateRequest(HttpServletRequest request) {
         String jwt = resolveToken(request);
         
         if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
-            try {
-                Authentication authentication = tokenProvider.getAuthentication(jwt);
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-                log.debug("Set Authentication to SecurityContext for '{}', uri: {}", 
-                    authentication.getName(), request.getRequestURI());
-            } catch (Exception e) {
-                log.error("Cannot set user authentication: {}", e.getMessage());
-                SecurityContextHolder.clearContext();
-            }
+            Authentication auth = tokenProvider.getAuthentication(jwt);
+            SecurityContextHolder.getContext().setAuthentication(auth);
+            log.debug("User '{}' authenticated for URI: {}", 
+                auth.getName(), request.getRequestURI());
         }
-        
-        filterChain.doFilter(request, response);
     }
 
     private String resolveToken(HttpServletRequest request) {
@@ -51,4 +65,4 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
         return null;
     }
-} 
+}

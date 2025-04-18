@@ -1,5 +1,7 @@
 package com.zbib.hiresync.security;
 
+import com.zbib.hiresync.logging.LogLevel;
+import com.zbib.hiresync.logging.LoggableService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
@@ -29,6 +31,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Component
+@LoggableService(level = LogLevel.INFO, sensitiveFields = {"secretKey", "token"})
 public class JwtTokenProvider {
 
     private static final Logger log = LogManager.getLogger(JwtTokenProvider.class);
@@ -57,6 +60,7 @@ public class JwtTokenProvider {
         this.audience = audience;
     }
 
+    @LoggableService(message = "Creating access token for user: ${authentication.name}")
     public String createToken(Authentication authentication) {
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
@@ -78,6 +82,7 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    @LoggableService(message = "Creating refresh token for user: ${authentication.name}")
     public String createRefreshToken(Authentication authentication) {
         Date now = new Date();
         Date validity = new Date(now.getTime() + refreshTokenValidityInMilliseconds);
@@ -94,6 +99,7 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    @LoggableService(message = "Getting authentication from token", logArguments = false)
     public Authentication getAuthentication(String token) {
         try {
             Claims claims = extractClaims(token);
@@ -113,10 +119,12 @@ public class JwtTokenProvider {
         }
     }
 
+    @LoggableService(message = "Extracting email from token", logArguments = false)
     public String getEmailFromToken(String token) {
         return extractClaims(token).getSubject();
     }
 
+    @LoggableService(message = "Getting authorities from token", logArguments = false)
     public Collection<GrantedAuthority> getAuthorities(String token) {
         Claims claims = extractClaims(token);
         
@@ -131,6 +139,7 @@ public class JwtTokenProvider {
         return Arrays.asList(new SimpleGrantedAuthority("ROLE_USER"));
     }
 
+    @LoggableService(message = "Extracting claims from token", logArguments = false)
     public Claims extractClaims(String token) {
         try {
             return Jwts.parserBuilder()
@@ -151,6 +160,7 @@ public class JwtTokenProvider {
      * @param token The JWT token to hash
      * @return Base64 encoded SHA-256 hash of the token
      */
+    @LoggableService(message = "Calculating token hash", logArguments = false)
     public String calculateTokenHash(String token) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -169,11 +179,18 @@ public class JwtTokenProvider {
      * @param storedHash The previously stored hash to compare against
      * @return true if the calculated hash matches the stored hash
      */
+    @LoggableService(message = "Verifying token hash", logArguments = false)
     public boolean verifyTokenHash(String token, String storedHash) {
         String calculatedHash = calculateTokenHash(token);
         return calculatedHash != null && calculatedHash.equals(storedHash);
     }
+    
+    @LoggableService(message = "Getting token validity in milliseconds")
+    public long getTokenValidityInMilliseconds() {
+        return tokenValidityInMilliseconds;
+    }
 
+    @LoggableService(message = "Validating token", level = LogLevel.INFO, logArguments = false)
     public boolean validateToken(String token) {
         try {
             Claims claims = Jwts.parserBuilder()
@@ -202,23 +219,17 @@ public class JwtTokenProvider {
             }
 
             return true;
-        } catch (SignatureException ex) {
-            log.error("Invalid JWT signature: {}", ex.getMessage());
-        } catch (MalformedJwtException ex) {
-            log.error("Invalid JWT token: {}", ex.getMessage());
-        } catch (ExpiredJwtException ex) {
-            log.error("Expired JWT token: {}", ex.getMessage());
-        } catch (UnsupportedJwtException ex) {
-            log.error("Unsupported JWT token: {}", ex.getMessage());
-        } catch (IllegalArgumentException ex) {
-            log.error("JWT claims string is empty: {}", ex.getMessage());
-        } catch (Exception ex) {
-            log.error("JWT validation error: {}", ex.getMessage());
+        } catch (SignatureException e) {
+            log.error("Invalid JWT signature: {}", e.getMessage());
+        } catch (MalformedJwtException e) {
+            log.error("Invalid JWT token: {}", e.getMessage());
+        } catch (ExpiredJwtException e) {
+            log.error("JWT token is expired: {}", e.getMessage());
+        } catch (UnsupportedJwtException e) {
+            log.error("JWT token is unsupported: {}", e.getMessage());
+        } catch (IllegalArgumentException e) {
+            log.error("JWT claims string is empty: {}", e.getMessage());
         }
         return false;
-    }
-
-    public long getTokenValidityInMilliseconds() {
-        return tokenValidityInMilliseconds;
     }
 }

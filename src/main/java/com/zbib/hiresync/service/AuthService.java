@@ -53,7 +53,7 @@ public class AuthService {
     private final JwtTokenProvider tokenProvider;
     private final HttpServletRequest request;
 
-    @LoggableService(message = "Login attempt for user: ${email}", level = LogLevel.INFO, logArguments = true)
+    @LoggableService(message = "Login attempt for user: ${email}", level = LogLevel.INFO)
     public AuthResponse login(AuthRequest request) {
         try {
             Authentication authentication = authenticationManager.authenticate(
@@ -80,7 +80,7 @@ public class AuthService {
     }
 
     @Transactional
-    @LoggableService(level = LogLevel.INFO, logArguments = true, logReturnValue = false)
+    @LoggableService(message = "User signup request for: ${request.email}", level = LogLevel.INFO)
     public AuthResponse signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new UserAuthenticationException("Email is already in use: " + request.getEmail());
@@ -110,7 +110,7 @@ public class AuthService {
     }
 
     @Transactional
-    @LoggableService(logArguments = true, logReturnValue = false)
+    @LoggableService(message = "Token refresh request for session: ${refreshRequest.sessionId}", level = LogLevel.INFO)
     public AuthResponse refreshToken(RefreshTokenRequest refreshRequest) {
         String refreshToken = refreshRequest.getRefreshToken();
 
@@ -154,7 +154,7 @@ public class AuthService {
     }
 
     @Transactional
-    @LoggableService
+    @LoggableService(message = "Processing logout request for session: ${logoutRequest.sessionId}", level = LogLevel.INFO)
     public MessageResponse logout(LogoutRequest logoutRequest) {
         String sessionId = logoutRequest.getSessionId();
 
@@ -168,7 +168,7 @@ public class AuthService {
     }
 
     @Transactional
-    @LoggableService
+    @LoggableService(message = "Processing logout from all devices request for user: ${authentication.name}", level = LogLevel.INFO)
     public MessageResponse logoutAllDevices() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
@@ -181,7 +181,7 @@ public class AuthService {
         return new MessageResponse("Logged out from all devices successfully");
     }
 
-    @LoggableService
+    @LoggableService(message = "Retrieving active sessions for user: ${authentication.name}", level = LogLevel.INFO)
     public List<UserSession> getUserSessions() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
@@ -193,7 +193,7 @@ public class AuthService {
     }
 
     @Transactional
-    @LoggableService
+    @LoggableService(message = "Revoking session: ${sessionId} for user: ${authentication.name}", level = LogLevel.INFO)
     public MessageResponse revokeSession(String sessionId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();

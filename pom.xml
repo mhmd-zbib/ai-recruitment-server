@@ -222,6 +222,24 @@
             <artifactId>spotbugs-annotations</artifactId>
             <version>4.8.3</version>
         </dependency>
+        
+        <!-- Add the following dependency in the dependencies section -->
+        <dependency>
+            <groupId>ch.qos.logback.contrib</groupId>
+            <artifactId>logback-jackson</artifactId>
+            <version>0.1.5</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback.contrib</groupId>
+            <artifactId>logback-json-classic</artifactId>
+            <version>0.1.5</version>
+        </dependency>
+        <!-- For more comprehensive PII masking -->
+        <dependency>
+            <groupId>com.github.danielwegener</groupId>
+            <artifactId>logback-kafka-appender</artifactId>
+            <version>0.2.0-RC2</version>
+        </dependency>
     </dependencies>
 
     <dependencyManagement>

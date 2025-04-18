@@ -1,47 +1,34 @@
 package com.zbib.hiresync.dto.response;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.zbib.hiresync.logging.SensitiveData;
-import com.zbib.hiresync.logging.SensitiveData.SensitiveType;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import jakarta.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.UUID;
-
+/**
+ * Authentication response model
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class AuthResponse {
-
-    @JsonProperty("user_id")
-    private UUID userId;
-
-    @JsonProperty("email")
+    
+    private String userId;
     private String email;
+    private String displayName;
+    private String role;
+    private boolean success;
     
-    @JsonProperty("first_name")
-    private String firstName;
-    
-    @JsonProperty("last_name")
-    private String lastName;
-    
-    @JsonProperty("access_token")
-    @SensitiveData(type = SensitiveType.CREDENTIALS)
+    // Token data
+    private String sessionId;
     private String accessToken;
-    
-    @JsonProperty("refresh_token")
-    @SensitiveData(type = SensitiveType.CREDENTIALS)
     private String refreshToken;
     
-    @JsonProperty("token_type")
+    // Expiration info in seconds
+    private long expiresIn;
     private String tokenType;
-    
-    @JsonProperty("expires_in")
-    private Long expiresIn;
-    
-    @JsonProperty("session_id")
-    private String sessionId;
 } 

@@ -1,7 +1,5 @@
 package com.zbib.hiresync.entity;
 
-import com.zbib.hiresync.logging.SensitiveData;
-import com.zbib.hiresync.logging.SensitiveData.SensitiveType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -51,12 +49,10 @@ public class User {
     @NotBlank
     @Email
     @Size(max = 100)
-    @SensitiveData(type = SensitiveType.PII, showPartial = true)
     @Column(name = "email", nullable = false, unique = true, length = 100)
     private String email;
 
     @NotBlank
-    @SensitiveData(type = SensitiveType.CREDENTIALS)
     @Column(name = "password", nullable = false, length = 100)
     private String password;
 

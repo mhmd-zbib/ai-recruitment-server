@@ -1,7 +1,5 @@
 package com.zbib.hiresync.entity;
 
-import com.zbib.hiresync.logging.SensitiveData;
-import com.zbib.hiresync.logging.SensitiveData.SensitiveType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -43,7 +41,6 @@ public class UserSession {
     private String deviceInfo;
     
     @Column(name = "ip_address")
-    @SensitiveData(type = SensitiveType.PII)
     private String ipAddress;
     
     @Column(name = "created_at", nullable = false, updatable = false)

@@ -2,10 +2,10 @@
 <Configuration status="WARN" monitorInterval="30">
     <Properties>
         <!-- Human-readable terminal log pattern -->
-        <Property name="TERMINAL_PATTERN">%d{HH:mm:ss.SSS} %highlight{%-5p}{FATAL=bright_red, ERROR=red, WARN=yellow, INFO=blue, DEBUG=green, TRACE=white} [%c{1}] [%X{correlationId}] %m%n</Property>
+        <Property name="TERMINAL_PATTERN">%d{HH:mm:ss.SSS} %highlight{%-5p}{FATAL=bright_red, ERROR=red, WARN=yellow, INFO=blue, DEBUG=green, TRACE=white} [%c{1}] [%X{correlationId}] [%X{userId}] %m%n</Property>
         
         <!-- Structured log pattern for file logs -->
-        <Property name="STRUCTURED_PATTERN">{"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%p","service":"%c{1}","correlationId":"%X{correlationId}","userId":"%X{userId}","message":"%enc{%m}{JSON}","method":"%X{methodName}","path":"%X{apiPath}","executionTime":"%X{executionTime}","statusCode":"%X{statusCode}","exception":"%X{exception}","errorCode":"%X{errorCode}","clientIP":"%X{clientIP}"}%n</Property>
+        <Property name="STRUCTURED_PATTERN">{"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%p","service":"%c{1}","correlationId":"%X{correlationId}","userId":"%X{userId}","message":"%enc{%m}{JSON}","class":"%X{class}","method":"%X{method}","path":"%X{uri}","executionTime":"%X{executionTime}","status":"%X{status}","exception":"%X{exception}","errorMessage":"%X{errorMessage}"}%n</Property>
         
         <Property name="APP_LOG_ROOT">logs</Property>
     </Properties>
@@ -13,61 +13,70 @@
     <Appenders>
         <!-- Console appender with human-readable format -->
         <Console name="Console" target="SYSTEM_OUT">
-            <PatternLayout pattern="${TERMINAL_PATTERN}"/>
+            <PatternLayout pattern="${TERMINAL_PATTERN}" disableAnsi="false"/>
+            <ThresholdFilter level="INFO"/>
         </Console>
 
         <!-- Application log file with structured format -->
-        <RollingFile name="AppLogFile" fileName="${APP_LOG_ROOT}/hiresync-app.log" 
-                     filePattern="${APP_LOG_ROOT}/hiresync-app-%d{yyyy-MM-dd}-%i.log">
+        <RollingRandomAccessFile name="AppLogFile" fileName="${APP_LOG_ROOT}/hiresync-app.log" 
+                     filePattern="${APP_LOG_ROOT}/hiresync-app-%d{yyyy-MM-dd}-%i.log.gz">
             <PatternLayout pattern="${STRUCTURED_PATTERN}"/>
             <Policies>
                 <TimeBasedTriggeringPolicy interval="1" modulate="true" />
                 <SizeBasedTriggeringPolicy size="100 MB" />
             </Policies>
-            <DefaultRolloverStrategy max="30"/>
-        </RollingFile>
+            <DefaultRolloverStrategy max="30">
+                <Delete basePath="${APP_LOG_ROOT}" maxDepth="1">
+                    <IfFileName glob="hiresync-app-*.log.gz" />
+                    <IfLastModified age="30d" />
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingRandomAccessFile>
 
         <!-- Error log file -->
-        <RollingFile name="ErrorLogFile" fileName="${APP_LOG_ROOT}/hiresync-errors.log" 
-                     filePattern="${APP_LOG_ROOT}/hiresync-errors-%d{yyyy-MM-dd}-%i.log">
+        <RollingRandomAccessFile name="ErrorLogFile" fileName="${APP_LOG_ROOT}/hiresync-errors.log" 
+                     filePattern="${APP_LOG_ROOT}/hiresync-errors-%d{yyyy-MM-dd}-%i.log.gz">
             <PatternLayout pattern="${STRUCTURED_PATTERN}"/>
+            <ThresholdFilter level="ERROR"/>
             <Policies>
                 <TimeBasedTriggeringPolicy interval="1" modulate="true" />
                 <SizeBasedTriggeringPolicy size="50 MB" />
             </Policies>
-            <DefaultRolloverStrategy max="30"/>
-        </RollingFile>
+            <DefaultRolloverStrategy max="30">
+                <Delete basePath="${APP_LOG_ROOT}" maxDepth="1">
+                    <IfFileName glob="hiresync-errors-*.log.gz" />
+                    <IfLastModified age="60d" />
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingRandomAccessFile>
+        
+        <!-- Async wrappers for performance -->
+        <Async name="AsyncAppLog" bufferSize="1024">
+            <AppenderRef ref="AppLogFile"/>
+        </Async>
+        
+        <Async name="AsyncErrorLog" bufferSize="256">
+            <AppenderRef ref="ErrorLogFile"/>
+        </Async>
     </Appenders>
 
     <Loggers>
         <!-- Default logger configuration -->
         <Root level="INFO">
             <AppenderRef ref="Console" />
-            <AppenderRef ref="AppLogFile" />
+            <AppenderRef ref="AsyncAppLog" />
+            <AppenderRef ref="AsyncErrorLog" />
         </Root>
-
-        <!-- Application specific loggers -->
-        <Logger name="com.zbib.hiresync" level="INFO" additivity="false">
-            <AppenderRef ref="Console" />
-            <AppenderRef ref="AppLogFile" />
-        </Logger>
 
         <!-- Framework loggers -->
         <Logger name="org.springframework" level="INFO" additivity="false">
             <AppenderRef ref="Console" />
-            <AppenderRef ref="AppLogFile" />
+            <AppenderRef ref="AsyncAppLog" />
         </Logger>
 
-        <!-- Hibernate loggers -->
         <Logger name="org.hibernate" level="WARN" additivity="false">
             <AppenderRef ref="Console" />
-            <AppenderRef ref="AppLogFile" />
-        </Logger>
-
-        <!-- Error logger -->
-        <Logger name="ERROR_LOGGER" level="ERROR" additivity="false">
-            <AppenderRef ref="ErrorLogFile" />
-            <AppenderRef ref="Console" />
+            <AppenderRef ref="AsyncAppLog" />
         </Logger>
     </Loggers>
 </Configuration>
