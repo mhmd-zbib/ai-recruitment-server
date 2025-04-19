@@ -114,7 +114,7 @@ public class AuthServiceTest {
 
         // Setup auth response
         authResponse = AuthResponse.builder()
-                .userId(testUser.getId())
+                .userId(testUser.getId().toString())
                 .email(testUser.getEmail())
                 .firstName(testUser.getFirstName())
                 .lastName(testUser.getLastName())
@@ -146,7 +146,7 @@ public class AuthServiceTest {
 
         // Assert
         assertNotNull(result);
-        assertEquals(testUser.getId(), result.getUserId());
+        assertEquals(testUser.getId().toString(), result.getUserId());
         assertEquals(testUser.getEmail(), result.getEmail());
         verify(securityContext).setAuthentication(authentication);
         verify(userSessionRepository).save(any(UserSession.class));
@@ -183,7 +183,7 @@ public class AuthServiceTest {
 
         // Assert
         assertNotNull(result);
-        assertEquals(testUser.getId(), result.getUserId());
+        assertEquals(testUser.getId().toString(), result.getUserId());
         assertEquals(testUser.getEmail(), result.getEmail());
         verify(userRepository).save(testUser);
         verify(securityContext).setAuthentication(authentication);
@@ -223,7 +223,7 @@ public class AuthServiceTest {
 
         // Assert
         assertNotNull(result);
-        assertEquals(testUser.getId(), result.getUserId());
+        assertEquals(testUser.getId().toString(), result.getUserId());
         assertEquals(testUser.getEmail(), result.getEmail());
         verify(userSessionRepository).save(userSession);
         verify(authResponseBuilder).buildRefreshResponse(eq(testUser), any(Authentication.class), eq(refreshRequest.getSessionId()));

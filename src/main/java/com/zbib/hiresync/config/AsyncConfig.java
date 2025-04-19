@@ -1,6 +1,6 @@
 package com.zbib.hiresync.config;
 
-import com.zbib.hiresync.logging.MdcContextFilter.MdcTaskDecorator;
+import com.zbib.hiresync.logging.MdcTaskDecorator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;

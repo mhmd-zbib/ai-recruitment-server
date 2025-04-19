@@ -82,7 +82,7 @@ class AuthControllerTest {
 
         // Setup auth response
         authResponse = AuthResponse.builder()
-                .userId(UUID.randomUUID())
+                .userId(UUID.randomUUID().toString())
                 .email("test@example.com")
                 .firstName("Test")
                 .lastName("User")

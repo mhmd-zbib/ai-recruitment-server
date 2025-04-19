@@ -1,236 +1,198 @@
 package com.zbib.hiresync.logging;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.ThreadContext;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StopWatch;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 /**
- * HTTP request/response logger
+ * HTTP request/response logger that captures and masks request/response details
+ * while leveraging MDC context from MdcContextFilter
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
+@Order(10) // Runs after MdcContextFilter
 @ConditionalOnProperty(name = "hiresync.logging.request-logging-enabled", havingValue = "true", matchIfMissing = true)
+@RequiredArgsConstructor
 public class ConsolidatedRequestLogger extends OncePerRequestFilter {
-    private static final Logger LOG = LogManager.getLogger(ConsolidatedRequestLogger.class);
-    private static final String CORRELATION_ID = "correlationId";
-    private static final Set<String> SENSITIVE_HEADERS = Set.of("authorization", "cookie", "token");
-    
-    @Value("${hiresync.logging.max-content-length:1000}")
-    private int maxContentLength;
+    private static final Logger logger = LoggerFactory.getLogger(ConsolidatedRequestLogger.class);
     
     @Value("${hiresync.logging.excluded-paths:actuator,health,metrics,static,favicon.ico}")
     private String excludedPathsString;
     
-    @Value("${hiresync.logging.log-request-body:false}")
+    @Value("${hiresync.logging.log-request-body:true}")
     private boolean logRequestBody;
     
-    @Value("${hiresync.logging.log-response-body:false}")
+    @Value("${hiresync.logging.log-response-body:true}")
     private boolean logResponseBody;
     
-    @Value("${hiresync.logging.log-headers:false}")
+    @Value("${hiresync.logging.log-headers:true}")
     private boolean logHeaders;
     
     @Value("${hiresync.logging.slow-request-threshold-ms:1000}")
     private long slowRequestThreshold;
     
+    private final ObjectMapper objectMapper;
     private final MaskingUtils maskingUtils;
-    private final UserIdentifierProvider userIdentifierProvider;
+    private final HttpContentProcessor contentProcessor;
     private Set<String> excludedPaths;
-    
-    public ConsolidatedRequestLogger(MaskingUtils maskingUtils, UserIdentifierProvider userIdentifierProvider) {
-        this.maskingUtils = maskingUtils;
-        this.userIdentifierProvider = userIdentifierProvider;
-    }
     
     @Override
     protected void initFilterBean() {
-        this.excludedPaths = new HashSet<>();
+        this.excludedPaths = initializeExcludedPaths();
+    }
+    
+    private Set<String> initializeExcludedPaths() {
+        Set<String> paths = new HashSet<>();
         if (excludedPathsString != null && !excludedPathsString.isEmpty()) {
-            this.excludedPaths.addAll(Arrays.asList(excludedPathsString.split(",\\s*")));
+            paths.addAll(Arrays.asList(excludedPathsString.split(",\\s*")));
         }
+        return paths;
     }
     
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return excludedPaths.stream().anyMatch(path::startsWith);
+        return excludedPaths.stream().anyMatch(path::contains);
     }
     
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         
+        // Avoid double-wrapping if already wrapped
         if (request instanceof ContentCachingRequestWrapper) {
             chain.doFilter(request, response);
             return;
         }
         
+        // Create wrappers that cache request and response bodies
         ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(request);
         ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper(response);
         
-        setupRequestContext(requestWrapper);
-        
-        long startTime = System.currentTimeMillis();
-        LOG.info("{} {} started", request.getMethod(), request.getRequestURI());
+        // Create stopwatch for timing
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start("request");
         
         try {
-            chain.doFilter(requestWrapper, responseWrapper);
-            
-            String userId = userIdentifierProvider.getCurrentUserId();
-            if (userId != null) {
-                ThreadContext.put("userId", userId);
+            // Log request
+            if (logger.isInfoEnabled()) {
+                logRequest(requestWrapper);
             }
-        } finally {
-            long duration = System.currentTimeMillis() - startTime;
-            logRequestCompletion(requestWrapper, responseWrapper, duration);
             
+            // Execute the rest of the filter chain
+            chain.doFilter(requestWrapper, responseWrapper);
+        } finally {
+            // Stop timing and log response
+            stopWatch.stop();
+            long duration = stopWatch.getTotalTimeMillis();
+            
+            // Update MDC context with response data
+            MdcContext.put(ContextKeys.STATUS, String.valueOf(responseWrapper.getStatus()));
+            MdcContext.put(ContextKeys.DURATION, String.valueOf(duration));
+            
+            // Log the response
+            logResponse(requestWrapper, responseWrapper, duration);
+            
+            // Copy content to the original response
             responseWrapper.copyBodyToResponse();
-            ThreadContext.clearAll();
         }
     }
     
-    private void setupRequestContext(HttpServletRequest request) {
-        String correlationId = request.getHeader("X-Correlation-ID");
-        if (correlationId == null || correlationId.isEmpty()) {
-            correlationId = UUID.randomUUID().toString().substring(0, 8);
-        }
-        ThreadContext.put(CORRELATION_ID, correlationId);
-        
-        ThreadContext.put("method", request.getMethod());
-        ThreadContext.put("uri", request.getRequestURI());
-        ThreadContext.put("ip", getClientIp(request));
-        
-        String userAgent = request.getHeader("User-Agent");
-        if (userAgent != null) {
-            ThreadContext.put("userAgent", userAgent);
-        }
-        
-        if (logHeaders) {
-            addRequestHeaders(request);
-        }
-    }
-    
-    private void logRequestCompletion(ContentCachingRequestWrapper request, 
-            ContentCachingResponseWrapper response, long duration) {
-        
-        int status = response.getStatus();
-        
-        ThreadContext.put("status", String.valueOf(status));
-        ThreadContext.put("duration", String.valueOf(duration));
-        
-        if (logRequestBody || logResponseBody) {
-            logBodies(request, response);
-        }
-        
-        StringBuilder message = new StringBuilder()
-            .append(request.getMethod()).append(' ')
-            .append(request.getRequestURI());
+    private void logRequest(ContentCachingRequestWrapper request) {
+        Map<String, Object> requestLog = new HashMap<>();
+        requestLog.put("method", request.getMethod());
+        requestLog.put("uri", request.getRequestURI());
         
         if (request.getQueryString() != null) {
-            message.append('?').append(maskingUtils.mask(request.getQueryString()));
+            requestLog.put("queryString", request.getQueryString());
         }
         
-        message.append(" [").append(status).append("] ")
-               .append(duration).append("ms");
+        requestLog.put("clientIp", contentProcessor.extractClientIp(request));
         
+        // Add headers if enabled
+        if (logHeaders) {
+            Map<String, String> headers = contentProcessor.extractRequestHeaders(request);
+            if (!headers.isEmpty()) {
+                requestLog.put("headers", headers);
+            }
+        }
+        
+        // Log request body if enabled and present
+        if (logRequestBody && request.getContentLength() > 0) {
+            requestLog.put("body", "[body will be logged after request]");
+        }
+        
+        logger.info("Incoming request: {}", maskingUtils.maskObject(requestLog));
+    }
+    
+    private void logResponse(ContentCachingRequestWrapper request, ContentCachingResponseWrapper response, long duration) {
+        int status = response.getStatus();
+        Map<String, Object> responseLog = new HashMap<>();
+        
+        // Basic request/response info
+        responseLog.put("method", request.getMethod());
+        responseLog.put("uri", request.getRequestURI());
+        if (request.getQueryString() != null) {
+            responseLog.put("queryString", request.getQueryString());
+        }
+        
+        // Status info
+        responseLog.put("status", status);
+        responseLog.put("statusText", HttpStatus.valueOf(status).getReasonPhrase());
+        responseLog.put("duration", duration + "ms");
+        
+        // Add headers if enabled
+        if (logHeaders) {
+            Map<String, String> headers = contentProcessor.extractResponseHeaders(response);
+            if (!headers.isEmpty()) {
+                responseLog.put("headers", headers);
+            }
+        }
+        
+        // Add request body if enabled and present
+        if (logRequestBody && request.getContentLength() > 0) {
+            String requestBody = contentProcessor.getRequestBody(request);
+            if (requestBody != null && !requestBody.isEmpty()) {
+                responseLog.put("requestBody", contentProcessor.processContent(request.getContentType(), requestBody));
+            }
+        }
+        
+        // Add response body if enabled and present
+        if (logResponseBody && response.getContentSize() > 0) {
+            String responseBody = contentProcessor.getResponseBody(response);
+            if (responseBody != null && !responseBody.isEmpty()) {
+                responseLog.put("responseBody", contentProcessor.processContent(response.getContentType(), responseBody));
+            }
+        }
+        
+        // Log at appropriate level based on status code and duration
+        String maskedLog = maskingUtils.maskObject(responseLog);
         if (status >= 500) {
-            LOG.error(message.toString());
+            logger.error("Server error response: {}", maskedLog);
         } else if (status >= 400 || duration > slowRequestThreshold) {
-            LOG.warn(message.toString());
+            logger.warn("Client error response: {}", maskedLog);
         } else {
-            LOG.info(message.toString());
+            logger.info("Response: {}", maskedLog);
         }
-    }
-    
-    private void addRequestHeaders(HttpServletRequest request) {
-        StringBuilder headers = new StringBuilder();
-        
-        request.getHeaderNames().asIterator().forEachRemaining(name -> {
-            if (headers.length() > 0) {
-                headers.append(", ");
-            }
-            
-            String value = request.getHeader(name);
-            if (isSensitiveHeader(name)) {
-                value = maskingUtils.mask(value);
-            }
-            
-            headers.append(name).append('=').append(value);
-        });
-        
-        if (headers.length() > 0) {
-            ThreadContext.put("headers", headers.toString());
-        }
-    }
-    
-    private boolean isSensitiveHeader(String name) {
-        String lowerName = name.toLowerCase();
-        return SENSITIVE_HEADERS.contains(lowerName) || maskingUtils.isSensitive(lowerName);
-    }
-    
-    private String getClientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        return forwarded != null ? forwarded.split(",")[0].trim() : request.getRemoteAddr();
-    }
-    
-    private void logBodies(ContentCachingRequestWrapper request, ContentCachingResponseWrapper response) {
-        if (logRequestBody && request.getContentAsByteArray().length > 0) {
-            String content = getBodyAsString(request.getContentAsByteArray(), request.getCharacterEncoding());
-            
-            if (isJsonContent(request.getContentType())) {
-                content = maskingUtils.mask(content);
-            }
-            
-            ThreadContext.put("requestBody", truncate(content));
-        }
-        
-        if (logResponseBody && response.getContentAsByteArray().length > 0) {
-            String content = getBodyAsString(response.getContentAsByteArray(), response.getCharacterEncoding());
-            
-            if (isJsonContent(response.getContentType())) {
-                content = maskingUtils.mask(content);
-            }
-            
-            ThreadContext.put("responseBody", truncate(content));
-        }
-    }
-    
-    private String getBodyAsString(byte[] content, String encoding) {
-        String charset = encoding != null ? encoding : StandardCharsets.UTF_8.name();
-        try {
-            return new String(content, charset);
-        } catch (Exception e) {
-            return "[Error reading body]";
-        }
-    }
-    
-    private boolean isJsonContent(String contentType) {
-        return contentType != null && contentType.toLowerCase().contains("json");
-    }
-    
-    private String truncate(String content) {
-        if (content == null || content.length() <= maxContentLength) {
-            return content;
-        }
-        return content.substring(0, maxContentLength) + "... [truncated]";
     }
 } 

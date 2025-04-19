@@ -2,10 +2,8 @@
 set -e
 
 # Get the absolute path of the script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/scripts" && pwd)"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE_FILE="$PROJECT_ROOT/docker/docker-compose.local.yaml"
-DEVTOOLS_CONTAINER="hiresync-devtools"
 
 # Define colors for output
 GREEN='\033[0;32m'
@@ -15,126 +13,24 @@ BLUE='\033[0;34m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-# Detect Windows under Git Bash and fix path if needed
-if [[ "$(uname -s)" == MINGW* ]] || [[ "$(uname -s)" == CYGWIN* ]]; then
-  echo -e "${BLUE}Windows environment detected. Adjusting paths...${NC}"
-  # Convert Windows path to Docker compatible path if needed
-  PROJECT_ROOT_DOCKER=$(echo "$PROJECT_ROOT" | sed 's/^\///' | sed 's/\\/\//g' | sed 's/://')
-  echo -e "Docker compatible path: $PROJECT_ROOT_DOCKER"
-  
-  # Set Docker Compose project name to avoid path issues
-  export COMPOSE_PROJECT_NAME="hiresync"
-fi
-
-# Load environment variables
-if [ -f "$PROJECT_ROOT/.env" ]; then
-  export $(grep -v '^#' "$PROJECT_ROOT/.env" | xargs)
-fi
-
 # Function to display help message
 show_help() {
   echo -e "${BLUE}${BOLD}HireSync - Developer Toolkit${NC}"
-  echo -e "A toolkit for managing the HireSync application development lifecycle\n"
   echo -e "Usage: ./hiresync COMMAND [OPTIONS]"
-  echo -e "Example: ./hiresync start\n"
+  echo -e "Example: ./hiresync start --debug\n"
   echo -e "${BOLD}Available commands:${NC}"
-  echo -e "  ${BOLD}start${NC}       - Start the application in Docker"
+  echo -e "  ${BOLD}start${NC}       - Start the application (--debug for verbose output)"
   echo -e "  ${BOLD}stop${NC}        - Stop Docker containers"
-  echo -e "  ${BOLD}restart${NC}     - Restart Docker containers and application"
+  echo -e "  ${BOLD}restart${NC}     - Restart the application"
   echo -e "  ${BOLD}logs${NC}        - View application logs"
-  echo -e "  ${BOLD}shell${NC}       - Open a shell in the dev container"
-  echo -e "  ${BOLD}debug${NC}       - Debug Docker mount issues"
-  echo -e "  ${BOLD}quality${NC}     - Run code quality checks"
-  echo -e "  ${BOLD}test${NC}        - Run tests (unit, integration)"
-  echo -e "  ${BOLD}build${NC}       - Build the application"
-  echo -e "  ${BOLD}deploy${NC}      - Deploy the application"
-  echo -e "  ${BOLD}db${NC}          - Database operations (migrate, reset, seed)"
-  echo -e "  ${BOLD}version${NC}     - Display version information"
-  echo -e "  ${BOLD}help${NC}        - Display this help message\n"
-  echo -e "For command-specific help, use: ./hiresync COMMAND --help"
+  echo -e "  ${BOLD}shell${NC}       - Open a shell in the container"
+  echo -e "  ${BOLD}db${NC}          - Database operations"
+  echo -e "  ${BOLD}help${NC}        - Display this help message"
 }
 
 # Function to check if a script exists
 script_exists() {
   [ -f "$SCRIPT_DIR/$1.sh" ]
-}
-
-# Function to check if Docker is running
-check_docker() {
-  if ! docker info &>/dev/null; then
-    echo -e "${RED}${BOLD}Error: Docker is not running.${NC}"
-    echo -e "Please start Docker and try again."
-    exit 1
-  fi
-}
-
-# Function to check if container exists
-container_exists() {
-  docker ps -a | grep -q "$DEVTOOLS_CONTAINER"
-}
-
-# Function to check if container is running
-container_running() {
-  docker ps | grep -q "$DEVTOOLS_CONTAINER"
-}
-
-# Go to the docker directory for consistent relative path handling
-go_to_docker_dir() {
-  cd "$PROJECT_ROOT/docker"
-  echo -e "Working from $(pwd)"
-}
-
-# Function to start containers
-start_containers() {
-  echo -e "${BLUE}Starting Docker containers...${NC}"
-  go_to_docker_dir
-  docker compose -f "$COMPOSE_FILE" up -d
-  
-  # Wait for containers to be ready
-  echo -e "${BLUE}Waiting for containers to be ready...${NC}"
-  sleep 5
-  
-  if ! container_running; then
-    echo -e "${RED}${BOLD}Error: Container $DEVTOOLS_CONTAINER failed to start.${NC}"
-    docker compose -f "$COMPOSE_FILE" logs
-    exit 1
-  fi
-  
-  echo -e "${GREEN}Docker containers are ready.${NC}"
-}
-
-# Function to stop containers
-stop_containers() {
-  echo -e "${BLUE}Stopping Docker containers...${NC}"
-  go_to_docker_dir
-  docker compose -f "$COMPOSE_FILE" down
-  echo -e "${GREEN}Docker containers stopped.${NC}"
-}
-
-# Debug function
-debug_container() {
-  echo -e "${BLUE}Debugging container mount...${NC}"
-  echo -e "Project root: $PROJECT_ROOT"
-  echo -e "Current working directory: $(pwd)"
-  
-  # Print system info
-  echo -e "${BLUE}System information:${NC}"
-  uname -a
-  docker version --format '{{.Server.Version}}'
-  
-  # Print container info
-  echo -e "${BLUE}Container information:${NC}"
-  docker inspect "$DEVTOOLS_CONTAINER" -f '{{.Mounts}}'
-  
-  # Print file structure
-  echo -e "${BLUE}Container file structure:${NC}"
-  docker exec "$DEVTOOLS_CONTAINER" bash -c "ls -la /"
-  docker exec "$DEVTOOLS_CONTAINER" bash -c "ls -la /app"
-  docker exec "$DEVTOOLS_CONTAINER" bash -c "ls -la /app/src 2>/dev/null || echo 'No src directory'"
-  docker exec "$DEVTOOLS_CONTAINER" bash -c "if [ -f /app/pom.xml ]; then echo 'pom.xml exists'; else echo 'pom.xml NOT FOUND'; fi"
-  
-  # Print mount information
-  docker exec "$DEVTOOLS_CONTAINER" bash -c "mount | grep app || echo 'No mount for /app'"
 }
 
 # Get command from first argument
@@ -147,161 +43,11 @@ if [ -z "$COMMAND" ] || [ "$COMMAND" == "help" ] || [ "$COMMAND" == "--help" ]; 
   exit 0
 fi
 
-# Version command
-if [ "$COMMAND" == "version" ]; then
-  VERSION=$(grep -m 1 "<version>" "$PROJECT_ROOT/pom.xml" 2>/dev/null | sed 's/<[^>]*>//g' | tr -d ' \t\n\r' || echo "Unknown")
-  echo -e "${BLUE}${BOLD}HireSync${NC} version ${GREEN}${VERSION}${NC}"
-  exit 0
+# Route to appropriate script
+if script_exists "$COMMAND"; then
+  bash "$SCRIPT_DIR/${COMMAND}.sh" "$@"
+else
+  echo -e "${RED}${BOLD}Error: Unknown command: $COMMAND${NC}"
+  echo -e "Run ${YELLOW}./hiresync help${NC} to see available commands."
+  exit 1
 fi
-
-# Route to appropriate script or command
-case "$COMMAND" in
-  start)
-    check_docker
-    
-    # IMPORTANT: Never stop running containers when using start command
-    if ! container_running; then
-      # Only start containers if they're not already running
-      start_containers
-    else
-      echo -e "${GREEN}Containers are already running. Will NOT stop them.${NC}"
-    fi
-    
-    # Execute the start script
-    if script_exists "start"; then
-      bash "$SCRIPT_DIR/start.sh" "$@"
-    else
-      echo -e "${RED}Error: Start script not found at $SCRIPT_DIR/start.sh${NC}"
-      exit 1
-    fi
-    ;;
-    
-  debug)
-    check_docker
-    if ! container_running; then
-      start_containers
-    fi
-    debug_container
-    ;;
-    
-  stop)
-    check_docker
-    if container_exists; then
-      stop_containers
-    else
-      echo -e "${YELLOW}No containers running.${NC}"
-    fi
-    ;;
-    
-  restart)
-    check_docker
-    if container_exists; then
-      stop_containers
-    fi
-    start_containers
-    if script_exists "start"; then
-      bash "$SCRIPT_DIR/start.sh" "$@"
-    else
-      echo -e "${RED}Error: Start script not found at $SCRIPT_DIR/start.sh${NC}"
-      exit 1
-    fi
-    ;;
-    
-  logs)
-    check_docker
-    if ! container_running; then
-      echo -e "${RED}Error: Containers are not running.${NC}"
-      exit 1
-    fi
-    
-    echo -e "${BLUE}Showing logs (Ctrl+C to exit)...${NC}"
-    go_to_docker_dir
-    docker compose -f "$COMPOSE_FILE" logs -f
-    ;;
-    
-  shell)
-    check_docker
-    if ! container_running; then
-      echo -e "${YELLOW}Containers are not running. Starting them...${NC}"
-      start_containers
-    fi
-    
-    echo -e "${BLUE}Opening shell in $DEVTOOLS_CONTAINER...${NC}"
-    docker exec -it "$DEVTOOLS_CONTAINER" bash
-    ;;
-    
-  quality)
-    check_docker
-    if ! container_running; then
-      echo -e "${YELLOW}Containers are not running. Starting them...${NC}"
-      start_containers
-    fi
-    
-    if script_exists "quality-check"; then
-      bash "$SCRIPT_DIR/quality-check.sh" "$@"
-    else
-      echo -e "${YELLOW}Running quality checks in container...${NC}"
-      docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /app && mvn verify -Dskip.tests=true"
-    fi
-    ;;
-    
-  test)
-    check_docker
-    if ! container_running; then
-      echo -e "${YELLOW}Containers are not running. Starting them...${NC}"
-      start_containers
-    fi
-    
-    if script_exists "test"; then
-      bash "$SCRIPT_DIR/test.sh" "$@"
-    else
-      echo -e "${YELLOW}Running tests in container...${NC}"
-      docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /app && mvn test"
-    fi
-    ;;
-    
-  build)
-    check_docker
-    if ! container_running; then
-      echo -e "${YELLOW}Containers are not running. Starting them...${NC}"
-      start_containers
-    fi
-    
-    if script_exists "build"; then
-      bash "$SCRIPT_DIR/build.sh" "$@"
-    else
-      echo -e "${YELLOW}Building application in container...${NC}"
-      docker exec -it "$DEVTOOLS_CONTAINER" bash -c "cd /app && mvn clean package -DskipTests"
-    fi
-    ;;
-    
-  db)
-    if [ -z "$1" ]; then
-      echo -e "${RED}Error: Missing database operation${NC}"
-      echo -e "Available operations: migrate, reset, seed"
-      echo -e "Usage: ./hiresync db OPERATION"
-      exit 1
-    fi
-    
-    DB_OPERATION="$1"
-    shift
-    
-    if script_exists "db-$DB_OPERATION"; then
-      bash "$SCRIPT_DIR/db-$DB_OPERATION.sh" "$@"
-    else
-      echo -e "${RED}Error: Unknown database operation: $DB_OPERATION${NC}"
-      echo -e "Available operations: migrate, reset, seed"
-      exit 1
-    fi
-    ;;
-    
-  *)
-    if script_exists "$COMMAND"; then
-      bash "$SCRIPT_DIR/${COMMAND}.sh" "$@"
-    else
-      echo -e "${RED}${BOLD}Error: Unknown command: $COMMAND${NC}"
-      echo -e "Run ${YELLOW}./hiresync help${NC} to see available commands."
-      exit 1
-    fi
-    ;;
-esac

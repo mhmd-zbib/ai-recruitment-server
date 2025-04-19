@@ -5,7 +5,27 @@
         <Property name="TERMINAL_PATTERN">%d{HH:mm:ss.SSS} %highlight{%-5p}{FATAL=bright_red, ERROR=red, WARN=yellow, INFO=blue, DEBUG=green, TRACE=white} [%c{1}] [%X{correlationId}] [%X{userId}] %m%n</Property>
         
         <!-- Structured log pattern for file logs -->
-        <Property name="STRUCTURED_PATTERN">{"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%p","service":"%c{1}","correlationId":"%X{correlationId}","userId":"%X{userId}","message":"%enc{%m}{JSON}","class":"%X{class}","method":"%X{method}","path":"%X{uri}","executionTime":"%X{executionTime}","status":"%X{status}","exception":"%X{exception}","errorMessage":"%X{errorMessage}"}%n</Property>
+        <Property name="STRUCTURED_PATTERN">{
+  "timestamp": "%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}",
+  "level": "%p",
+  "logger": "%c{1}",
+  "correlationId": "%X{correlationId}",
+  "requestId": "%X{requestId}",
+  "userId": "%X{userId}",
+  "sessionId": "%X{sessionId}",
+  "tenantId": "%X{tenantId}",
+  "class": "%X{class}",
+  "method": "%X{method}",
+  "path": "%X{path}",
+  "httpMethod": "%X{method}",
+  "clientIp": "%X{clientIp}",
+  "status": "%X{status}",
+  "duration": "%X{duration}",
+  "executionTime": "%X{executionTime}",
+  "exception": "%X{exception}",
+  "errorMessage": "%X{errorMessage}",
+  "message": "%enc{%m}{JSON}"
+}%n</Property>
         
         <Property name="APP_LOG_ROOT">logs</Property>
     </Properties>
@@ -77,6 +97,13 @@
         <Logger name="org.hibernate" level="WARN" additivity="false">
             <AppenderRef ref="Console" />
             <AppenderRef ref="AsyncAppLog" />
+        </Logger>
+        
+        <!-- Application loggers -->
+        <Logger name="com.zbib.hiresync" level="DEBUG">
+            <AppenderRef ref="Console" />
+            <AppenderRef ref="AsyncAppLog" />
+            <AppenderRef ref="AsyncErrorLog" />
         </Logger>
     </Loggers>
 </Configuration>

@@ -6,29 +6,46 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Enables logging for methods or classes
+ * Annotation for enabling automatic method logging.
+ * <p>
+ * When applied to a class or method, this annotation triggers AOP-based
+ * logging of method entry, exit, execution time, and (optionally) arguments.
+ * <p>
+ * Example usage:
+ * <pre>
+ * {@code @LoggableService(level = LogLevel.DEBUG, logArguments = true)}
+ * public User findUserById(Long id) { ... }
+ * </pre>
  */
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface LoggableService {
     
     /**
-     * Log level to use
+     * Log level to use for generated log messages.
      */
     LogLevel level() default LogLevel.INFO;
  
     /**
-     * Whether to log method arguments
+     * Whether to include method arguments in log messages.
+     * When true, arguments will be logged with sensitive data masked.
      */
     boolean logArguments() default true;
   
     /**
-     * List of field names that should be masked
+     * List of field or parameter names that should be masked in logs.
+     * These names are matched case-insensitively and as substrings.
      */
-    String[] sensitiveFields() default {"password", "token", "secret", "key", "credential"};
+    String[] sensitiveFields() default {
+        "password", "token", "secret", "key", "credential", 
+        "auth", "ssn", "creditcard", "card", "cvv", "ssn"
+    };
     
     /**
-     * Custom message to log (supports placeholders like ${paramName})
+     * Custom message to include in log entries.
+     * <p>
+     * Supports placeholder substitution using ${paramName} syntax, 
+     * which will be replaced with actual parameter values.
      */
     String message() default "";
 }
