@@ -2,7 +2,9 @@ package com.zbib.hiresync.logging;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.ThreadContext;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -11,168 +13,120 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StopWatch;
 
-import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+/**
+ * Aspect for logging method execution with detailed information.
+ */
 @Aspect
 @Component
-@Slf4j
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "hiresync.logging.method-logging-enabled", havingValue = "true", matchIfMissing = true)
 public class LoggingAspect {
+    private static final Logger logger = LogManager.getLogger(LoggingAspect.class);
     
     private final MaskingUtils maskingUtils;
     private final ObjectMapper objectMapper;
-
+    
     @Around("@annotation(com.zbib.hiresync.logging.LoggableService)")
     public Object logMethodExecution(ProceedingJoinPoint joinPoint) throws Throwable {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
-        Method method = signature.getMethod();
-        LoggableService annotation = method.getAnnotation(LoggableService.class);
+        LoggableService annotation = signature.getMethod().getAnnotation(LoggableService.class);
         
+        // Create log message
         String methodName = signature.getDeclaringTypeName() + "." + signature.getName();
-        String message = annotation.message().isEmpty() 
-                ? "Executing " + methodName 
-                : annotation.message();
+        String message = annotation.message().isEmpty() ? "Executing " + methodName : annotation.message();
         
-        // Capture method arguments if enabled
+        // Add context for structured logging
+        ThreadContext.put(ContextKeys.CLASS, signature.getDeclaringTypeName());
+        ThreadContext.put(ContextKeys.METHOD, signature.getName());
+        
+        // Log arguments if enabled
         if (annotation.logArguments()) {
-            logMethodArguments(joinPoint, signature, annotation.sensitiveFields());
+            logArguments(joinPoint, signature, annotation.sensitiveFields());
         }
         
-        // Start timing and execute method
+        // Execute method and time it
         StopWatch stopWatch = new StopWatch();
-        stopWatch.start(methodName);
+        stopWatch.start();
         
         try {
-            // Log method entry
+            // Log method entry - this shows in both terminal and file logs
             log(annotation.level(), "{} - Started", message);
             
             // Execute the method
             Object result = joinPoint.proceed();
             
-            // Stop timing
+            // Log method success
             stopWatch.stop();
             long executionTime = stopWatch.getTotalTimeMillis();
-            
-            // Log method exit
+            ThreadContext.put(ContextKeys.EXECUTION_TIME, String.valueOf(executionTime));
             log(annotation.level(), "{} - Completed in {}ms", message, executionTime);
             
             return result;
         } catch (Throwable ex) {
-            // Stop timing in case of exception
+            // Log method failure
             if (stopWatch.isRunning()) {
                 stopWatch.stop();
             }
+            
+            // Add error context
             long executionTime = stopWatch.getTotalTimeMillis();
+            ThreadContext.put(ContextKeys.EXCEPTION, ex.getClass().getName());
+            ThreadContext.put(ContextKeys.ERROR_MESSAGE, ex.getMessage());
+            ThreadContext.put(ContextKeys.EXECUTION_TIME, String.valueOf(executionTime));
             
-            // Log exception with method context
-            log(LogLevel.ERROR, "{} - Failed after {}ms: {}", 
-                    message, executionTime, ex.getMessage());
-            
+            log(LogLevel.ERROR, "{} - Failed after {}ms: {}", message, executionTime, ex.getMessage());
             throw ex;
+        } finally {
+            // Clean up context
+            ThreadContext.remove(ContextKeys.CLASS);
+            ThreadContext.remove(ContextKeys.METHOD);
+            ThreadContext.remove(ContextKeys.EXECUTION_TIME);
+            ThreadContext.remove(ContextKeys.EXCEPTION);
+            ThreadContext.remove(ContextKeys.ERROR_MESSAGE);
         }
     }
     
-    private void logMethodArguments(ProceedingJoinPoint joinPoint, MethodSignature signature, 
-                                    String[] sensitiveFields) {
+    private void logArguments(ProceedingJoinPoint joinPoint, MethodSignature signature, String[] sensitiveFields) {
         try {
-            String[] paramNames = signature.getParameterNames();
-            Object[] args = joinPoint.getArgs();
-            
-            if (paramNames.length == 0 || args.length == 0) {
-                return;
-            }
-            
-            Map<String, Object> argsMap = IntStream.range(0, Math.min(paramNames.length, args.length))
-                    .boxed()
-                    .filter(i -> args[i] != null)
-                    .collect(Collectors.toMap(
-                            i -> paramNames[i],
-                            i -> args[i],
-                            (k1, k2) -> k2
-                    ));
+            Map<String, Object> argsMap = extractArgsMap(joinPoint, signature);
             
             if (!argsMap.isEmpty()) {
-                // Mask sensitive values before logging
                 String maskedArgs = maskingUtils.maskObject(argsMap);
-                
-                // Custom masking for explicitly specified sensitive fields
-                if (sensitiveFields.length > 0) {
-                    // Convert to Map to apply additional masking
-                    Map<String, Object> argMap = new HashMap<>();
-                    try {
-                        // Parse the JSON representation
-                        argMap = objectMapper.readValue(maskedArgs, Map.class);
-                        
-                        // Apply additional masking for specified sensitive fields
-                        for (String field : sensitiveFields) {
-                            maskSensitiveField(argMap, field);
-                        }
-                        
-                        // Convert back to string
-                        maskedArgs = objectMapper.writeValueAsString(argMap);
-                    } catch (Exception e) {
-                        // Fallback to original masked string if JSON parsing fails
-                    }
-                }
-                
                 log(LogLevel.DEBUG, "Method arguments: {}", maskedArgs);
             }
         } catch (Exception e) {
-            // In case of any error during argument logging, don't let it affect the main method execution
-            log(LogLevel.WARN, "Failed to log method arguments: {}", e.getMessage());
+            log(LogLevel.WARN, "Failed to log arguments: {}", e.getMessage());
         }
     }
     
-    @SuppressWarnings("unchecked")
-    private void maskSensitiveField(Map<String, Object> map, String fieldPath) {
-        String[] parts = fieldPath.split("\\.");
+    private Map<String, Object> extractArgsMap(ProceedingJoinPoint joinPoint, MethodSignature signature) {
+        String[] paramNames = signature.getParameterNames();
+        Object[] args = joinPoint.getArgs();
         
-        if (parts.length == 1) {
-            // Direct field in the map
-            if (map.containsKey(parts[0])) {
-                map.put(parts[0], "********");
-            }
-            return;
+        if (paramNames.length == 0 || args.length == 0) {
+            return Map.of();
         }
         
-        // Handle nested fields
-        Map<String, Object> current = map;
-        for (int i = 0; i < parts.length - 1; i++) {
-            Object value = current.get(parts[i]);
-            if (value instanceof Map) {
-                current = (Map<String, Object>) value;
-            } else {
-                return; // Path doesn't exist, nothing to mask
-            }
-        }
-        
-        // Mask the leaf field
-        String leafKey = parts[parts.length - 1];
-        if (current.containsKey(leafKey)) {
-            current.put(leafKey, "********");
-        }
+        return IntStream.range(0, Math.min(paramNames.length, args.length))
+                .boxed()
+                .filter(i -> args[i] != null)
+                .collect(Collectors.toMap(
+                        i -> paramNames[i],
+                        i -> args[i],
+                        (k1, k2) -> k2
+                ));
     }
     
     private void log(LogLevel level, String format, Object... args) {
         switch (level) {
-            case DEBUG:
-                log.debug(format, args);
-                break;
-            case INFO:
-                log.info(format, args);
-                break;
-            case WARN:
-                log.warn(format, args);
-                break;
-            case ERROR:
-                log.error(format, args);
-                break;
+            case DEBUG -> logger.debug(format, args);
+            case INFO -> logger.info(format, args);
+            case WARN -> logger.warn(format, args);
+            case ERROR -> logger.error(format, args);
         }
     }
 }

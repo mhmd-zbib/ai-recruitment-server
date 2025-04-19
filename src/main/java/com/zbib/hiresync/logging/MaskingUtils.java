@@ -3,9 +3,8 @@ package com.zbib.hiresync.logging;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
@@ -16,42 +15,53 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Utility for masking sensitive data in logs
+ * Service for masking sensitive data in logs
  */
 @Component
+@RequiredArgsConstructor
 public class MaskingUtils {
-    public static final String DEFAULT_MASK = "********";
-    private static final Pattern EMAIL_PATTERN = Pattern.compile("([^@\\s]+)@([^@\\s]+)");
-    private static final Pattern CREDIT_CARD_PATTERN = Pattern.compile("\\b(?:\\d[ -]*?){13,16}\\b");
-    private static final Pattern PHONE_PATTERN = Pattern.compile("\\b\\d{3}[-.]?\\d{3}[-.]?\\d{4}\\b");
+    public static final String MASK = "********";
     
-    private final Set<String> sensitiveFields;
+    // Patterns for sensitive data
+    private static final Pattern CREDIT_CARD_PATTERN = Pattern.compile("\\b(?:\\d[ -]*?){13,16}\\b");
+    private static final Pattern SSN_PATTERN = Pattern.compile("\\b\\d{3}[-]?\\d{2}[-]?\\d{4}\\b");
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}\\b");
+    private static final Pattern PASSWORD_PATTERN = Pattern.compile("(password[=:])([^,}\\s\"]+)", Pattern.CASE_INSENSITIVE);
+    
+    // Default sensitive field names
+    private static final Set<String> SENSITIVE_FIELDS = new HashSet<>(Arrays.asList(
+            "password", "passwd", "secret", "credential", "token", "auth", "key", 
+            "apikey", "api_key", "ssn", "creditcard", "credit_card", "cc", "cvv", 
+            "email", "phone", "address", "zipcode", "postalcode", "dob", "birthdate"
+    ));
+    
     private final ObjectMapper objectMapper;
-
-    public MaskingUtils(
-            @Value("${hiresync.logging.sensitive-fields:password,token,secret,key,credential,ssn,creditcard,cardnumber,cvv,email,phone,address,zipcode,postalcode,dob,birthdate,socialsecurity}") String[] configSensitiveFields,
-            ObjectMapper objectMapper) {
-        this.sensitiveFields = new HashSet<>(Arrays.asList(configSensitiveFields));
-        this.objectMapper = objectMapper;
-    }
-
+    
     /**
-     * Mask a string that may contain sensitive information
+     * Masks a string that may contain sensitive information
      */
     public String mask(String value) {
         if (value == null || value.isEmpty()) {
             return value;
         }
-
-        String masked = maskEmail(value);
-        masked = maskCreditCard(masked);
-        masked = maskPhoneNumber(masked);
         
-        return masked;
+        // Mask credit card numbers
+        value = replaceWithMask(value, CREDIT_CARD_PATTERN, "****-****-****-****");
+        
+        // Mask SSNs
+        value = replaceWithMask(value, SSN_PATTERN, "***-**-****");
+        
+        // Mask emails
+        value = replaceWithMask(value, EMAIL_PATTERN, "****@****.com");
+        
+        // Mask passwords
+        value = replaceWithMask(value, PASSWORD_PATTERN, "$1" + MASK);
+        
+        return value;
     }
 
     /**
-     * Mask an object by converting to string or JSON
+     * Masks an object by converting to JSON with sensitive data hidden
      */
     public String maskObject(Object obj) {
         if (obj == null) {
@@ -70,121 +80,81 @@ public class MaskingUtils {
             return obj.toString();
         }
     }
-
-    private String maskEmail(String input) {
-        Matcher matcher = EMAIL_PATTERN.matcher(input);
-        StringBuffer sb = new StringBuffer();
-        
-        while (matcher.find()) {
-            String username = matcher.group(1);
-            if (username.length() <= 2) {
-                matcher.appendReplacement(sb, DEFAULT_MASK + "@" + matcher.group(2));
-            } else {
-                matcher.appendReplacement(sb, username.charAt(0) + DEFAULT_MASK + "@" + matcher.group(2));
+    
+    /**
+     * Recursively masks sensitive fields in a JSON node
+     */
+    private JsonNode maskJsonNode(JsonNode node) {
+        if (node.isObject()) {
+            ObjectNode objectNode = (ObjectNode) node;
+            Iterator<String> fieldNames = node.fieldNames();
+            
+            while (fieldNames.hasNext()) {
+                String fieldName = fieldNames.next();
+                JsonNode childNode = node.get(fieldName);
+                
+                if (isSensitiveField(fieldName)) {
+                    // This is a sensitive field, mask its value
+                    objectNode.put(fieldName, MASK);
+                } else if (childNode.isObject() || childNode.isArray()) {
+                    // Recursively process objects and arrays
+                    objectNode.set(fieldName, maskJsonNode(childNode));
+                } else if (childNode.isTextual() && containsSensitiveData(childNode.asText())) {
+                    // Check if text content is sensitive
+                    objectNode.put(fieldName, MASK);
+                }
+            }
+            return objectNode;
+        } else if (node.isArray()) {
+            // Process each array element
+            for (int i = 0; i < node.size(); i++) {
+                ((com.fasterxml.jackson.databind.node.ArrayNode) node).set(i, maskJsonNode(node.get(i)));
             }
         }
-        
-        matcher.appendTail(sb);
-        return sb.toString();
+        return node;
     }
-
-    private String maskCreditCard(String input) {
-        Matcher matcher = CREDIT_CARD_PATTERN.matcher(input);
-        StringBuffer sb = new StringBuffer();
-        
-        while (matcher.find()) {
-            String card = matcher.group().replaceAll("\\D", "");
-            String masked = "****" + card.substring(Math.max(0, card.length() - 4));
-            matcher.appendReplacement(sb, masked);
-        }
-        
-        matcher.appendTail(sb);
-        return sb.toString();
-    }
-
-    private String maskPhoneNumber(String input) {
-        Matcher matcher = PHONE_PATTERN.matcher(input);
-        StringBuffer sb = new StringBuffer();
-        
-        while (matcher.find()) {
-            String phone = matcher.group().replaceAll("\\D", "");
-            String masked = "***-***-" + phone.substring(Math.max(0, phone.length() - 4));
-            matcher.appendReplacement(sb, masked);
-        }
-        
-        matcher.appendTail(sb);
-        return sb.toString();
-    }
-
+    
     /**
-     * Check if a field name should be considered sensitive
+     * Determines if a field name indicates sensitive content
      */
-    public boolean isSensitiveField(String fieldName) {
+    private boolean isSensitiveField(String fieldName) {
         if (fieldName == null || fieldName.isEmpty()) {
             return false;
         }
         
-        String lowerField = fieldName.toLowerCase();
-        for (String sensitiveField : sensitiveFields) {
-            if (lowerField.contains(sensitiveField)) {
+        String normalizedName = fieldName.toLowerCase();
+        
+        for (String sensitive : SENSITIVE_FIELDS) {
+            if (normalizedName.equals(sensitive) || normalizedName.contains(sensitive)) {
                 return true;
             }
         }
         
         return false;
     }
-
-    public boolean isSensitive(String value) {
+    
+    /**
+     * Determines if a string value contains sensitive data patterns
+     */
+    private boolean containsSensitiveData(String value) {
         if (value == null || value.isEmpty()) {
             return false;
         }
         
-        return isSensitiveField(value);
+        return CREDIT_CARD_PATTERN.matcher(value).find() ||
+               SSN_PATTERN.matcher(value).find() ||
+               EMAIL_PATTERN.matcher(value).find();
     }
-
-    private JsonNode maskJsonNode(JsonNode node) {
-        if (node.isObject()) {
-            return maskObjectNode((ObjectNode) node);
-        } else if (node.isArray()) {
-            return maskArrayNode((ArrayNode) node);
+    
+    private String replaceWithMask(String input, Pattern pattern, String replacement) {
+        Matcher matcher = pattern.matcher(input);
+        StringBuffer result = new StringBuffer();
+        
+        while (matcher.find()) {
+            matcher.appendReplacement(result, replacement);
         }
+        matcher.appendTail(result);
         
-        return node;
-    }
-
-    private ObjectNode maskObjectNode(ObjectNode objectNode) {
-        ObjectNode result = objectNode.deepCopy();
-        Iterator<String> fieldNames = result.fieldNames();
-        
-        while (fieldNames.hasNext()) {
-            String fieldName = fieldNames.next();
-            JsonNode fieldValue = result.get(fieldName);
-            
-            if (isSensitiveField(fieldName)) {
-                result.put(fieldName, DEFAULT_MASK);
-            } else if (fieldValue.isObject() || fieldValue.isArray()) {
-                result.set(fieldName, maskJsonNode(fieldValue));
-            } else if (fieldValue.isTextual()) {
-                result.put(fieldName, mask(fieldValue.asText()));
-            }
-        }
-        
-        return result;
-    }
-
-    private ArrayNode maskArrayNode(ArrayNode arrayNode) {
-        ArrayNode result = arrayNode.deepCopy();
-        
-        for (int i = 0; i < result.size(); i++) {
-            JsonNode element = result.get(i);
-            
-            if (element.isObject() || element.isArray()) {
-                result.set(i, maskJsonNode(element));
-            } else if (element.isTextual()) {
-                result.set(i, objectMapper.valueToTree(mask(element.asText())));
-            }
-        }
-        
-        return result;
+        return result.toString();
     }
 }

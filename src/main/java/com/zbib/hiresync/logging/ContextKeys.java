@@ -1,34 +1,32 @@
 package com.zbib.hiresync.logging;
 
 /**
- * Centralized constants for MDC context keys.
- * <p>
- * This class provides a single source of truth for all context key names
- * used in the application's logging framework. Using these constants ensures
- * consistency in key naming across the entire application.
+ * Centralized constants for Log4j2 ThreadContext keys.
+ * Used throughout the application for structured logging.
  */
 public final class ContextKeys {
+
     // Request identification
     public static final String CORRELATION_ID = "correlationId";
     public static final String REQUEST_ID = "requestId";
     
-    // User and session details
+    // User identification
     public static final String USER_ID = "userId";
     public static final String ROLES = "roles";
     public static final String SESSION_ID = "sessionId";
     
     // Request metadata
-    public static final String REQUEST_PATH = "path";
-    public static final String REQUEST_METHOD = "method";
-    public static final String SOURCE_IP = "clientIp";
+    public static final String REQUEST_PATH = "requestPath";
+    public static final String REQUEST_METHOD = "requestMethod";
+    public static final String SOURCE_IP = "sourceIp";
     public static final String USER_AGENT = "userAgent";
     
-    // Status and metrics
+    // Response information
     public static final String STATUS = "status";
     public static final String DURATION = "duration";
     public static final String EXECUTION_TIME = "executionTime";
     
-    // Error details
+    // Error information
     public static final String EXCEPTION = "exception";
     public static final String ERROR_MESSAGE = "errorMessage";
     
@@ -47,10 +45,11 @@ public final class ContextKeys {
     public static final String RESOURCE_ID = "resourceId";
     public static final String RESOURCE_TYPE = "resourceType";
     public static final String OPERATION = "operation";
+    
+    // Metadata prefix
     public static final String META_PREFIX = "meta.";
     
-    // Prevent instantiation
     private ContextKeys() {
-        throw new AssertionError("Utility class should not be instantiated");
+        // Prevent instantiation
     }
 } 

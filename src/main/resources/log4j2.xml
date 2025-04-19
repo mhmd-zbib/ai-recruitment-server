@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN" monitorInterval="30">
     <Properties>
-        <!-- Human-readable terminal log pattern -->
-        <Property name="TERMINAL_PATTERN">%d{HH:mm:ss.SSS} %highlight{%-5p}{FATAL=bright_red, ERROR=red, WARN=yellow, INFO=blue, DEBUG=green, TRACE=white} [%c{1}] [%X{correlationId}] [%X{userId}] %m%n</Property>
+        <!-- Simple human-readable terminal log pattern -->
+        <Property name="TERMINAL_PATTERN">%d{HH:mm:ss.SSS} %highlight{%-5p}{FATAL=bright_red, ERROR=red, WARN=yellow, INFO=blue, DEBUG=green, TRACE=white} %X{userId:--} %X{correlationId:--} %m%n</Property>
         
-        <!-- Structured log pattern for file logs -->
+        <!-- Detailed structured log pattern for file logs -->
         <Property name="STRUCTURED_PATTERN">{
   "timestamp": "%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}",
   "level": "%p",
@@ -17,7 +17,7 @@
   "class": "%X{class}",
   "method": "%X{method}",
   "path": "%X{path}",
-  "httpMethod": "%X{method}",
+  "httpMethod": "%X{httpMethod}",
   "clientIp": "%X{clientIp}",
   "status": "%X{status}",
   "duration": "%X{duration}",
@@ -31,13 +31,13 @@
     </Properties>
 
     <Appenders>
-        <!-- Console appender with human-readable format -->
+        <!-- Console appender with simplified format for human readability -->
         <Console name="Console" target="SYSTEM_OUT">
             <PatternLayout pattern="${TERMINAL_PATTERN}" disableAnsi="false"/>
             <ThresholdFilter level="INFO"/>
         </Console>
 
-        <!-- Application log file with structured format -->
+        <!-- Application log file with detailed structured format -->
         <RollingRandomAccessFile name="AppLogFile" fileName="${APP_LOG_ROOT}/hiresync-app.log" 
                      filePattern="${APP_LOG_ROOT}/hiresync-app-%d{yyyy-MM-dd}-%i.log.gz">
             <PatternLayout pattern="${STRUCTURED_PATTERN}"/>
