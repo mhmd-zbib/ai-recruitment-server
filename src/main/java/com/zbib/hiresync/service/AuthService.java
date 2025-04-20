@@ -13,14 +13,12 @@ import com.zbib.hiresync.entity.UserSession;
 import com.zbib.hiresync.exception.InvalidTokenException;
 import com.zbib.hiresync.exception.ResourceNotFoundException;
 import com.zbib.hiresync.exception.UserAuthenticationException;
-import com.zbib.hiresync.logging.LogLevel;
-import com.zbib.hiresync.logging.LoggableService;
 import com.zbib.hiresync.repository.UserRepository;
 import com.zbib.hiresync.repository.UserSessionRepository;
 import com.zbib.hiresync.security.JwtTokenProvider;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
 import org.apache.logging.log4j.LogManager;
@@ -53,7 +51,6 @@ public class AuthService {
     private final JwtTokenProvider tokenProvider;
     private final HttpServletRequest request;
 
-    @LoggableService(message = "Login attempt for user: ${email}", level = LogLevel.INFO)
     public AuthResponse login(AuthRequest request) {
         try {
             Authentication authentication = authenticationManager.authenticate(
@@ -74,13 +71,11 @@ public class AuthService {
             return authResponseBuilder.buildLoginResponse(user, authentication, session.getSessionId());
 
         } catch (BadCredentialsException e) {
-            logger.warn("Login attempt failed for user: {}", request.getEmail());
             throw new UserAuthenticationException("Invalid email or password");
         }
     }
 
     @Transactional
-    @LoggableService(message = "User signup request for: ${request.email}", level = LogLevel.INFO)
     public AuthResponse signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new UserAuthenticationException("Email is already in use: " + request.getEmail());
@@ -110,7 +105,6 @@ public class AuthService {
     }
 
     @Transactional
-    @LoggableService(message = "Token refresh request for session: ${refreshRequest.sessionId}", level = LogLevel.INFO)
     public AuthResponse refreshToken(RefreshTokenRequest refreshRequest) {
         String refreshToken = refreshRequest.getRefreshToken();
 
@@ -154,7 +148,6 @@ public class AuthService {
     }
 
     @Transactional
-    @LoggableService(message = "Processing logout request for session: ${logoutRequest.sessionId}", level = LogLevel.INFO)
     public MessageResponse logout(LogoutRequest logoutRequest) {
         String sessionId = logoutRequest.getSessionId();
 
@@ -168,7 +161,6 @@ public class AuthService {
     }
 
     @Transactional
-    @LoggableService(message = "Processing logout from all devices request for user: ${authentication.name}", level = LogLevel.INFO)
     public MessageResponse logoutAllDevices() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
@@ -181,7 +173,6 @@ public class AuthService {
         return new MessageResponse("Logged out from all devices successfully");
     }
 
-    @LoggableService(message = "Retrieving active sessions for user: ${authentication.name}", level = LogLevel.INFO)
     public List<UserSession> getUserSessions() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
@@ -193,7 +184,6 @@ public class AuthService {
     }
 
     @Transactional
-    @LoggableService(message = "Revoking session: ${sessionId} for user: ${authentication.name}", level = LogLevel.INFO)
     public MessageResponse revokeSession(String sessionId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
@@ -246,5 +236,32 @@ public class AuthService {
             ipAddress = request.getRemoteAddr();
         }
         return ipAddress;
+    }
+
+    /**
+     * Get the current authenticated user
+     *
+     * @return the authenticated user
+     * @throws ResourceNotFoundException if the user is not found
+     */
+    @Transactional(readOnly = true)
+    public User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
+    }
+    
+    /**
+     * Check if the current user is the owner of a resource
+     *
+     * @param ownerId the ID of the resource owner
+     * @return true if the current user is the owner, false otherwise
+     */
+    @Transactional(readOnly = true)
+    public boolean isCurrentUserOwner(java.util.UUID ownerId) {
+        User currentUser = getCurrentUser();
+        return currentUser.getId().equals(ownerId);
     }
 }

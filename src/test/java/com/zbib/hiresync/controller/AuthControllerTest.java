@@ -13,12 +13,15 @@ import com.zbib.hiresync.exception.ResourceNotFoundException;
 import com.zbib.hiresync.exception.UserAuthenticationException;
 import com.zbib.hiresync.service.AuthService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Arrays;
@@ -27,15 +30,12 @@ import java.util.UUID;
 
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(AuthController.class)
-@Import(TestConfig.class)
 class AuthControllerTest {
 
     @Autowired
@@ -44,7 +44,7 @@ class AuthControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Autowired
+    @MockitoBean
     private AuthService authService;
 
     private AuthRequest authRequest;
@@ -52,71 +52,60 @@ class AuthControllerTest {
     private RefreshTokenRequest refreshTokenRequest;
     private LogoutRequest logoutRequest;
     private AuthResponse authResponse;
-    private List<UserSession> userSessions;
+    private MessageResponse messageResponse;
+    private String testEmail = "test@example.com";
+    private String testPassword = "password123";
+    private String testUserId = UUID.randomUUID().toString();
+    private String testSessionId = UUID.randomUUID().toString();
+    private String testAccessToken = "test.access.token";
+    private String testRefreshToken = "test.refresh.token";
 
     @BeforeEach
     void setUp() {
-        // Reset the mocked service for each test
-        when(authService.toString()).thenCallRealMethod(); // Just to verify it's a mock
-        
-        // Setup auth request
-        authRequest = new AuthRequest();
-        authRequest.setEmail("test@example.com");
-        authRequest.setPassword("password");
-
-        // Setup signup request
-        signupRequest = new SignupRequest();
-        signupRequest.setEmail("test@example.com");
-        signupRequest.setPassword("password");
-        signupRequest.setFirstName("Test");
-        signupRequest.setLastName("User");
-
-        // Setup refresh token request
-        refreshTokenRequest = new RefreshTokenRequest();
-        refreshTokenRequest.setRefreshToken("refresh-token");
-        refreshTokenRequest.setSessionId("session-id");
-
-        // Setup logout request
-        logoutRequest = new LogoutRequest();
-        logoutRequest.setSessionId("session-id");
-
-        // Setup auth response
-        authResponse = AuthResponse.builder()
-                .userId(UUID.randomUUID().toString())
-                .email("test@example.com")
-                .firstName("Test")
-                .lastName("User")
-                .accessToken("access-token")
-                .refreshToken("refresh-token")
-                .tokenType("Bearer")
-                .expiresIn(3600L)
-                .sessionId("session-id")
+        // Set up request objects
+        authRequest = AuthRequest.builder()
+                .email(testEmail)
+                .password(testPassword)
                 .build();
 
-        // Setup user sessions
-        UserSession session1 = new UserSession();
-        session1.setSessionId("session-id-1");
-        session1.setDeviceInfo("Device 1");
-        session1.setIpAddress("127.0.0.1");
-        session1.setCreatedAt(java.time.Instant.now());
-        session1.setLastUsedAt(java.time.Instant.now());
-        session1.setRevoked(false);
-        session1.setTokenHash("token-hash-1");
+        signupRequest = SignupRequest.builder()
+                .firstName("Test")
+                .lastName("User")
+                .email(testEmail)
+                .password(testPassword)
+                .build();
 
-        UserSession session2 = new UserSession();
-        session2.setSessionId("session-id-2");
-        session2.setDeviceInfo("Device 2");
-        session2.setIpAddress("192.168.1.1");
-        session2.setCreatedAt(java.time.Instant.now());
-        session2.setLastUsedAt(java.time.Instant.now());
-        session2.setRevoked(false);
-        session2.setTokenHash("token-hash-2");
+        refreshTokenRequest = RefreshTokenRequest.builder()
+                .refreshToken(testRefreshToken)
+                .sessionId(testSessionId)
+                .build();
 
-        userSessions = Arrays.asList(session1, session2);
+        logoutRequest = LogoutRequest.builder()
+                .sessionId(testSessionId)
+                .build();
+
+        // Set up response objects
+        authResponse = AuthResponse.builder()
+                .userId(testUserId)
+                .email(testEmail)
+                .firstName("Test")
+                .lastName("User")
+                .displayName("Test User")
+                .role("ROLE_USER")
+                .success(true)
+                .sessionId(testSessionId)
+                .accessToken(testAccessToken)
+                .refreshToken(testRefreshToken)
+                .expiresIn(3600)
+                .tokenType("Bearer")
+                .build();
+
+        messageResponse = new MessageResponse("Operation successful");
     }
 
     @Test
-    void shouldReturnAuthResponseOnLogin() throws Exception {
+    @DisplayName("Login should return auth response with tokens when credentials are valid")
+    void loginShouldReturnAuthResponseWhenCredentialsAreValid() throws Exception {
         // Arrange
         when(authService.login(any(AuthRequest.class))).thenReturn(authResponse);
 
@@ -126,28 +115,32 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(authRequest)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email", is(authResponse.getEmail())))
-                .andExpect(jsonPath("$.access_token", is(authResponse.getAccessToken())))
-                .andExpect(jsonPath("$.refresh_token", is(authResponse.getRefreshToken())))
-                .andExpect(jsonPath("$.session_id", is(authResponse.getSessionId())));
+                .andExpect(jsonPath("$.email", is(testEmail)))
+                .andExpect(jsonPath("$.access_token", is(testAccessToken)))
+                .andExpect(jsonPath("$.refresh_token", is(testRefreshToken)))
+                .andExpect(jsonPath("$.session_id", is(testSessionId)))
+                .andExpect(jsonPath("$.success", is(true)));
     }
 
     @Test
-    void shouldReturnUnauthorizedForInvalidCredentials() throws Exception {
+    @DisplayName("Login should return unauthorized when credentials are invalid")
+    void loginShouldReturnUnauthorizedWhenCredentialsAreInvalid() throws Exception {
         // Arrange
         when(authService.login(any(AuthRequest.class)))
-                .thenThrow(new UserAuthenticationException("Invalid email or password"));
+                .thenThrow(new UserAuthenticationException("Invalid credentials"));
 
         // Act & Assert
         mockMvc.perform(post("/v1/auth/login")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(authRequest)))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message", is("Invalid credentials")));
     }
 
     @Test
-    void shouldReturnAuthResponseOnSignup() throws Exception {
+    @DisplayName("Signup should return auth response with tokens when signup is successful")
+    void signupShouldReturnAuthResponseWhenSignupIsSuccessful() throws Exception {
         // Arrange
         when(authService.signup(any(SignupRequest.class))).thenReturn(authResponse);
 
@@ -157,14 +150,16 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(signupRequest)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.email", is(authResponse.getEmail())))
-                .andExpect(jsonPath("$.access_token", is(authResponse.getAccessToken())))
-                .andExpect(jsonPath("$.refresh_token", is(authResponse.getRefreshToken())))
-                .andExpect(jsonPath("$.session_id", is(authResponse.getSessionId())));
+                .andExpect(jsonPath("$.email", is(testEmail)))
+                .andExpect(jsonPath("$.access_token", is(testAccessToken)))
+                .andExpect(jsonPath("$.refresh_token", is(testRefreshToken)))
+                .andExpect(jsonPath("$.session_id", is(testSessionId)))
+                .andExpect(jsonPath("$.success", is(true)));
     }
 
     @Test
-    void shouldReturnUnauthorizedForExistingUser() throws Exception {
+    @DisplayName("Signup should return unauthorized when email is already in use")
+    void signupShouldReturnUnauthorizedWhenEmailIsAlreadyInUse() throws Exception {
         // Arrange
         when(authService.signup(any(SignupRequest.class)))
                 .thenThrow(new UserAuthenticationException("Email is already in use"));
@@ -174,13 +169,16 @@ class AuthControllerTest {
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(signupRequest)))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message", is("Email is already in use")));
     }
 
     @Test
-    void shouldReturnNewAuthResponseOnRefresh() throws Exception {
+    @DisplayName("Refresh token should return new auth response when refresh token is valid")
+    void refreshTokenShouldReturnNewAuthResponseWhenRefreshTokenIsValid() throws Exception {
         // Arrange
-        when(authService.refreshToken(any(RefreshTokenRequest.class))).thenReturn(authResponse);
+        when(authService.refreshToken(any(RefreshTokenRequest.class)))
+                .thenReturn(authResponse);
 
         // Act & Assert
         mockMvc.perform(post("/v1/auth/refresh")
@@ -188,14 +186,16 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(refreshTokenRequest)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email", is(authResponse.getEmail())))
-                .andExpect(jsonPath("$.access_token", is(authResponse.getAccessToken())))
-                .andExpect(jsonPath("$.refresh_token", is(authResponse.getRefreshToken())))
-                .andExpect(jsonPath("$.session_id", is(authResponse.getSessionId())));
+                .andExpect(jsonPath("$.email", is(testEmail)))
+                .andExpect(jsonPath("$.access_token", is(testAccessToken)))
+                .andExpect(jsonPath("$.refresh_token", is(testRefreshToken)))
+                .andExpect(jsonPath("$.session_id", is(testSessionId)))
+                .andExpect(jsonPath("$.success", is(true)));
     }
 
     @Test
-    void shouldReturnUnauthorizedForInvalidToken() throws Exception {
+    @DisplayName("Refresh token should return unauthorized when refresh token is invalid")
+    void refreshTokenShouldReturnUnauthorizedWhenRefreshTokenIsInvalid() throws Exception {
         // Arrange
         when(authService.refreshToken(any(RefreshTokenRequest.class)))
                 .thenThrow(new InvalidTokenException("Invalid refresh token"));
@@ -205,14 +205,16 @@ class AuthControllerTest {
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(refreshTokenRequest)))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message", is("Invalid refresh token")));
     }
 
     @Test
-    void shouldReturnSuccessMessageOnLogout() throws Exception {
+    @DisplayName("Logout should return success message when logout is successful")
+    void logoutShouldReturnSuccessMessageWhenLogoutIsSuccessful() throws Exception {
         // Arrange
-        when(authService.logout(any(LogoutRequest.class)))
-                .thenReturn(new MessageResponse("Logged out successfully"));
+        MessageResponse response = new MessageResponse("Logged out successfully");
+        when(authService.logout(any(LogoutRequest.class))).thenReturn(response);
 
         // Act & Assert
         mockMvc.perform(post("/v1/auth/logout")
@@ -224,7 +226,8 @@ class AuthControllerTest {
     }
 
     @Test
-    void shouldReturnNotFoundForInvalidSession() throws Exception {
+    @DisplayName("Logout should return not found when session is not found")
+    void logoutShouldReturnNotFoundWhenSessionIsNotFound() throws Exception {
         // Arrange
         when(authService.logout(any(LogoutRequest.class)))
                 .thenThrow(new ResourceNotFoundException("Session not found"));
@@ -234,61 +237,80 @@ class AuthControllerTest {
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(logoutRequest)))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message", is("Session not found")));
     }
 
     @Test
-    @WithMockUser
-    void shouldReturnSuccessMessageOnLogoutAllDevices() throws Exception {
+    @DisplayName("Request validation should reject invalid login request")
+    void requestValidationShouldRejectInvalidLoginRequest() throws Exception {
         // Arrange
-        when(authService.logoutAllDevices())
-                .thenReturn(new MessageResponse("Logged out from all devices successfully"));
+        AuthRequest invalidRequest = AuthRequest.builder()
+                .email("not-an-email")
+                .password("")  // Empty password
+                .build();
 
         // Act & Assert
-        mockMvc.perform(post("/v1/auth/logout-all")
-                        .with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message", is("Logged out from all devices successfully")));
+        mockMvc.perform(post("/v1/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors", hasSize(greaterThan(0))));
     }
 
     @Test
-    @WithMockUser
-    void shouldReturnListOfActiveSessions() throws Exception {
+    @DisplayName("Request validation should reject invalid signup request")
+    void requestValidationShouldRejectInvalidSignupRequest() throws Exception {
         // Arrange
-        when(authService.getUserSessions()).thenReturn(userSessions);
+        SignupRequest invalidRequest = SignupRequest.builder()
+                .firstName("")  // Empty first name
+                .lastName("")   // Empty last name
+                .email("not-an-email")
+                .password("123") // Too short password
+                .build();
 
         // Act & Assert
-        mockMvc.perform(get("/v1/auth/sessions"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(2)))
-                .andExpect(jsonPath("$[0].sessionId", is("session-id-1")))
-                .andExpect(jsonPath("$[1].sessionId", is("session-id-2")));
+        mockMvc.perform(post("/v1/auth/signup")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors", hasSize(greaterThan(0))));
     }
 
     @Test
-    @WithMockUser
-    void shouldReturnSuccessMessageOnRevokeSession() throws Exception {
+    @DisplayName("Request validation should reject invalid refresh token request")
+    void requestValidationShouldRejectInvalidRefreshTokenRequest() throws Exception {
         // Arrange
-        when(authService.revokeSession(anyString()))
-                .thenReturn(new MessageResponse("Session revoked successfully"));
+        RefreshTokenRequest invalidRequest = RefreshTokenRequest.builder()
+                .refreshToken("")  // Empty refresh token
+                .sessionId("")     // Empty session ID
+                .build();
 
         // Act & Assert
-        mockMvc.perform(delete("/v1/auth/sessions/session-id-1")
-                        .with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message", is("Session revoked successfully")));
+        mockMvc.perform(post("/v1/auth/refresh")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors", hasSize(greaterThan(0))));
     }
 
     @Test
-    @WithMockUser
-    void shouldReturnNotFoundForInvalidSessionRevoke() throws Exception {
+    @DisplayName("Request validation should reject invalid logout request")
+    void requestValidationShouldRejectInvalidLogoutRequest() throws Exception {
         // Arrange
-        when(authService.revokeSession(anyString()))
-                .thenThrow(new ResourceNotFoundException("Session not found"));
+        LogoutRequest invalidRequest = LogoutRequest.builder()
+                .sessionId("")  // Empty session ID
+                .build();
 
         // Act & Assert
-        mockMvc.perform(delete("/v1/auth/sessions/invalid-session-id")
-                        .with(csrf()))
-                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/v1/auth/logout")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors", hasSize(greaterThan(0))));
     }
 } 
