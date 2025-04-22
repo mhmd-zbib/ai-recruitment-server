@@ -3,18 +3,19 @@ package com.zbib.hiresync.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zbib.hiresync.config.TestSecurityConfig;
 import com.zbib.hiresync.dto.filter.ApplicationFilter;
+import com.zbib.hiresync.dto.filter.JobPostFilter;
 import com.zbib.hiresync.dto.request.CreateJobPostRequest;
 import com.zbib.hiresync.dto.request.UpdateJobPostRequest;
+import com.zbib.hiresync.dto.response.ApplicationSummaryResponse;
 import com.zbib.hiresync.dto.response.JobPostResponse;
 import com.zbib.hiresync.dto.response.JobPostSummaryResponse;
-import com.zbib.hiresync.dto.response.ApplicationSummaryResponse;
 import com.zbib.hiresync.entity.User;
 import com.zbib.hiresync.enums.ApplicationStatus;
 import com.zbib.hiresync.enums.EmploymentType;
 import com.zbib.hiresync.enums.WorkplaceType;
-import com.zbib.hiresync.service.JobPostService;
 import com.zbib.hiresync.service.ApplicationService;
 import com.zbib.hiresync.service.AuthService;
+import com.zbib.hiresync.service.JobPostService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +28,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.math.BigDecimal;
@@ -38,14 +38,11 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.hasSize;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.setup.MockMvcBuilders.*;
 
 @WebMvcTest(JobPostController.class)
 @Import(TestSecurityConfig.class)
@@ -61,35 +58,30 @@ public class JobPostControllerTest {
 
     @MockBean
     private JobPostService jobPostService;
-    
+
     @MockBean
     private ApplicationService applicationService;
-    
+
     @MockBean
     private AuthService authService;
 
     private JobPostResponse jobPostResponse;
     private List<JobPostSummaryResponse> summaryResponses;
     private User mockUser;
+    private static final String TEST_USERNAME = "test@example.com";
 
     @BeforeEach
     public void setup() {
-        mockMvc = MockMvcBuilders
-                .webAppContextSetup(context)
-                .apply(springSecurity())
-                .build();
+        mockMvc = webAppContextSetup(context).build();
 
-        // Create mock user for authService.getCurrentUser()
+        // Create mock user 
         mockUser = new User();
         mockUser.setId(UUID.randomUUID());
-        mockUser.setEmail("test@example.com");
+        mockUser.setEmail(TEST_USERNAME);
         mockUser.setFirstName("Test");
         mockUser.setLastName("User");
         mockUser.setRole("EMPLOYER");
         
-        // Mock the authService to return our mockUser
-        when(authService.getCurrentUser()).thenReturn(mockUser);
-
         // Setup test data
         jobPostResponse = JobPostResponse.builder()
                 .id(UUID.randomUUID())
@@ -134,7 +126,7 @@ public class JobPostControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(username = TEST_USERNAME)
     public void testCreateJobPost() throws Exception {
         // Given
         CreateJobPostRequest request = CreateJobPostRequest.builder()
@@ -154,10 +146,10 @@ public class JobPostControllerTest {
                 .tags(new HashSet<>(Arrays.asList("Backend", "Senior")))
                 .build();
 
-        when(jobPostService.createJobPost(any(CreateJobPostRequest.class))).thenReturn(jobPostResponse);
+        when(jobPostService.createJobPost(any(CreateJobPostRequest.class), eq(TEST_USERNAME))).thenReturn(jobPostResponse);
 
         // When & Then
-        mockMvc.perform(post("/v1/job-posts")
+        mockMvc.perform(post("/api/v1/job-posts")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -170,7 +162,7 @@ public class JobPostControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(username = TEST_USERNAME)
     public void testUpdateJobPost() throws Exception {
         // Given
         UUID jobPostId = UUID.randomUUID();
@@ -180,10 +172,10 @@ public class JobPostControllerTest {
                 .workplaceType(WorkplaceType.REMOTE)
                 .build();
 
-        when(jobPostService.updateJobPost(eq(jobPostId), any(UpdateJobPostRequest.class))).thenReturn(jobPostResponse);
+        when(jobPostService.updateJobPost(eq(jobPostId), any(UpdateJobPostRequest.class), eq(TEST_USERNAME))).thenReturn(jobPostResponse);
 
         // When & Then
-        mockMvc.perform(put("/v1/job-posts/" + jobPostId)
+        mockMvc.perform(put("/api/v1/job-posts/" + jobPostId)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -191,33 +183,33 @@ public class JobPostControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(username = TEST_USERNAME)
     public void testGetJobPostById() throws Exception {
         // Given
         UUID jobPostId = UUID.randomUUID();
-        when(jobPostService.getJobPostById(jobPostId)).thenReturn(jobPostResponse);
+        when(jobPostService.getJobPostById(jobPostId, TEST_USERNAME)).thenReturn(jobPostResponse);
 
         // When & Then
-        mockMvc.perform(get("/v1/job-posts/" + jobPostId))
+        mockMvc.perform(get("/api/v1/job-posts/" + jobPostId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").exists())
                 .andExpect(jsonPath("$.title").value("Software Engineer"));
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(username = TEST_USERNAME)
     public void testDeleteJobPost() throws Exception {
         // Given
         UUID jobPostId = UUID.randomUUID();
-        doNothing().when(jobPostService).deleteJobPost(jobPostId);
+        doNothing().when(jobPostService).deleteJobPost(jobPostId, TEST_USERNAME);
 
         // When & Then
-        mockMvc.perform(delete("/v1/job-posts/" + jobPostId))
+        mockMvc.perform(delete("/api/v1/job-posts/" + jobPostId))
                 .andExpect(status().isNoContent());
     }
 
     @Test
-    @WithMockUser(roles = {"EMPLOYER"})
+    @WithMockUser(username = TEST_USERNAME, roles = {"EMPLOYER"})
     public void testGetJobApplications() throws Exception {
         // Given
         UUID jobPostId = UUID.randomUUID();
@@ -243,11 +235,11 @@ public class JobPostControllerTest {
                 .build()
         ));
         
-        when(applicationService.getApplicationsByJobPostId(eq(jobPostId), any(ApplicationFilter.class), any(Pageable.class)))
+        when(applicationService.getApplicationsByJobPostId(eq(jobPostId), any(ApplicationFilter.class), any(Pageable.class), eq(TEST_USERNAME)))
             .thenReturn(applicationPage);
 
         // When & Then
-        mockMvc.perform(get("/v1/job-posts/" + jobPostId + "/applications")
+        mockMvc.perform(get("/api/v1/job-posts/" + jobPostId + "/applications")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(2)))
