@@ -9,7 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * DTO for updating an existing job application
+ * DTO for updating job application details
  */
 @Data
 @Builder
@@ -30,10 +30,13 @@ public class UpdateApplicationRequest {
     @Size(max = 5000, message = "Cover letter must be less than 5000 characters")
     private String coverLetter;
 
+    @Size(max = 255, message = "Resume URL must be less than 255 characters")
     private String resumeUrl;
 
+    @Size(max = 255, message = "Portfolio URL must be less than 255 characters")
     private String portfolioUrl;
     
+    @Size(max = 255, message = "LinkedIn URL must be less than 255 characters")
     private String linkedinUrl;
     
     private ApplicationStatus status;

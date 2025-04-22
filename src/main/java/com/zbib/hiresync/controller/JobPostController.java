@@ -6,6 +6,7 @@ import com.zbib.hiresync.dto.request.CreateJobPostRequest;
 import com.zbib.hiresync.dto.request.UpdateJobPostRequest;
 import com.zbib.hiresync.dto.response.ApplicationSummaryResponse;
 import com.zbib.hiresync.dto.response.JobPostResponse;
+import com.zbib.hiresync.dto.response.JobPostStatsResponse;
 import com.zbib.hiresync.dto.response.JobPostSummaryResponse;
 import com.zbib.hiresync.logging.LogLevel;
 import com.zbib.hiresync.logging.LoggableService;
@@ -26,10 +27,14 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
+/**
+ * REST API controller for job post operations
+ */
 @RestController
-@RequestMapping("/v1/job-posts")
+@RequestMapping("/api/v1/job-posts")
 @Tag(name = "Job Post", description = "Job Post Management")
 @RequiredArgsConstructor
 @LoggableService(level = LogLevel.INFO)
@@ -38,53 +43,114 @@ public class JobPostController {
     private final JobPostService jobPostService;
     private final ApplicationService applicationService;
 
-    @Operation(summary = "Create a new job post")
+    /**
+     * Create a new job post
+     */
     @PostMapping
-    @PreAuthorize("hasAnyRole('RECRUITER', 'EMPLOYER', 'ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<JobPostResponse> createJobPost(
             @Valid @RequestBody CreateJobPostRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        JobPostResponse response = jobPostService.createJobPost(request, userDetails.getUsername());
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+            @AuthenticationPrincipal String username) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(jobPostService.createJobPost(request, username));
     }
 
-    @Operation(summary = "Update an existing job post")
+    /**
+     * Update an existing job post
+     */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('RECRUITER', 'EMPLOYER', 'ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<JobPostResponse> updateJobPost(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateJobPostRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        JobPostResponse response = jobPostService.updateJobPost(id, request, userDetails.getUsername());
-        return ResponseEntity.ok(response);
+            @AuthenticationPrincipal String username) {
+        return ResponseEntity.ok(jobPostService.updateJobPost(id, request, username));
     }
 
-    @Operation(summary = "Get a job post by ID")
+    /**
+     * Get a job post by ID (for authenticated users)
+     */
     @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<JobPostResponse> getJobPostById(
             @PathVariable UUID id,
-            @AuthenticationPrincipal(expression = "username") String username) {
-        JobPostResponse response = jobPostService.getJobPostById(id, username);
-        return ResponseEntity.ok(response);
+            @AuthenticationPrincipal String username) {
+        return ResponseEntity.ok(jobPostService.getJobPostById(id, username));
+    }
+    
+    /**
+     * Get a job post by ID (public access)
+     */
+    @GetMapping("/public/{id}")
+    public ResponseEntity<JobPostResponse> getPublicJobPostById(@PathVariable UUID id) {
+        return ResponseEntity.ok(jobPostService.getPublicJobPostById(id));
     }
 
-    @Operation(summary = "Delete a job post")
+    /**
+     * Delete a job post
+     */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('RECRUITER', 'EMPLOYER', 'ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Void> deleteJobPost(
             @PathVariable UUID id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        jobPostService.deleteJobPost(id, userDetails.getUsername());
+            @AuthenticationPrincipal String username) {
+        jobPostService.deleteJobPost(id, username);
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Get all job posts with filtering")
+    /**
+     * Get all job posts with filtering options
+     */
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Page<JobPostSummaryResponse>> getAllJobPosts(
-            @Parameter(description = "Filter criteria") JobPostFilter filter,
+            JobPostFilter filter,
+            Pageable pageable,
+            @AuthenticationPrincipal String username) {
+        return ResponseEntity.ok(jobPostService.getHrJobPosts(username, filter, pageable));
+    }
+    
+    /**
+     * Get all public job posts
+     */
+    @GetMapping("/public")
+    public ResponseEntity<Page<JobPostSummaryResponse>> getAllPublicJobPosts(
+            JobPostFilter filter,
             Pageable pageable) {
-        Page<JobPostSummaryResponse> response = jobPostService.getAllJobPosts(filter, pageable);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(jobPostService.getAllPublicJobPosts(filter, pageable));
+    }
+    
+    /**
+     * Toggle job post active status
+     */
+    @PatchMapping("/{id}/toggle-status")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<JobPostResponse> toggleJobPostStatus(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal String username) {
+        return ResponseEntity.ok(jobPostService.toggleJobPostActiveStatus(id, username));
+    }
+    
+    /**
+     * Get job post statistics
+     */
+    @GetMapping("/{id}/stats")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<JobPostStatsResponse> getJobPostStats(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal String username) {
+        return ResponseEntity.ok(jobPostService.getJobPostStats(id, username));
+    }
+    
+    /**
+     * Get job posts expiring soon
+     */
+    @GetMapping("/expiring-soon")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<JobPostSummaryResponse>> getJobPostsExpiringSoon(
+            @RequestParam(defaultValue = "7") int days,
+            @AuthenticationPrincipal String username) {
+        return ResponseEntity.ok(jobPostService.getJobPostsExpiringSoon(username, days));
     }
 
     @Operation(summary = "Get applications for a job post")

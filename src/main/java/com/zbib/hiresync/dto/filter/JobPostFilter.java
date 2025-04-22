@@ -9,10 +9,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 /**
- * Data Transfer Object for filtering job posts
+ * Filter for job posts with various criteria
  */
 @Data
 @Builder
@@ -21,16 +23,22 @@ import java.util.List;
 public class JobPostFilter {
     
     private String search;
-    private String city;
-    private String country;
+    private String location;
     private WorkplaceType workplaceType;
     private EmploymentType employmentType;
     private BigDecimal minSalary;
     private BigDecimal maxSalary;
-    private String currency;
+    private Boolean active;
     private List<String> skills;
     private List<String> tags;
-    private Boolean active;
+    private UUID createdById;
+    private LocalDateTime createdAfter;
+    private LocalDateTime createdBefore;
+    private LocalDateTime visibleAfter;
+    private LocalDateTime visibleBefore;
+    private String city;
+    private String country;
+    private String currency;
     private Boolean includeInactive;
     private User createdBy;
 } 

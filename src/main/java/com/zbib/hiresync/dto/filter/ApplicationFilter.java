@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -19,12 +19,14 @@ import java.util.UUID;
 @AllArgsConstructor
 public class ApplicationFilter {
     
-    private String search;
     private UUID jobPostId;
     private String applicantEmail;
-    private ApplicationStatus status;
-    private List<ApplicationStatus> statuses;
-    private List<String> skills;
+    private String applicantName;
+    private Set<ApplicationStatus> statuses;
     private LocalDateTime submittedAfter;
     private LocalDateTime submittedBefore;
+    private LocalDateTime updatedAfter;
+    private LocalDateTime updatedBefore;
+    private Boolean hasResume;
+    private Boolean hasCoverLetter;
 } 

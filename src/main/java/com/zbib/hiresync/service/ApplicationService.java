@@ -3,11 +3,16 @@ package com.zbib.hiresync.service;
 import com.zbib.hiresync.dto.builder.ApplicationBuilder;
 import com.zbib.hiresync.dto.filter.ApplicationFilter;
 import com.zbib.hiresync.dto.request.CreateApplicationRequest;
+import com.zbib.hiresync.dto.request.UpdateApplicationRequest;
+import com.zbib.hiresync.dto.request.UpdateApplicationStatusRequest;
 import com.zbib.hiresync.dto.response.ApplicationResponse;
+import com.zbib.hiresync.dto.response.ApplicationStatsResponse;
 import com.zbib.hiresync.dto.response.ApplicationSummaryResponse;
 import com.zbib.hiresync.entity.Application;
 import com.zbib.hiresync.entity.JobPost;
 import com.zbib.hiresync.entity.User;
+import com.zbib.hiresync.enums.ApplicationStatus;
+import com.zbib.hiresync.exception.ResourceNotFoundException;
 import com.zbib.hiresync.exception.application.ApplicationNotFoundException;
 import com.zbib.hiresync.exception.auth.UserNotFoundException;
 import com.zbib.hiresync.exception.jobpost.JobPostNotFoundException;
@@ -24,7 +29,12 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Service for managing job applications
@@ -53,6 +63,39 @@ public class ApplicationService {
         
         return applicationBuilder.buildApplicationResponse(savedApplication);
     }
+    
+    @Transactional
+    @LoggableService(message = "Updated job application")
+    public ApplicationResponse updateApplication(UUID applicationId, UpdateApplicationRequest request, String username) {
+        Application application = findApplicationByIdOrThrow(applicationId);
+        User currentUser = findUserByUsernameOrThrow(username);
+        
+        applicationValidator.validateJobPostApplicationAccess(application.getJobPost(), currentUser);
+        
+        applicationBuilder.updateApplication(application, request);
+        Application updatedApplication = applicationRepository.save(application);
+        
+        return applicationBuilder.buildApplicationResponse(updatedApplication);
+    }
+    
+    @Transactional
+    @LoggableService(message = "Updated application status")
+    public ApplicationResponse updateApplicationStatus(UUID applicationId, 
+                                                      UpdateApplicationStatusRequest request, 
+                                                      String username) {
+        Application application = findApplicationByIdOrThrow(applicationId);
+        User currentUser = findUserByUsernameOrThrow(username);
+        
+        applicationValidator.validateJobPostApplicationAccess(application.getJobPost(), currentUser);
+        
+        application.setStatus(request.getStatus());
+        if (request.getNotes() != null) {
+            application.setNotes(request.getNotes());
+        }
+        
+        Application updatedApplication = applicationRepository.save(application);
+        return applicationBuilder.buildApplicationResponse(updatedApplication);
+    }
 
     @Transactional
     @LoggableService(message = "Deleted job application")
@@ -75,6 +118,18 @@ public class ApplicationService {
         
         return applicationBuilder.buildApplicationResponse(application);
     }
+    
+    @Transactional(readOnly = true)
+    @LoggableService(message = "Retrieved application by ID and email for public access")
+    public ApplicationResponse getApplicationByIdAndEmail(UUID applicationId, String email) {
+        Application application = findApplicationByIdOrThrow(applicationId);
+        
+        if (!application.getApplicantEmail().equals(email)) {
+            throw new ResourceNotFoundException("Application not found with ID: " + applicationId);
+        }
+        
+        return applicationBuilder.buildApplicationResponse(application);
+    }
 
     @Transactional(readOnly = true)
     @LoggableService(message = "Retrieved all applications with filtering")
@@ -90,6 +145,16 @@ public class ApplicationService {
             applicationSpecification.buildSpecificationForUserJobPosts(filter, currentUser);
             
         Page<Application> applications = applicationRepository.findAll(userApplicationsSpec, pageable);
+        return applications.map(applicationBuilder::buildApplicationSummaryResponse);
+    }
+    
+    @Transactional(readOnly = true)
+    @LoggableService(message = "Retrieved applications by email")
+    public Page<ApplicationSummaryResponse> getApplicationsByEmail(
+            String applicantEmail,
+            Pageable pageable) {
+        
+        Page<Application> applications = applicationRepository.findByApplicantEmail(applicantEmail, pageable);
         return applications.map(applicationBuilder::buildApplicationSummaryResponse);
     }
 
@@ -112,6 +177,67 @@ public class ApplicationService {
         filter.setJobPostId(jobPostId);
         
         return getAllApplications(filter, pageable, username);
+    }
+    
+    @Transactional(readOnly = true)
+    @LoggableService(message = "Retrieved applications by status")
+    public Page<ApplicationSummaryResponse> getApplicationsByStatus(
+            ApplicationStatus status,
+            Pageable pageable,
+            String username) {
+        
+        User currentUser = findUserByUsernameOrThrow(username);
+        applicationValidator.validateApplicationListAccess(currentUser);
+        
+        ApplicationFilter filter = new ApplicationFilter();
+        filter.setStatuses(Set.of(status));
+        
+        return getAllApplications(filter, pageable, username);
+    }
+    
+    @Transactional(readOnly = true)
+    @LoggableService(message = "Retrieved recent applications")
+    public List<ApplicationSummaryResponse> getRecentApplications(String username, int limit) {
+        User currentUser = findUserByUsernameOrThrow(username);
+        applicationValidator.validateApplicationListAccess(currentUser);
+        
+        List<Application> applications = applicationRepository.findRecentApplicationsForCreatedBy(
+                currentUser, limit);
+        
+        return applications.stream()
+                .map(applicationBuilder::buildApplicationSummaryResponse)
+                .collect(Collectors.toList());
+    }
+    
+    @Transactional(readOnly = true)
+    @LoggableService(message = "Retrieved application statistics by HR")
+    public ApplicationStatsResponse getApplicationStatsByHr(String username) {
+        User currentUser = findUserByUsernameOrThrow(username);
+        applicationValidator.validateApplicationListAccess(currentUser);
+        
+        long totalApplications = applicationRepository.countByJobPostCreatedBy(currentUser);
+        
+        Map<ApplicationStatus, Long> applicationsByStatus = 
+                applicationRepository.countApplicationsByStatusForUser(currentUser)
+                        .stream()
+                        .collect(Collectors.toMap(
+                                result -> (ApplicationStatus) result[0],
+                                result -> (Long) result[1]
+                        ));
+        
+        Map<UUID, Long> applicationsByJobPost = 
+                applicationRepository.countApplicationsByJobPostForUser(currentUser)
+                        .stream()
+                        .collect(Collectors.toMap(
+                                result -> (UUID) result[0],
+                                result -> (Long) result[1]
+                        ));
+        
+        return ApplicationStatsResponse.builder()
+                .totalApplications(totalApplications)
+                .applicationsByStatus(applicationsByStatus)
+                .applicationsByJobPost(applicationsByJobPost)
+                .build();
     }
 
     private Application findApplicationByIdOrThrow(UUID applicationId) {

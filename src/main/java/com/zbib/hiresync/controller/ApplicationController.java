@@ -3,8 +3,11 @@ package com.zbib.hiresync.controller;
 import com.zbib.hiresync.dto.filter.ApplicationFilter;
 import com.zbib.hiresync.dto.request.CreateApplicationRequest;
 import com.zbib.hiresync.dto.request.UpdateApplicationRequest;
+import com.zbib.hiresync.dto.request.UpdateApplicationStatusRequest;
 import com.zbib.hiresync.dto.response.ApplicationResponse;
+import com.zbib.hiresync.dto.response.ApplicationStatsResponse;
 import com.zbib.hiresync.dto.response.ApplicationSummaryResponse;
+import com.zbib.hiresync.enums.ApplicationStatus;
 import com.zbib.hiresync.logging.LogLevel;
 import com.zbib.hiresync.logging.LoggableService;
 import com.zbib.hiresync.service.ApplicationService;
@@ -18,14 +21,18 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
+/**
+ * REST API controller for job application operations
+ */
 @RestController
-@RequestMapping("/v1/applications")
+@RequestMapping("/api/v1")
 @Tag(name = "Application", description = "Job Application Management")
 @RequiredArgsConstructor
 @LoggableService(level = LogLevel.INFO)
@@ -33,61 +40,139 @@ public class ApplicationController {
 
     private final ApplicationService applicationService;
 
-    @Operation(summary = "Submit a new job application", 
-        description = "Allows anyone to apply for a job, no authentication required")
-    @PostMapping
-    public ResponseEntity<ApplicationResponse> createApplication(@Valid @RequestBody CreateApplicationRequest request) {
-        ApplicationResponse response = applicationService.createApplication(request);
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    /**
+     * Create a new job application (public access)
+     */
+    @PostMapping("/applications")
+    public ResponseEntity<ApplicationResponse> createApplication(
+            @Valid @RequestBody CreateApplicationRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(applicationService.createApplication(request));
     }
-
-    @Operation(summary = "Get application by ID", 
-        description = "Retrieve a specific application by ID. Requires authentication for recruiters/employers/admins, or must match applicant email")
-    @GetMapping("/{id}")
-    @SecurityRequirement(name = "bearerAuth")
-    public ResponseEntity<ApplicationResponse> getApplicationById(
+    
+    /**
+     * Update an existing application
+     */
+    @PutMapping("/applications/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApplicationResponse> updateApplication(
             @PathVariable UUID id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(applicationService.getApplicationById(id, userDetails.getUsername()));
+            @Valid @RequestBody UpdateApplicationRequest request,
+            @AuthenticationPrincipal String username) {
+        return ResponseEntity.ok(applicationService.updateApplication(id, request, username));
+    }
+    
+    /**
+     * Update application status
+     */
+    @PatchMapping("/applications/{id}/status")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApplicationResponse> updateApplicationStatus(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateApplicationStatusRequest request,
+            @AuthenticationPrincipal String username) {
+        return ResponseEntity.ok(applicationService.updateApplicationStatus(id, request, username));
     }
 
-    @Operation(summary = "Delete an application", 
-        description = "Delete an application. Requires proper authorization.")
-    @DeleteMapping("/{id}")
-    @SecurityRequirement(name = "bearerAuth")
+    /**
+     * Delete an application
+     */
+    @DeleteMapping("/applications/{id}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Void> deleteApplication(
             @PathVariable UUID id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        applicationService.deleteApplication(id, userDetails.getUsername());
+            @AuthenticationPrincipal String username) {
+        applicationService.deleteApplication(id, username);
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Get all applications with filtering", 
-        description = "Retrieve applications with various filters. Regular users can only see their own applications.")
-    @GetMapping
-    @SecurityRequirement(name = "bearerAuth")
-    public ResponseEntity<Page<ApplicationSummaryResponse>> getAllApplications(
-            @Parameter(description = "Filter criteria for applications") ApplicationFilter filter,
-            @Parameter(description = "Pagination and sorting parameters. Use page=0&size=10 for pagination. " +
-                    "Use sort=fieldName,direction for sorting (e.g. sort=createdAt,desc)")
-            Pageable pageable,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(applicationService.getAllApplications(filter, pageable, userDetails.getUsername()));
+    /**
+     * Get application by ID (for authenticated users)
+     */
+    @GetMapping("/applications/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApplicationResponse> getApplicationById(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal String username) {
+        return ResponseEntity.ok(applicationService.getApplicationById(id, username));
+    }
+    
+    /**
+     * Get application by ID and email (for public access/candidates)
+     */
+    @GetMapping("/public/applications/{id}")
+    public ResponseEntity<ApplicationResponse> getApplicationByIdAndEmail(
+            @PathVariable UUID id,
+            @RequestParam String email) {
+        return ResponseEntity.ok(applicationService.getApplicationByIdAndEmail(id, email));
     }
 
-    @Operation(
-            summary = "Get all applications for a specific job post",
-            description = "Returns all applications submitted to a specific job post with optional filtering. Only the job post creator or admins can access this endpoint."
-    )
-    @GetMapping("/jobpost/{jobPostId}")
-    @SecurityRequirement(name = "bearerAuth")
-    public ResponseEntity<Page<ApplicationSummaryResponse>> getApplicationsByJobPost(
-            @PathVariable UUID jobPostId,
-            @Parameter(description = "Filter criteria for applications") ApplicationFilter filter,
+    /**
+     * Get all applications for the HR (with filtering)
+     */
+    @GetMapping("/applications")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Page<ApplicationSummaryResponse>> getAllApplications(
+            ApplicationFilter filter,
             Pageable pageable,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        Page<ApplicationSummaryResponse> applications = applicationService.getApplicationsByJobPostId(
-                jobPostId, filter, pageable, userDetails.getUsername());
-        return ResponseEntity.ok(applications);
+            @AuthenticationPrincipal String username) {
+        return ResponseEntity.ok(applicationService.getAllApplications(filter, pageable, username));
+    }
+    
+    /**
+     * Get applications by applicant email (public access/candidates)
+     */
+    @GetMapping("/public/applications")
+    public ResponseEntity<Page<ApplicationSummaryResponse>> getApplicationsByEmail(
+            @RequestParam String email,
+            Pageable pageable) {
+        return ResponseEntity.ok(applicationService.getApplicationsByEmail(email, pageable));
+    }
+
+    /**
+     * Get applications for a specific job post
+     */
+    @GetMapping("/job-posts/{jobPostId}/applications")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Page<ApplicationSummaryResponse>> getApplicationsByJobPostId(
+            @PathVariable UUID jobPostId,
+            ApplicationFilter filter,
+            Pageable pageable,
+            @AuthenticationPrincipal String username) {
+        return ResponseEntity.ok(applicationService.getApplicationsByJobPostId(
+                jobPostId, filter, pageable, username));
+    }
+    
+    /**
+     * Get applications by status
+     */
+    @GetMapping("/applications/status/{status}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Page<ApplicationSummaryResponse>> getApplicationsByStatus(
+            @PathVariable ApplicationStatus status,
+            Pageable pageable,
+            @AuthenticationPrincipal String username) {
+        return ResponseEntity.ok(applicationService.getApplicationsByStatus(status, pageable, username));
+    }
+    
+    /**
+     * Get recent applications
+     */
+    @GetMapping("/applications/recent")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<ApplicationSummaryResponse>> getRecentApplications(
+            @RequestParam(defaultValue = "10") int limit,
+            @AuthenticationPrincipal String username) {
+        return ResponseEntity.ok(applicationService.getRecentApplications(username, limit));
+    }
+    
+    /**
+     * Get application statistics
+     */
+    @GetMapping("/applications/stats")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApplicationStatsResponse> getApplicationStatsByHr(
+            @AuthenticationPrincipal String username) {
+        return ResponseEntity.ok(applicationService.getApplicationStatsByHr(username));
     }
 } 

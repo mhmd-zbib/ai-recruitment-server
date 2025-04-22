@@ -6,6 +6,7 @@ import com.zbib.hiresync.dto.response.ApplicationResponse;
 import com.zbib.hiresync.dto.response.ApplicationSummaryResponse;
 import com.zbib.hiresync.entity.Application;
 import com.zbib.hiresync.entity.JobPost;
+import com.zbib.hiresync.enums.ApplicationStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -33,6 +34,7 @@ public class ApplicationBuilder {
                 .resumeUrl(request.getResumeUrl())
                 .portfolioUrl(request.getPortfolioUrl())
                 .linkedinUrl(request.getLinkedinUrl())
+                .status(ApplicationStatus.SUBMITTED)
                 .build();
     }
 
@@ -43,12 +45,8 @@ public class ApplicationBuilder {
      * @param request update request
      */
     public void updateApplication(Application application, UpdateApplicationRequest request) {
-        if (request.getApplicantName() != null) {
-            application.setApplicantName(request.getApplicantName());
-        }
-        
-        if (request.getApplicantEmail() != null) {
-            application.setApplicantEmail(request.getApplicantEmail());
+        if (request.getStatus() != null) {
+            application.setStatus(request.getStatus());
         }
         
         if (request.getPhoneNumber() != null) {
@@ -69,10 +67,6 @@ public class ApplicationBuilder {
         
         if (request.getLinkedinUrl() != null) {
             application.setLinkedinUrl(request.getLinkedinUrl());
-        }
-        
-        if (request.getStatus() != null) {
-            application.setStatus(request.getStatus());
         }
         
         if (request.getNotes() != null) {
