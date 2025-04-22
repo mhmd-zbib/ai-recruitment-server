@@ -10,9 +10,8 @@ import com.zbib.hiresync.dto.response.AuthResponse;
 import com.zbib.hiresync.dto.response.MessageResponse;
 import com.zbib.hiresync.entity.User;
 import com.zbib.hiresync.entity.UserSession;
-import com.zbib.hiresync.exception.InvalidTokenException;
 import com.zbib.hiresync.exception.ResourceNotFoundException;
-import com.zbib.hiresync.exception.UserAuthenticationException;
+import com.zbib.hiresync.exception.auth.*;
 import com.zbib.hiresync.repository.UserRepository;
 import com.zbib.hiresync.repository.UserSessionRepository;
 import com.zbib.hiresync.security.JwtTokenProvider;
@@ -51,6 +50,7 @@ public class AuthService {
     private final JwtTokenProvider tokenProvider;
     private final HttpServletRequest request;
 
+
     public AuthResponse login(AuthRequest request) {
         try {
             Authentication authentication = authenticationManager.authenticate(
@@ -60,18 +60,17 @@ public class AuthService {
 
             User user = userRepository.findByEmail(request.getEmail())
                     .orElseThrow(
-                            () -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
+                            () -> new UserNotFoundException("User not found with email: " + request.getEmail()));
 
             String deviceInfo = extractDeviceInfo();
             String ipAddress = extractIpAddress();
 
-            // Create and store session
             UserSession session = createUserSession(user, deviceInfo, ipAddress);
 
             return authResponseBuilder.buildLoginResponse(user, authentication, session.getSessionId());
 
         } catch (BadCredentialsException e) {
-            throw new UserAuthenticationException("Invalid email or password");
+            throw new InvalidCredentialsException();
         }
     }
 
@@ -116,10 +115,10 @@ public class AuthService {
         String sessionId = refreshRequest.getSessionId();
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found for token"));
+                .orElseThrow(() -> new UserNotFoundException("User not found for token"));
 
         UserSession session = userSessionRepository.findBySessionIdAndUser(sessionId, user)
-                .orElseThrow(() -> new InvalidTokenException("Invalid session"));
+                .orElseThrow(() -> new SessionNotFoundException("Invalid session"));
 
         // Check if session is revoked
         if (session.isRevoked()) {
@@ -152,7 +151,7 @@ public class AuthService {
         String sessionId = logoutRequest.getSessionId();
 
         UserSession session = userSessionRepository.findBySessionId(sessionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Session not found"));
+                .orElseThrow(() -> new SessionNotFoundException("Session not found"));
 
         session.setRevoked(true);
         userSessionRepository.save(session);
@@ -166,7 +165,7 @@ public class AuthService {
         String email = authentication.getName();
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         revokeAllUserSessions(user);
 
@@ -178,7 +177,7 @@ public class AuthService {
         String email = authentication.getName();
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         return userSessionRepository.findByUserAndRevokedFalse(user);
     }
@@ -189,10 +188,10 @@ public class AuthService {
         String email = authentication.getName();
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         UserSession session = userSessionRepository.findBySessionIdAndUser(sessionId, user)
-                .orElseThrow(() -> new ResourceNotFoundException("Session not found"));
+                .orElseThrow(() -> new SessionNotFoundException("Session not found"));
 
         session.setRevoked(true);
         userSessionRepository.save(session);
@@ -236,32 +235,5 @@ public class AuthService {
             ipAddress = request.getRemoteAddr();
         }
         return ipAddress;
-    }
-
-    /**
-     * Get the current authenticated user
-     *
-     * @return the authenticated user
-     * @throws ResourceNotFoundException if the user is not found
-     */
-    @Transactional(readOnly = true)
-    public User getCurrentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-        
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + email));
-    }
-    
-    /**
-     * Check if the current user is the owner of a resource
-     *
-     * @param ownerId the ID of the resource owner
-     * @return true if the current user is the owner, false otherwise
-     */
-    @Transactional(readOnly = true)
-    public boolean isCurrentUserOwner(java.util.UUID ownerId) {
-        User currentUser = getCurrentUser();
-        return currentUser.getId().equals(ownerId);
     }
 }

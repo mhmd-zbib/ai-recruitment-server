@@ -13,7 +13,9 @@ import org.hibernate.annotations.UuidGenerator;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -101,6 +103,10 @@ public class JobPost {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    @OneToMany(mappedBy = "jobPost", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Application> applications = new ArrayList<>();
+
     /**
      * Adds a skill to the job post
      * 
@@ -187,5 +193,29 @@ public class JobPost {
         } else {
             return "Up to " + maxSalary + " " + (currency != null ? currency : "");
         }
+    }
+
+    /**
+     * Adds an application to the job post
+     * 
+     * @param application the application to add
+     * @return this job post for chaining
+     */
+    public JobPost addApplication(Application application) {
+        applications.add(application);
+        application.setJobPost(this);
+        return this;
+    }
+
+    /**
+     * Removes an application from the job post
+     * 
+     * @param application the application to remove
+     * @return this job post for chaining
+     */
+    public JobPost removeApplication(Application application) {
+        applications.remove(application);
+        application.setJobPost(null);
+        return this;
     }
 } 

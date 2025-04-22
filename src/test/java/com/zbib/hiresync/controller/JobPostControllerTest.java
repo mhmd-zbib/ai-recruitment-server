@@ -1,19 +1,26 @@
 package com.zbib.hiresync.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zbib.hiresync.dto.filter.JobPostFilter;
+import com.zbib.hiresync.config.TestSecurityConfig;
+import com.zbib.hiresync.dto.filter.ApplicationFilter;
 import com.zbib.hiresync.dto.request.CreateJobPostRequest;
 import com.zbib.hiresync.dto.request.UpdateJobPostRequest;
 import com.zbib.hiresync.dto.response.JobPostResponse;
 import com.zbib.hiresync.dto.response.JobPostSummaryResponse;
+import com.zbib.hiresync.dto.response.ApplicationSummaryResponse;
+import com.zbib.hiresync.entity.User;
+import com.zbib.hiresync.enums.ApplicationStatus;
 import com.zbib.hiresync.enums.EmploymentType;
 import com.zbib.hiresync.enums.WorkplaceType;
 import com.zbib.hiresync.service.JobPostService;
+import com.zbib.hiresync.service.ApplicationService;
+import com.zbib.hiresync.service.AuthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -22,7 +29,6 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -42,6 +48,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(JobPostController.class)
+@Import(TestSecurityConfig.class)
 public class JobPostControllerTest {
 
     @Autowired
@@ -52,11 +59,18 @@ public class JobPostControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockitoBean
+    @MockBean
     private JobPostService jobPostService;
+    
+    @MockBean
+    private ApplicationService applicationService;
+    
+    @MockBean
+    private AuthService authService;
 
     private JobPostResponse jobPostResponse;
     private List<JobPostSummaryResponse> summaryResponses;
+    private User mockUser;
 
     @BeforeEach
     public void setup() {
@@ -64,6 +78,17 @@ public class JobPostControllerTest {
                 .webAppContextSetup(context)
                 .apply(springSecurity())
                 .build();
+
+        // Create mock user for authService.getCurrentUser()
+        mockUser = new User();
+        mockUser.setId(UUID.randomUUID());
+        mockUser.setEmail("test@example.com");
+        mockUser.setFirstName("Test");
+        mockUser.setLastName("User");
+        mockUser.setRole("EMPLOYER");
+        
+        // Mock the authService to return our mockUser
+        when(authService.getCurrentUser()).thenReturn(mockUser);
 
         // Setup test data
         jobPostResponse = JobPostResponse.builder()
@@ -166,6 +191,7 @@ public class JobPostControllerTest {
     }
 
     @Test
+    @WithMockUser
     public void testGetJobPostById() throws Exception {
         // Given
         UUID jobPostId = UUID.randomUUID();
@@ -190,6 +216,42 @@ public class JobPostControllerTest {
                 .andExpect(status().isNoContent());
     }
 
-    // All tests removed for methods not implemented in the service
+    @Test
+    @WithMockUser(roles = {"EMPLOYER"})
+    public void testGetJobApplications() throws Exception {
+        // Given
+        UUID jobPostId = UUID.randomUUID();
+        
+        // Create a filter object to pass to the service method
+        ApplicationFilter filter = new ApplicationFilter();
+        
+        // Mock application service
+        Page<ApplicationSummaryResponse> applicationPage = new PageImpl<>(Arrays.asList(
+            ApplicationSummaryResponse.builder()
+                .id(UUID.randomUUID())
+                .applicantName("John Applicant")
+                .applicantEmail("john@example.com")
+                .status(ApplicationStatus.SUBMITTED)
+                .createdAt(LocalDateTime.now())
+                .build(),
+            ApplicationSummaryResponse.builder()
+                .id(UUID.randomUUID())
+                .applicantName("Jane Applicant")
+                .applicantEmail("jane@example.com")
+                .status(ApplicationStatus.UNDER_REVIEW)
+                .createdAt(LocalDateTime.now())
+                .build()
+        ));
+        
+        when(applicationService.getApplicationsByJobPostId(eq(jobPostId), any(ApplicationFilter.class), any(Pageable.class)))
+            .thenReturn(applicationPage);
 
+        // When & Then
+        mockMvc.perform(get("/v1/job-posts/" + jobPostId + "/applications")
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.content[0].applicantName").value("John Applicant"))
+                .andExpect(jsonPath("$.content[1].applicantName").value("Jane Applicant"));
+    }
 } 

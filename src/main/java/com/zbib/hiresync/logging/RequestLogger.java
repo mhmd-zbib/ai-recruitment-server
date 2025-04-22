@@ -43,7 +43,6 @@ public class RequestLogger extends OncePerRequestFilter {
     private static final Set<String> DEFAULT_EXCLUDED_PATHS = new HashSet<>(
             Arrays.asList("actuator", "health", "metrics", "static", "favicon.ico"));
     
-    private static final String ERROR_ATTRIBUTE = "org.springframework.boot.web.servlet.error.DefaultErrorAttributes.ERROR";
     private static final int MAX_PAYLOAD_LENGTH = 2000;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
     
@@ -51,34 +50,10 @@ public class RequestLogger extends OncePerRequestFilter {
     private static final Set<String> SENSITIVE_FIELDS = new HashSet<>(
             Arrays.asList("password", "token", "secret", "key", "credential", "auth", "ssn", "creditcard", "card", "cvv"));
     
-    private final MaskingUtils maskingUtils;
-    
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
         return DEFAULT_EXCLUDED_PATHS.stream().anyMatch(path::contains);
-    }
-    
-    /**
-     * Wraps the request to cache content for logging if needed
-     */
-    protected HttpServletRequest wrapRequest(HttpServletRequest request) {
-        // Wrap the request to cache the body for potential logging
-        if (!(request instanceof ContentCachingRequestWrapper)) {
-            return new ContentCachingRequestWrapper(request);
-        }
-        return request;
-    }
-    
-    /**
-     * Wraps the response to cache content for logging if needed
-     */
-    protected HttpServletResponse wrapResponse(HttpServletResponse response) {
-        // Wrap the response to cache the body for potential logging
-        if (!(response instanceof ContentCachingResponseWrapper)) {
-            return new ContentCachingResponseWrapper(response);
-        }
-        return response;
     }
     
     @Override
@@ -116,7 +91,7 @@ public class RequestLogger extends OncePerRequestFilter {
             
             // If error wasn't caught directly, check the request attributes for error
             if (error == null) {
-                error = (Throwable) request.getAttribute(ERROR_ATTRIBUTE);
+                error = (Throwable) request.getAttribute("org.springframework.boot.web.servlet.error.DefaultErrorAttributes.ERROR");
             }
             
             // Log single entry with all information
@@ -245,7 +220,7 @@ public class RequestLogger extends OncePerRequestFilter {
         if (error != null) {
             if (status >= 500) {
                 return operation + " failed";
-            } else {
+        } else {
                 return operation + " rejected";
             }
         }

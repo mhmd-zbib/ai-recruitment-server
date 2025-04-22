@@ -18,6 +18,7 @@ import com.zbib.hiresync.repository.UserSessionRepository;
 import com.zbib.hiresync.security.JwtTokenProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -30,6 +31,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.GrantedAuthority;
 
 import java.time.Instant;
 import java.util.*;
@@ -202,31 +204,46 @@ public class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("Should refresh token successfully")
     void shouldRefreshTokenSuccessfully() {
         // Arrange
-        RefreshTokenRequest refreshRequest = new RefreshTokenRequest();
-        refreshRequest.setRefreshToken("valid-refresh-token");
-        refreshRequest.setSessionId(userSession.getSessionId());
-
-        when(tokenProvider.validateToken(refreshRequest.getRefreshToken())).thenReturn(true);
-        when(tokenProvider.getEmailFromToken(refreshRequest.getRefreshToken())).thenReturn(testUser.getEmail());
+        String refreshToken = "valid-refresh-token";
+        String sessionId = "test-session-id";
+        RefreshTokenRequest refreshRequest = new RefreshTokenRequest(refreshToken, sessionId);
+        
+        when(tokenProvider.validateToken(refreshToken)).thenReturn(true);
+        when(tokenProvider.getEmailFromToken(refreshToken)).thenReturn(testUser.getEmail());
         when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
-        when(userSessionRepository.findBySessionIdAndUser(refreshRequest.getSessionId(), testUser))
-                .thenReturn(Optional.of(userSession));
-        when(tokenProvider.getAuthorities(refreshRequest.getRefreshToken()))
-                .thenReturn(Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
-        when(authResponseBuilder.buildRefreshResponse(eq(testUser), any(Authentication.class), eq(refreshRequest.getSessionId())))
-                .thenReturn(authResponse);
-
+        
+        UserSession session = new UserSession();
+        session.setSessionId(sessionId);
+        session.setUser(testUser);
+        session.setTokenHash("stored-hash");
+        session.setRevoked(false);
+        
+        when(userSessionRepository.findBySessionIdAndUser(sessionId, testUser)).thenReturn(Optional.of(session));
+        when(tokenProvider.verifyTokenHash(refreshToken, session.getTokenHash())).thenReturn(true);
+        
+        List<GrantedAuthority> authorities = Arrays.asList(new SimpleGrantedAuthority("ROLE_USER"));
+        when(tokenProvider.getAuthorities(refreshToken)).thenReturn(authorities);
+        
+        AuthResponse expectedResponse = new AuthResponse();
+        expectedResponse.setUserId(testUser.getId().toString());
+        expectedResponse.setEmail(testUser.getEmail());
+        
+        when(authResponseBuilder.buildRefreshResponse(eq(testUser), any(Authentication.class), eq(sessionId)))
+            .thenReturn(expectedResponse);
+        
         // Act
         AuthResponse result = authService.refreshToken(refreshRequest);
-
+        
         // Assert
         assertNotNull(result);
         assertEquals(testUser.getId().toString(), result.getUserId());
         assertEquals(testUser.getEmail(), result.getEmail());
-        verify(userSessionRepository).save(userSession);
-        verify(authResponseBuilder).buildRefreshResponse(eq(testUser), any(Authentication.class), eq(refreshRequest.getSessionId()));
+        
+        verify(userSessionRepository).save(session);
+        verify(authResponseBuilder).buildRefreshResponse(eq(testUser), any(Authentication.class), eq(sessionId));
     }
 
     @Test

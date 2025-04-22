@@ -30,20 +30,11 @@ public final class ContextKeys {
     public static final String EXCEPTION = "exception";
     public static final String ERROR_MESSAGE = "errorMessage";
     
-    // Request/response content
-    public static final String HEADERS = "headers";
-    public static final String REQUEST_BODY = "requestBody";
-    public static final String RESPONSE_BODY = "responseBody";
-    
     // Method execution context
     public static final String CLASS = "class";
     public static final String METHOD = "method";
-    public static final String ARGUMENTS = "arguments";
     
     // Business context
-    public static final String TENANT_ID = "tenantId";
-    public static final String RESOURCE_ID = "resourceId";
-    public static final String RESOURCE_TYPE = "resourceType";
     public static final String OPERATION = "operation";
     
     // Metadata prefix

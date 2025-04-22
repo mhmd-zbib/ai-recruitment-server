@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.UUID;
 
 @Data
@@ -44,6 +45,9 @@ public class User {
 
     @Column(name = "password", nullable = false, length = 100)
     private String password;
+    
+    @Column(name = "role", nullable = false, length = 20)
+    private String role;
 
     @Column(name = "enabled", nullable = false)
     private boolean enabled;
@@ -66,6 +70,26 @@ public class User {
      */
     public String getFullName() {
         return firstName + " " + lastName;
+    }
+    
+    /**
+     * Check if the user has a specific role
+     * 
+     * @param roleName the role to check
+     * @return true if the user has this role
+     */
+    public boolean hasRole(String roleName) {
+        return role != null && role.equals(roleName);
+    }
+    
+    /**
+     * Check if the user has any of the specified roles
+     * 
+     * @param roleNames the roles to check
+     * @return true if the user has any of these roles
+     */
+    public boolean hasAnyRole(String... roleNames) {
+        return role != null && Arrays.asList(roleNames).contains(role);
     }
 
     @PrePersist

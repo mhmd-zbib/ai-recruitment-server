@@ -1,16 +1,22 @@
 package com.zbib.hiresync.exception;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
+import java.util.UUID;
 
-@ResponseStatus(HttpStatus.NOT_FOUND)
-public class ResourceNotFoundException extends RuntimeException {
+/**
+ * Exception thrown when a requested resource cannot be found
+ */
+public class ResourceNotFoundException extends BaseException {
     
     public ResourceNotFoundException(String message) {
-        super(message);
+        super(message, HttpStatus.NOT_FOUND);
     }
     
     public ResourceNotFoundException(String message, Throwable cause) {
-        super(message, cause);
+        super(message, HttpStatus.NOT_FOUND);
+    }
+    
+    public ResourceNotFoundException(String resourceType, UUID id) {
+        super(resourceType + " not found with ID: " + id, HttpStatus.NOT_FOUND);
     }
 } 

@@ -1,6 +1,5 @@
 package com.zbib.hiresync.logging;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -37,21 +36,6 @@ public class LoggingAspect {
     
     // Track method calls within a single thread to avoid duplicate logging
     private static final ThreadLocal<Set<String>> LOGGED_METHODS = ThreadLocal.withInitial(ConcurrentHashMap::newKeySet);
-    
-    private final MaskingUtils maskingUtils;
-    private final ObjectMapper objectMapper;
-    
-    /**
-     * Define a pointcut for controller methods
-     */
-    @Pointcut("within(@org.springframework.web.bind.annotation.RestController *)")
-    public void controllerMethods() {}
-    
-    /**
-     * Define a pointcut for service methods
-     */
-    @Pointcut("within(@org.springframework.stereotype.Service *)")
-    public void serviceMethods() {}
     
     /**
      * Define a pointcut for methods annotated with LoggableService

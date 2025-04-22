@@ -1,6 +1,7 @@
 package com.zbib.hiresync.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zbib.hiresync.config.TestSecurityConfig;
 import com.zbib.hiresync.dto.request.AuthRequest;
 import com.zbib.hiresync.dto.request.LogoutRequest;
 import com.zbib.hiresync.dto.request.RefreshTokenRequest;
@@ -18,11 +19,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 
 import java.util.Arrays;
 import java.util.List;
@@ -32,19 +35,23 @@ import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(AuthController.class)
+@Import(TestSecurityConfig.class)
 class AuthControllerTest {
 
     @Autowired
+    private WebApplicationContext context;
+    
     private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockitoBean
+    @MockBean
     private AuthService authService;
 
     private AuthRequest authRequest;
@@ -62,6 +69,12 @@ class AuthControllerTest {
 
     @BeforeEach
     void setUp() {
+        // Set up MockMvc with security
+        mockMvc = MockMvcBuilders
+                .webAppContextSetup(context)
+                .apply(springSecurity())
+                .build();
+                
         // Set up request objects
         authRequest = AuthRequest.builder()
                 .email(testEmail)
@@ -111,7 +124,6 @@ class AuthControllerTest {
 
         // Act & Assert
         mockMvc.perform(post("/v1/auth/login")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(authRequest)))
                 .andExpect(status().isOk())
@@ -131,7 +143,6 @@ class AuthControllerTest {
 
         // Act & Assert
         mockMvc.perform(post("/v1/auth/login")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(authRequest)))
                 .andExpect(status().isUnauthorized())
@@ -146,7 +157,6 @@ class AuthControllerTest {
 
         // Act & Assert
         mockMvc.perform(post("/v1/auth/signup")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(signupRequest)))
                 .andExpect(status().isCreated())
@@ -166,7 +176,6 @@ class AuthControllerTest {
 
         // Act & Assert
         mockMvc.perform(post("/v1/auth/signup")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(signupRequest)))
                 .andExpect(status().isUnauthorized())
@@ -182,7 +191,6 @@ class AuthControllerTest {
 
         // Act & Assert
         mockMvc.perform(post("/v1/auth/refresh")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(refreshTokenRequest)))
                 .andExpect(status().isOk())
@@ -202,7 +210,6 @@ class AuthControllerTest {
 
         // Act & Assert
         mockMvc.perform(post("/v1/auth/refresh")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(refreshTokenRequest)))
                 .andExpect(status().isUnauthorized())
@@ -218,7 +225,6 @@ class AuthControllerTest {
 
         // Act & Assert
         mockMvc.perform(post("/v1/auth/logout")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(logoutRequest)))
                 .andExpect(status().isOk())
@@ -234,7 +240,6 @@ class AuthControllerTest {
 
         // Act & Assert
         mockMvc.perform(post("/v1/auth/logout")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(logoutRequest)))
                 .andExpect(status().isNotFound())
@@ -252,10 +257,10 @@ class AuthControllerTest {
 
         // Act & Assert
         mockMvc.perform(post("/v1/auth/login")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors").isArray())
                 .andExpect(jsonPath("$.errors", hasSize(greaterThan(0))));
     }
 
@@ -272,7 +277,6 @@ class AuthControllerTest {
 
         // Act & Assert
         mockMvc.perform(post("/v1/auth/signup")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest())
@@ -290,7 +294,6 @@ class AuthControllerTest {
 
         // Act & Assert
         mockMvc.perform(post("/v1/auth/refresh")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest())
@@ -307,7 +310,6 @@ class AuthControllerTest {
 
         // Act & Assert
         mockMvc.perform(post("/v1/auth/logout")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest())

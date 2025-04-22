@@ -1,5 +1,6 @@
 package com.zbib.hiresync.service;
 
+import com.zbib.hiresync.entity.Application;
 import com.zbib.hiresync.entity.JobPost;
 import com.zbib.hiresync.entity.Skill;
 import com.zbib.hiresync.repository.SkillRepository;
