@@ -19,7 +19,13 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "skills")
+@Table(
+    name = "skills",
+    indexes = {
+        @Index(name = "idx_skill_name", columnList = "name"),
+        @Index(name = "idx_skill_category", columnList = "category")
+    }
+)
 public class Skill {
 
     @Id

@@ -19,7 +19,12 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "tags")
+@Table(
+    name = "tags",
+    indexes = {
+        @Index(name = "idx_tag_name", columnList = "name")
+    }
+)
 public class Tag {
 
     @Id

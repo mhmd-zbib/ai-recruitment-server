@@ -1,19 +1,14 @@
 package com.zbib.hiresync.service;
 
-import com.zbib.hiresync.entity.Application;
-import com.zbib.hiresync.entity.JobPost;
+import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.entity.Skill;
 import com.zbib.hiresync.repository.SkillRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Service for managing skills
- */
 @Service
 @RequiredArgsConstructor
 public class SkillService {
@@ -21,9 +16,8 @@ public class SkillService {
     private final SkillRepository skillRepository;
 
     @Transactional
-    public void addSkillsToJobPost(JobPost jobPost, Set<String> skillNames) {
+    public void addSkillsToJob(Job job, Set<String> skillNames) {
         if (skillNames == null || skillNames.isEmpty()) return;
-        Set<Skill> skills = new HashSet<>();
         for (String name : skillNames) {
             Skill skill = skillRepository.findByNameIgnoreCase(name)
                     .orElseGet(() -> {
@@ -32,9 +26,13 @@ public class SkillService {
                         return skillRepository.save(newSkill);
                     });
 
-            jobPost.addSkill(skill);
-            skills.add(skill);
+            job.addSkill(skill);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public Skill findByNameIgnoreCase(String name) {
+        return skillRepository.findByNameIgnoreCase(name).orElse(null);
     }
 
     @Transactional
@@ -46,4 +44,4 @@ public class SkillService {
         skill.setName(name);
         return skillRepository.save(skill);
     }
-} 
+}

@@ -18,7 +18,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class ApplicationResponse {
     private UUID id;
-    private UUID jobPostId;
+    private UUID jobId;
     private String jobTitle;
     private String companyName;
     private String applicantName;

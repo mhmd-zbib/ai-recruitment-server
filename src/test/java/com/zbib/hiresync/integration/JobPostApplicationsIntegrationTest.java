@@ -20,6 +20,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,7 +33,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.hasSize;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -76,9 +78,11 @@ public class JobPostApplicationsIntegrationTest {
         // Create an employer user
         employer = createEmployer();
         
-        // Mock authService to return employer when getCurrentUser is called
-        when(authService.getCurrentUser()).thenReturn(employer);
-
+        // Set up mock for Authentication
+        Authentication authentication = mock(Authentication.class);
+        when(authentication.getName()).thenReturn(employer.getEmail());
+        when(SecurityContextHolder.getContext().getAuthentication()).thenReturn(authentication);
+        
         // Create a job post
         jobPost = createJobPost(employer);
 
@@ -98,7 +102,7 @@ public class JobPostApplicationsIntegrationTest {
     @WithMockUser(username = "employer@example.com", roles = {"EMPLOYER"})
     void getJobApplications_returnsApplicationsForJobPost() throws Exception {
         // When and Then
-        mockMvc.perform(get("/v1/job-posts/{id}/applications", jobPost.getId())
+        mockMvc.perform(get("/v1/jobs/{id}/applications", jobPost.getId())
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(2)))
@@ -116,7 +120,7 @@ public class JobPostApplicationsIntegrationTest {
         applicationRepository.save(application2);
 
         // When and Then
-        mockMvc.perform(get("/v1/job-posts/{id}/applications", jobPost.getId())
+        mockMvc.perform(get("/v1/jobs/{id}/applications", jobPost.getId())
                 .contentType(MediaType.APPLICATION_JSON)
                 .param("status", "SUBMITTED"))
                 .andExpect(status().isOk())
@@ -135,11 +139,13 @@ public class JobPostApplicationsIntegrationTest {
         randomUser.setLastName("User");
         randomUser.setRole("EMPLOYER");
         
-        // Mock authService to return randomUser instead of employer
-        when(authService.getCurrentUser()).thenReturn(randomUser);
+        // Set up mock for Authentication with random user
+        Authentication randomAuth = mock(Authentication.class);
+        when(randomAuth.getName()).thenReturn(randomUser.getEmail());
+        when(SecurityContextHolder.getContext().getAuthentication()).thenReturn(randomAuth);
         
         // When and Then
-        mockMvc.perform(get("/v1/job-posts/{id}/applications", jobPost.getId())
+        mockMvc.perform(get("/v1/jobs/{id}/applications", jobPost.getId())
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden());
     }

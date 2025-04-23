@@ -17,7 +17,15 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "addresses")
+@Table(
+    name = "addresses",
+    indexes = {
+        @Index(name = "idx_address_city", columnList = "city"),
+        @Index(name = "idx_address_country", columnList = "country"),
+        @Index(name = "idx_address_postal_code", columnList = "postal_code"),
+        @Index(name = "idx_address_location", columnList = "latitude, longitude")
+    }
+)
 public class Address {
 
     @Id

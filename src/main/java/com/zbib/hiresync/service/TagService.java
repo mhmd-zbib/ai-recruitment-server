@@ -1,6 +1,6 @@
 package com.zbib.hiresync.service;
 
-import com.zbib.hiresync.entity.JobPost;
+import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.entity.Tag;
 import com.zbib.hiresync.repository.TagRepository;
 import lombok.RequiredArgsConstructor;
@@ -10,9 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Service for managing tags
- */
 @Service
 @RequiredArgsConstructor
 public class TagService {
@@ -20,9 +17,8 @@ public class TagService {
     private final TagRepository tagRepository;
 
     @Transactional
-    public void addTagsToJobPost(JobPost jobPost, Set<String> tagNames) {
+    public void addTagsToJob(Job job, Set<String> tagNames) {
         if (tagNames == null || tagNames.isEmpty()) return;
-        Set<Tag> tags = new HashSet<>();
         for (String name : tagNames) {
             Tag tag = tagRepository.findByNameIgnoreCase(name)
                     .orElseGet(() -> {
@@ -30,11 +26,9 @@ public class TagService {
                         newTag.setName(name);
                         return tagRepository.save(newTag);
                     });
-            jobPost.addTag(tag);
-            tags.add(tag);
+            job.addTag(tag);
         }
     }
-
 
     @Transactional(readOnly = true)
     public Tag findByName(String name) {

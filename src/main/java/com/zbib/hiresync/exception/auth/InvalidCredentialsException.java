@@ -3,14 +3,18 @@ package com.zbib.hiresync.exception.auth;
 import org.springframework.http.HttpStatus;
 
 /**
- * Exception thrown when user provides invalid credentials during authentication
+ * Exception thrown when authentication credentials are invalid
  */
 public class InvalidCredentialsException extends AuthException {
+    
+    private static final String DEFAULT_MESSAGE = "Invalid username or password";
+    private static final HttpStatus DEFAULT_STATUS = HttpStatus.UNAUTHORIZED;
+    
     public InvalidCredentialsException() {
-        super("Invalid username or password", HttpStatus.UNAUTHORIZED);
+        super(DEFAULT_MESSAGE, DEFAULT_STATUS);
     }
     
-    public InvalidCredentialsException(String message) {
-        super(message, HttpStatus.UNAUTHORIZED);
+    public InvalidCredentialsException(String details) {
+        super(DEFAULT_MESSAGE + ": " + details, DEFAULT_STATUS);
     }
 } 

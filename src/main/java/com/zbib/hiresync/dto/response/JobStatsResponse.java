@@ -7,18 +7,17 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.Map;
-import java.util.UUID;
 
 /**
- * Response DTO containing statistics about applications for an HR user
+ * Response DTO containing statistics about a job
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ApplicationStatsResponse {
-    
+public class JobStatsResponse {
+    private long totalViews;
     private long totalApplications;
     private Map<ApplicationStatus, Long> applicationsByStatus;
-    private Map<UUID, Long> applicationsByJobPost;
+    private Map<String, Long> applicantsByTopSkills;
 } 

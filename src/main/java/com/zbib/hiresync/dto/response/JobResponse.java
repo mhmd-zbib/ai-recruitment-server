@@ -1,7 +1,5 @@
 package com.zbib.hiresync.dto.response;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.zbib.hiresync.enums.EmploymentType;
 import com.zbib.hiresync.enums.WorkplaceType;
 import lombok.AllArgsConstructor;
@@ -15,15 +13,13 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Full job post details including all fields
+ * DTO for returning job details
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public class JobPostResponse {
-
+public class JobResponse {
     private UUID id;
     private String title;
     private String description;
@@ -35,20 +31,11 @@ public class JobPostResponse {
     private BigDecimal minSalary;
     private BigDecimal maxSalary;
     private String currency;
-    private String salaryFormatted;
     private boolean active;
-    
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    private LocalDateTime createdAt;
-    
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    private LocalDateTime updatedAt;
-    
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime visibleUntil;
-    
-    private UUID createdById;
-    private String createdByName;
     private Set<String> skills;
     private Set<String> tags;
+    private long applicationCount;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 } 

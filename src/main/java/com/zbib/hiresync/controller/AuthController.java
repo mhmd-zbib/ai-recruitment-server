@@ -7,8 +7,11 @@ import com.zbib.hiresync.dto.request.SignupRequest;
 import com.zbib.hiresync.dto.response.AuthResponse;
 import com.zbib.hiresync.dto.response.MessageResponse;
 import com.zbib.hiresync.entity.UserSession;
+import com.zbib.hiresync.logging.LogLevel;
+import com.zbib.hiresync.logging.LoggableService;
 import com.zbib.hiresync.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -16,14 +19,19 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * REST API controller for authentication operations
+ */
 @RestController
-@RequestMapping("/v1/auth")
+@RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @Tag(name = "Authentication", description = "Authentication management APIs")
+@LoggableService(level = LogLevel.INFO)
 public class AuthController {
 
     private final AuthService authService;
@@ -53,26 +61,25 @@ public class AuthController {
     }
     
     @PostMapping("/logout-all")
-    @PreAuthorize("isAuthenticated()")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Logout from all devices", description = "Invalidates all active sessions for the current user")
-    public ResponseEntity<MessageResponse> logoutAllDevices() {
+    public ResponseEntity<MessageResponse> logoutAllDevices(@AuthenticationPrincipal String username) {
         return ResponseEntity.ok(authService.logoutAllDevices());
     }
     
     @GetMapping("/sessions")
-    @PreAuthorize("isAuthenticated()")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Get active sessions", description = "Lists all active sessions for the current user")
-    public ResponseEntity<List<UserSession>> getSessions() {
+    public ResponseEntity<List<UserSession>> getSessions(@AuthenticationPrincipal String username) {
         return ResponseEntity.ok(authService.getUserSessions());
     }
     
     @DeleteMapping("/sessions/{sessionId}")
-    @PreAuthorize("isAuthenticated()")
     @SecurityRequirement(name = "bearerAuth")
-    @Operation(summary = "Revoke a specific session", description = "Invalidates a specific session by ID")
-    public ResponseEntity<MessageResponse> revokeSession(@PathVariable String sessionId) {
+    @Operation(summary = "Revoke a specific session", description = "Invalidates a specific session by ID. User must own the session.")
+    public ResponseEntity<MessageResponse> revokeSession(
+            @Parameter(description = "Session ID to revoke") @PathVariable String sessionId,
+            @AuthenticationPrincipal String username) {
         return ResponseEntity.ok(authService.revokeSession(sessionId));
     }
 }

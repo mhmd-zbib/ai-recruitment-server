@@ -58,10 +58,29 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/v1/auth/**").permitAll()
+                // Auth endpoints
+                .requestMatchers("/api/v1/auth/login", "/api/v1/auth/signup", "/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
+                
+                // Public job posts endpoints
+                .requestMatchers(HttpMethod.GET, "/api/v1/jobs/public/**").permitAll()
+                
+                // Public application endpoints
+                .requestMatchers(HttpMethod.POST, "/api/v1/applications").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/public/applications/**").permitAll()
+                
+                // Public job feed endpoints
+                .requestMatchers(HttpMethod.GET, "/api/v1/feed/**").permitAll()
+                
+                // Swagger and docs
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                
+                // Monitoring
                 .requestMatchers("/actuator/**").permitAll()
+                
+                // CORS preflight
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                
+                // All other endpoints require authentication
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())

@@ -11,17 +11,14 @@ import lombok.NoArgsConstructor;
 
 import java.util.UUID;
 
-/**
- * DTO for creating a new job application
- */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateApplicationRequest {
 
-    @NotNull(message = "Job post ID is required")
-    private UUID jobPostId;
+    @NotNull(message = "Job ID is required")
+    private UUID jobId;
 
     @NotBlank(message = "Applicant name is required")
     @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
