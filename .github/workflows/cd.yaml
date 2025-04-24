@@ -1,11 +1,11 @@
 name: CD Pipeline
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI Pipeline"]
     branches: [master, dev]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
+    types:
+      - completed
   workflow_dispatch:
     inputs:
       environment:
@@ -21,6 +21,7 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     environment: ${{ github.event.inputs.environment || 'staging' }}
     steps:
       - name: Checkout code
