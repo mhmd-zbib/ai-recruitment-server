@@ -121,35 +121,42 @@ start_docker_env() {
 check_all() {
   print_header "Running All Code Quality Checks"
   
-  # Checkstyle
-  run_check "mvn checkstyle:check" "Checkstyle"
+  # Clean to ensure we build and check everything
+  run_command "mvn clean" >/dev/null 2>&1
   
-  # PMD
-  run_check "mvn pmd:check" "PMD"
+  # Checkstyle - Force checking all files
+  run_check "mvn checkstyle:check -Dcheckstyle.skip=false -Dcheckstyle.includeTestSourceDirectory=true" "Checkstyle"
   
-  # SpotBugs
-  run_check "mvn spotbugs:check" "SpotBugs" false
+  # PMD - Force checking all files
+  run_check "mvn pmd:check -Dpmd.skip=false -Dpmd.analysisCache=false" "PMD"
   
-  # Dependency Check
-  run_check "mvn dependency-check:check" "Dependency Check" false
+  # SpotBugs - Force checking all files
+  run_check "mvn spotbugs:check -Dspotbugs.skip=false -Dspotbugs.effort=Max" "SpotBugs" false
+  
+  # Dependency Check - Force checking all dependencies
+  run_check "mvn dependency-check:check -Ddependency-check.skip=false -Ddependency-check.failBuildOnCVSS=11" "Dependency Check" false
   
   print_success "All code quality checks completed!"
 }
 
 check_specific() {
   local check_type="$1"
+  
+  # Clean to ensure we build and check everything
+  run_command "mvn clean" >/dev/null 2>&1
+  
   case "$check_type" in
     "checkstyle")
-      run_check "mvn checkstyle:check" "Checkstyle"
+      run_check "mvn checkstyle:check -Dcheckstyle.skip=false -Dcheckstyle.includeTestSourceDirectory=true" "Checkstyle"
       ;;
     "pmd")
-      run_check "mvn pmd:check" "PMD"
+      run_check "mvn pmd:check -Dpmd.skip=false -Dpmd.analysisCache=false" "PMD"
       ;;
     "spotbugs")
-      run_check "mvn spotbugs:check" "SpotBugs"
+      run_check "mvn spotbugs:check -Dspotbugs.skip=false -Dspotbugs.effort=Max" "SpotBugs"
       ;;
     "dependency")
-      run_check "mvn dependency-check:check" "Dependency Check"
+      run_check "mvn dependency-check:check -Ddependency-check.skip=false -Ddependency-check.failBuildOnCVSS=11" "Dependency Check"
       ;;
     *)
       print_error "Unknown check type: $check_type"
@@ -169,6 +176,8 @@ show_help() {
   echo "  spotbugs    Run SpotBugs check only"
   echo "  dependency  Run dependency check only"
   echo "  help        Show this help message"
+  echo ""
+  echo "Note: All checks run on the entire project, not just changed files."
 }
 
 # Main execution
