@@ -20,59 +20,84 @@ public class ApplicationValidator {
     private static final int MIN_COVER_LETTER_LENGTH = 100;
     private static final int MAX_COVER_LETTER_LENGTH = 5000;
     
-    public ValidationResult validateNewApplication(Application application) {
-        return ValidationResult.startValidation()
-            // Required fields validation
-            .validateNotNull(application, "Application")
-            .validateNotNull(application.getJob(), "Job")
-            .validateNotEmpty(application.getApplicantName(), "Applicant name")
-            .validateNotEmpty(application.getApplicantEmail(), "Applicant email")
-            
-            // Format validation
-            .validateThat(
-                application.getApplicantEmail() == null || 
-                EMAIL_PATTERN.matcher(application.getApplicantEmail()).matches(),
-                "Email format is invalid"
-            )
-            .validateThat(
-                application.getPhoneNumber() == null || 
-                application.getPhoneNumber().isEmpty() || 
-                PHONE_PATTERN.matcher(application.getPhoneNumber()).matches(),
-                "Phone number format is invalid"
-            )
-            
-            // Business logic validation
-            .validateThat(isValidJobForApplication(application.getJob()), 
-                "Job is not active or has expired")
-            .validateThat(
-                application.getCoverLetter() == null || 
-                application.getCoverLetter().isEmpty() || 
-                application.getCoverLetter().length() >= MIN_COVER_LETTER_LENGTH,
-                "Cover letter is too short (minimum " + MIN_COVER_LETTER_LENGTH + " characters)"
-            )
-            .validateThat(
-                application.getCoverLetter() == null || 
-                application.getCoverLetter().isEmpty() || 
-                application.getCoverLetter().length() <= MAX_COVER_LETTER_LENGTH,
-                "Cover letter is too long (maximum " + MAX_COVER_LETTER_LENGTH + " characters)"
-            )
-            .build();
+    /**
+     * Validates a new application for correctness before creation
+     */
+    public void validateNewApplication(Application application) {
+        // Required fields validation
+        if (application == null) {
+            throw new InvalidApplicationStateException("Application cannot be null");
+        }
+        
+        if (application.getJob() == null) {
+            throw new InvalidApplicationStateException("Job cannot be null");
+        }
+        
+        if (application.getApplicantName() == null || application.getApplicantName().trim().isEmpty()) {
+            throw new InvalidApplicationStateException("Applicant name cannot be empty");
+        }
+        
+        if (application.getApplicantEmail() == null || application.getApplicantEmail().trim().isEmpty()) {
+            throw new InvalidApplicationStateException("Applicant email cannot be empty");
+        }
+        
+        // Format validation
+        if (application.getApplicantEmail() != null && 
+            !EMAIL_PATTERN.matcher(application.getApplicantEmail()).matches()) {
+            throw new InvalidApplicationStateException("Email format is invalid");
+        }
+        
+        if (application.getPhoneNumber() != null && 
+            !application.getPhoneNumber().isEmpty() && 
+            !PHONE_PATTERN.matcher(application.getPhoneNumber()).matches()) {
+            throw new InvalidApplicationStateException("Phone number format is invalid");
+        }
+        
+        // Business logic validation
+        if (!isValidJobForApplication(application.getJob())) {
+            throw new InvalidApplicationStateException("Job is not active or has expired");
+        }
+        
+        if (application.getCoverLetter() != null && 
+            !application.getCoverLetter().isEmpty() && 
+            application.getCoverLetter().length() < MIN_COVER_LETTER_LENGTH) {
+            throw new InvalidApplicationStateException(
+                "Cover letter is too short (minimum " + MIN_COVER_LETTER_LENGTH + " characters)");
+        }
+        
+        if (application.getCoverLetter() != null && 
+            !application.getCoverLetter().isEmpty() && 
+            application.getCoverLetter().length() > MAX_COVER_LETTER_LENGTH) {
+            throw new InvalidApplicationStateException(
+                "Cover letter is too long (maximum " + MAX_COVER_LETTER_LENGTH + " characters)");
+        }
     }
     
-    public ValidationResult validateStatusTransition(Application application, ApplicationStatus newStatus) {
-        return ValidationResult.startValidation()
-            .validateNotNull(application, "Application")
-            .validateNotNull(newStatus, "New status")
-            .validateThat(!application.isInTerminalState(), 
-                "Cannot change status from terminal state " + application.getStatus())
-            .validateThat(isValidStatusTransition(application.getStatus(), newStatus),
-                "Invalid status transition from " + application.getStatus() + " to " + newStatus)
-            .validateThat(
-                newStatus != ApplicationStatus.INTERVIEW_SCHEDULED || 
-                hasContactInformation(application),
-                "Cannot schedule interview without contact information"
-            )
-            .build();
+    /**
+     * Validates a status transition for an application
+     */
+    public void validateStatusTransition(Application application, ApplicationStatus newStatus) {
+        if (application == null) {
+            throw new InvalidApplicationStateException("Application cannot be null");
+        }
+        
+        if (newStatus == null) {
+            throw new InvalidApplicationStateException("New status cannot be null");
+        }
+        
+        if (application.isInTerminalState()) {
+            throw new InvalidApplicationStateException(
+                "Cannot change status from terminal state " + application.getStatus());
+        }
+        
+        if (!isValidStatusTransition(application.getStatus(), newStatus)) {
+            throw new InvalidApplicationStateException(
+                "Invalid status transition from " + application.getStatus() + " to " + newStatus);
+        }
+        
+        if (newStatus == ApplicationStatus.INTERVIEW_SCHEDULED && !hasContactInformation(application)) {
+            throw new InvalidApplicationStateException("Cannot schedule interview without contact information");
+        }
     }
     
     private boolean isValidJobForApplication(Job job) {
@@ -131,24 +156,6 @@ public class ApplicationValidator {
                 
             default:
                 return false;
-        }
-    }
-    
-    public void validateNewApplicationOrThrow(Application application) {
-        ValidationResult result = validateNewApplication(application);
-        if (!result.isValid()) {
-            throw new InvalidApplicationStateException(
-                String.join(", ", result.getErrors())
-            );
-        }
-    }
-    
-    public void validateStatusTransitionOrThrow(Application application, ApplicationStatus newStatus) {
-        ValidationResult result = validateStatusTransition(application, newStatus);
-        if (!result.isValid()) {
-            throw new InvalidApplicationStateException(
-                String.join(", ", result.getErrors())
-            );
         }
     }
 } 

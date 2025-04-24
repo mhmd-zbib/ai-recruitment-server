@@ -1,8 +1,8 @@
 package com.zbib.hiresync.repository;
 
-import com.zbib.hiresync.entity.JobPost;
+import com.zbib.hiresync.dto.TagCountDTO;
+import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.entity.Tag;
-import com.zbib.hiresync.repository.projection.TagCountProjection;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -23,11 +23,11 @@ public interface TagRepository extends JpaRepository<Tag, UUID> {
      * @param limit the maximum number of tags to return
      * @return list of top tags with counts
      */
-    @Query("SELECT t.name AS tagName, COUNT(DISTINCT j) AS count " +
-           "FROM JobPost j " +
+    @Query("SELECT new com.zbib.hiresync.dto.TagCountDTO(t.name, COUNT(DISTINCT j)) " +
+           "FROM Job j " +
            "JOIN j.tags t " +
            "GROUP BY t.name " +
-           "ORDER BY count DESC " +
+           "ORDER BY COUNT(DISTINCT j) DESC " +
            "LIMIT :limit")
-    List<TagCountProjection> findTopTagsForJobPostSpec(@Param("limit") int limit);
+    List<TagCountDTO> findTopTagsForJobPostSpec(@Param("limit") int limit);
 } 

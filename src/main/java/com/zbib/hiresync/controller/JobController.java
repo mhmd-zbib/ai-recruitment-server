@@ -4,6 +4,7 @@ import com.zbib.hiresync.dto.filter.ApplicationFilter;
 import com.zbib.hiresync.dto.filter.JobFilter;
 import com.zbib.hiresync.dto.request.CreateJobRequest;
 import com.zbib.hiresync.dto.request.UpdateJobRequest;
+import com.zbib.hiresync.dto.response.ApplicationResponse;
 import com.zbib.hiresync.dto.response.JobResponse;
 import com.zbib.hiresync.dto.response.JobStatsResponse;
 import com.zbib.hiresync.dto.response.JobSummaryResponse;
@@ -22,14 +23,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/jobs")
+@RequestMapping("/v1/jobs")
 @Tag(name = "Jobs", description = "Job Listings, Search, and Management")
 @RequiredArgsConstructor
 @LoggableService(level = LogLevel.INFO)
@@ -38,21 +38,13 @@ public class JobController {
     private final JobService jobService;
     private final ApplicationService applicationService;
 
-    @GetMapping("/public")
+    @GetMapping("/feed")
     @Operation(summary = "Get all public job posts", description = "Retrieves all active and visible job posts for public access")
     public ResponseEntity<Page<JobSummaryResponse>> getPublicJobs(
             @Parameter(description = "Filter criteria") JobFilter filter,
-            @Parameter(description = "Pagination parameters") 
+            @Parameter(description = "Pagination parameters")
             @PageableDefault(size = 10, page = 0) Pageable pageable) {
-        filter.setActive(true);
-        return ResponseEntity.ok(jobService.getJobs(filter, pageable, null));
-    }
-
-    @GetMapping("/public/{id}")
-    @Operation(summary = "Get public job post by ID", description = "Retrieves job post details for public access")
-    public ResponseEntity<JobResponse> getPublicJobById(
-            @Parameter(description = "Job ID") @PathVariable UUID id) {
-        return ResponseEntity.ok(jobService.getJobById(id, null));
+        return ResponseEntity.ok(jobService.getJobsFeed(filter, pageable));
     }
 
     @PostMapping
@@ -99,12 +91,12 @@ public class JobController {
     @Operation(summary = "Get jobs for current user", description = "Retrieves jobs created by the authenticated user with filtering options")
     public ResponseEntity<Page<JobSummaryResponse>> getUserJobs(
             @Parameter(description = "Filter criteria") JobFilter filter,
-            @Parameter(description = "Pagination parameters") 
+            @Parameter(description = "Pagination parameters")
             @PageableDefault(size = 10, page = 0) Pageable pageable,
             @AuthenticationPrincipal String username) {
         return ResponseEntity.ok(jobService.getJobs(filter, pageable, username));
     }
-    
+
     @GetMapping("/{id}/stats")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Get job statistics", description = "Retrieves statistics for a specific job. User must be the owner.")
@@ -115,18 +107,20 @@ public class JobController {
     }
 
     @GetMapping("/{id}/applications")
-    @PreAuthorize("hasAnyRole('RECRUITER', 'EMPLOYER', 'ADMIN')")
     @SecurityRequirement(name = "bearerAuth")
-    @Operation(summary = "Get applications for a job", description = "Retrieves all applications for a specific job. User must be the owner.")
-    public ResponseEntity<String> getJobApplications(
-            @Parameter(description = "Job ID") @PathVariable("id") UUID jobId,
+    @Operation(summary = "Get applications for a job post", description = "Retrieves all applications for a specific job post. User must be the recruiter who owns the job post.")
+    public ResponseEntity<Page<ApplicationResponse>> getApplicationsByJobPostId(
+            @Parameter(description = "Job Post ID") @PathVariable UUID id,
             @Parameter(description = "Filter criteria") ApplicationFilter filter,
-            @Parameter(description = "Pagination parameters") 
-            @PageableDefault(size = 10, page = 0) Pageable pageable,
+            @Parameter(description = "Pagination parameters") Pageable pageable,
             @AuthenticationPrincipal String username) {
-        return ResponseEntity.ok("This endpoint has been removed as part of service refactoring");
+        if (filter == null) {
+            filter = new ApplicationFilter();
+        }
+        filter.setJobId(id);
+        return ResponseEntity.ok(applicationService.getAllApplications(filter, pageable, username));
     }
-    
+
     @PatchMapping("/{id}/activate")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Toggle job active status", description = "Activates or deactivates a job. User must be the owner.")
@@ -135,7 +129,7 @@ public class JobController {
             @AuthenticationPrincipal String username) {
         return ResponseEntity.ok(jobService.toggleJobActiveStatus(id, username));
     }
-    
+
     @PatchMapping("/{id}/extend")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Extend job visibility", description = "Extends the visibility period of a job. User must be the owner.")
@@ -145,4 +139,5 @@ public class JobController {
             @AuthenticationPrincipal String username) {
         return ResponseEntity.ok(jobService.extendJobVisibility(id, username, days));
     }
+
 } 

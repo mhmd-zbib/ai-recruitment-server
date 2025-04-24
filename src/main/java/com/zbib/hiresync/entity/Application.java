@@ -101,20 +101,6 @@ public class Application {
                 .collect(Collectors.toSet());
     }
     
-    public void validateCompleteness() {
-        if (applicantName == null || applicantName.trim().isEmpty()) {
-            throw InvalidApplicationStateException.missingName();
-        }
-        
-        if (applicantEmail == null || applicantEmail.trim().isEmpty()) {
-            throw InvalidApplicationStateException.missingEmail();
-        }
-        
-        if (job == null) {
-            throw InvalidApplicationStateException.missingJob();
-        }
-    }
-    
     public boolean isActive() {
         // An application is considered active if it's not in a terminal state
         return !isInTerminalState();
@@ -127,8 +113,6 @@ public class Application {
     }
     
     public void updateStatus(ApplicationStatus newStatus, String statusChangeNotes) {
-        validateStatusTransition(newStatus);
-        
         this.status = newStatus;
         
         if (statusChangeNotes != null && !statusChangeNotes.trim().isEmpty()) {
@@ -137,26 +121,6 @@ public class Application {
             } else {
                 this.notes = this.notes + "\n\n" + LocalDateTime.now() + " - Status changed to " + 
                         newStatus + ": " + statusChangeNotes;
-            }
-        }
-    }
-    
-    private void validateStatusTransition(ApplicationStatus newStatus) {
-        if (this.status == newStatus) {
-            return;
-        }
-        
-        // Cannot change status if already in terminal state
-        if (isInTerminalState()) {
-            throw InvalidApplicationStateException.terminalState(this.status);
-        }
-        
-        // Specific validation for transition to INTERVIEW_SCHEDULED
-        if (newStatus == ApplicationStatus.INTERVIEW_SCHEDULED && this.status == ApplicationStatus.SUBMITTED) {
-            // Validate that we have contact information
-            if ((phoneNumber == null || phoneNumber.trim().isEmpty()) && 
-                    (applicantEmail == null || applicantEmail.trim().isEmpty())) {
-                throw InvalidApplicationStateException.missingContactInfo();
             }
         }
     }

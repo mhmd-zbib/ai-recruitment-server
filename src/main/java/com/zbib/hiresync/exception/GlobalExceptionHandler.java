@@ -1,7 +1,7 @@
 package com.zbib.hiresync.exception;
 
-import com.zbib.hiresync.exception.application.ApplicationException;
 import com.zbib.hiresync.exception.auth.AuthException;
+import com.zbib.hiresync.exception.application.ApplicationException;
 import com.zbib.hiresync.exception.jobpost.JobPostException;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -69,12 +69,12 @@ public class GlobalExceptionHandler {
         errors.put("jobPost", ex.getMessage());
         
         ErrorResponse errorResponse = new ErrorResponse(
-                ex.getStatus().value(),
+                HttpStatus.BAD_REQUEST.value(),
                 ex.getMessage(),
                 errors,
                 LocalDateTime.now());
         
-        return ResponseEntity.status(ex.getStatus()).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
     
     /**

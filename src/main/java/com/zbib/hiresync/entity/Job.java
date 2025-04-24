@@ -17,6 +17,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Represents a job in the system
@@ -34,7 +35,7 @@ import java.util.UUID;
         @Index(name = "idx_job_min_salary", columnList = "min_salary"),
         @Index(name = "idx_job_max_salary", columnList = "max_salary"),
         @Index(name = "idx_job_currency", columnList = "currency"),
-        @Index(name = "idx_job_created_by", columnList = "created_by"),
+        @Index(name = "idx_job_created_by_id", columnList = "created_by_id"),
         @Index(name = "idx_job_title_text", columnList = "title"),
         @Index(name = "idx_job_company_name", columnList = "company_name")
     }
@@ -129,6 +130,9 @@ public class Job {
     @Builder.Default
     private List<Application> applications = new ArrayList<>();
 
+    @Column(name = "application_count", nullable = false)
+    private int applicationCount = 0;
+
     public boolean isActive() {
         return this.active && !isExpired();
     }
@@ -150,7 +154,11 @@ public class Job {
     }
 
     public boolean hasApplications() {
-        return !this.applications.isEmpty();
+        return this.applicationCount > 0;
+    }
+
+    public void incrementApplicationCount() {
+        this.applicationCount++;
     }
 
     public void extendVisibilityBy(int days) {
@@ -185,5 +193,11 @@ public class Job {
     public Job removeTag(Tag tag) {
         tags.remove(tag);
         return this;
+    }
+
+    public Set<String> getSkillNames() {
+        return skills.stream()
+                .map(Skill::getName)
+                .collect(Collectors.toSet());
     }
 } 

@@ -1,5 +1,7 @@
 package com.zbib.hiresync.repository;
 
+import com.zbib.hiresync.dto.JobCountDTO;
+import com.zbib.hiresync.dto.StatusCountDTO;
 import com.zbib.hiresync.entity.Application;
 import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.entity.User;
@@ -113,23 +115,43 @@ public interface ApplicationRepository extends JpaRepository<Application, UUID>,
      * Count applications by status for jobs created by a specific user
      *
      * @param user the user who created the jobs
-     * @return array with status and count
+     * @return list of status count DTOs
      */
-    @Query("SELECT a.status, COUNT(a) FROM Application a " +
+    @Query("SELECT new com.zbib.hiresync.dto.StatusCountDTO(a.status, COUNT(a)) " +
+           "FROM Application a " +
            "JOIN a.job j WHERE j.createdBy = :user " +
            "GROUP BY a.status")
-    List<Object[]> countApplicationsByStatusForUser(@Param("user") User user);
+    List<StatusCountDTO> countApplicationsByStatusForUser(@Param("user") User user);
     
     /**
      * Count applications by job for a specific user
      *
      * @param user the user who created the jobs
-     * @return array with job ID and count
+     * @return list of job count DTOs
      */
-    @Query("SELECT j.id, COUNT(a) FROM Application a " +
+    @Query("SELECT new com.zbib.hiresync.dto.JobCountDTO(j.id, COUNT(a)) " +
+           "FROM Application a " +
            "JOIN a.job j WHERE j.createdBy = :user " +
            "GROUP BY j.id")
-    List<Object[]> countApplicationsByJobPostForUser(@Param("user") User user);
+    List<JobCountDTO> countApplicationsByJobPostForUser(@Param("user") User user);
 
-    Page<Application> findByJobIdAndFilter(Specification<Application> applicationSpecification, Pageable pageable);
+    /**
+     * Find applications with the given job ID using a specification for filtering
+     * 
+     * @param jobId the job ID
+     * @param specification the specification to filter results
+     * @param pageable pagination information
+     * @return page of applications matching the criteria
+     */
+    @Query("SELECT a FROM Application a WHERE a.job.id = :jobId")
+    Page<Application> findByJobId(@Param("jobId") UUID jobId, Pageable pageable);
+    
+    /**
+     * Find applications using a specification for filtering
+     * 
+     * @param specification the specification to filter results
+     * @param pageable pagination information
+     * @return page of applications matching the criteria
+     */
+    Page<Application> findAll(Specification<Application> specification, Pageable pageable);
 }

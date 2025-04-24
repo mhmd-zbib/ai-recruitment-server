@@ -137,7 +137,7 @@ public class JobBuilder {
                 .visibleUntil(job.getVisibleUntil())
                 .skills(job.getSkills().stream().map(Skill::getName).collect(Collectors.toSet()))
                 .tags(job.getTags().stream().map(Tag::getName).collect(Collectors.toSet()))
-                .applicationCount(job.getApplications() != null ? job.getApplications().size() : 0)
+                .applicationCount(job.getApplicationCount())
                 .createdAt(job.getCreatedAt())
                 .updatedAt(job.getUpdatedAt())
                 .build();
@@ -158,7 +158,7 @@ public class JobBuilder {
                 .visibleUntil(job.getVisibleUntil())
                 .skills(job.getSkills().stream().map(Skill::getName).collect(Collectors.toSet()))
                 .tags(job.getTags().stream().map(Tag::getName).collect(Collectors.toSet()))
-                .applicationCount(job.getApplications() != null ? job.getApplications().size() : 0)
+                .applicationCount(job.getApplicationCount())
                 .createdAt(job.getCreatedAt())
                 .build();
     }
@@ -168,9 +168,34 @@ public class JobBuilder {
         
         return JobStatsResponse.builder()
                 .totalViews(totalViews)
-                .totalApplications(job.getApplications() != null ? job.getApplications().size() : 0)
+                .totalApplications(job.getApplicationCount())
                 .applicationsByStatus(applicationsByStatus)
                 .applicantsByTopSkills(applicantsByTopSkills)
                 .build();
+    }
+    
+    private String formatSalary(java.math.BigDecimal minSalary, java.math.BigDecimal maxSalary, String currency) {
+        if (minSalary == null && maxSalary == null) {
+            return "Not specified";
+        }
+        
+        StringBuilder sb = new StringBuilder();
+        if (minSalary != null) {
+            sb.append(minSalary.toString());
+        }
+        
+        if (minSalary != null && maxSalary != null) {
+            sb.append(" - ");
+        }
+        
+        if (maxSalary != null) {
+            sb.append(maxSalary.toString());
+        }
+        
+        if (currency != null && !currency.isBlank()) {
+            sb.append(" ").append(currency);
+        }
+        
+        return sb.toString();
     }
 }

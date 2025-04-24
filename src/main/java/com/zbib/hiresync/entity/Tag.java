@@ -40,5 +40,5 @@ public class Tag {
 
     @ManyToMany(mappedBy = "tags")
     @Builder.Default
-    private Set<JobPost> jobPosts = new HashSet<>();
+    private Set<Job> jobs = new HashSet<>();
 } 

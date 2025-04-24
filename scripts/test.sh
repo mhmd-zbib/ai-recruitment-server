@@ -25,7 +25,7 @@ ensure_devtools() {
 
 # Run Maven command in devtools container
 run_maven() {
-  docker compose -f docker/docker-compose.local.yaml exec devtools mvn -e $@
+  docker compose -f docker/docker-compose.local.yaml exec devtools mvn -q $@
   return $?
 }
 
@@ -34,9 +34,10 @@ prepare_env() {
   print_header "Setting up test environment"
   export SPRING_PROFILES_ACTIVE=test
   export TZ=UTC
-  export LOG_LEVEL_ROOT=WARN
-  export LOG_LEVEL_APP=DEBUG
-  export LOG_LEVEL_SQL=DEBUG
+  # Minimize logging - only show errors
+  export LOG_LEVEL_ROOT=ERROR
+  export LOG_LEVEL_APP=ERROR
+  export LOG_LEVEL_SQL=ERROR
   export JWT_SECRET=test-secret-key-with-minimum-length-of-32-characters
   export JWT_ISSUER=hiresync-test
   export JWT_EXPIRATION=86400000
@@ -51,9 +52,9 @@ run_unit_tests() {
   # Check if we need to skip failing tests
   if [ "$SKIP_FAILING" = true ]; then
     echo -e "${YELLOW}Skipping currently failing tests${NC}"
-    run_maven test -P ci -Dtest=!*ControllerTest,!*ApplicationsIntegrationTest,!ApplicationServiceTest
+    run_maven test -P ci -Dsurefire.printSummary=false -Dtest=!*ControllerTest,!*ApplicationsIntegrationTest,!ApplicationServiceTest
   else
-    run_maven test -P ci
+    run_maven test -P ci -Dsurefire.printSummary=false
   fi
   
   if [ $? -eq 0 ]; then
@@ -78,19 +79,19 @@ start_test_environment() {
   max_attempts=10
   
   until $(curl --output /dev/null --silent --fail http://localhost:8080/actuator/health) || [ $attempt -gt $max_attempts ]; do
-    echo "Waiting for application to be ready (attempt $attempt of $max_attempts)..."
+    printf "."
     sleep 5
     attempt=$((attempt+1))
   done
   
   if [ $attempt -gt $max_attempts ]; then
-    echo -e "${RED}Application failed to start in time. Checking logs:${NC}"
-    docker compose -f docker/docker-compose.local.yaml logs
+    echo -e "\n${RED}Application failed to start in time. Checking logs:${NC}"
+    docker compose -f docker/docker-compose.local.yaml logs --tail=50
     clean_up
     exit 1
   fi
   
-  echo -e "${GREEN}Test environment is ready!${NC}"
+  echo -e "\n${GREEN}Test environment is ready!${NC}"
 }
 
 # Run integration tests
@@ -101,9 +102,9 @@ run_integration_tests() {
   # Check if we need to skip failing tests
   if [ "$SKIP_FAILING" = true ]; then
     echo -e "${YELLOW}Skipping currently failing integration tests${NC}"
-    run_maven verify -P ci -DskipUnitTests=true -Dtest=!*ControllerTest,!*ApplicationsIntegrationTest
+    run_maven verify -P ci -DskipUnitTests=true -Dsurefire.printSummary=false -Dtest=!*ControllerTest,!*ApplicationsIntegrationTest
   else
-    run_maven verify -P ci -DskipUnitTests=true
+    run_maven verify -P ci -DskipUnitTests=true -Dsurefire.printSummary=false
   fi
   
   if [ $? -eq 0 ]; then

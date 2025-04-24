@@ -1,9 +1,8 @@
 package com.zbib.hiresync.repository;
 
-import com.zbib.hiresync.entity.JobPost;
+import com.zbib.hiresync.dto.SkillCountDTO;
+import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.entity.Skill;
-import com.zbib.hiresync.repository.projection.SkillCountProjection;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,17 +16,19 @@ import java.util.UUID;
 public interface SkillRepository extends JpaRepository<Skill, UUID> {
     Optional<Skill> findByNameIgnoreCase(String name);
     
+    List<Skill> findByCategoryIgnoreCase(String category);
+    
     /**
      * Find top skills for job posts
      * 
      * @param limit the maximum number of skills to return
      * @return list of top skills with counts
      */
-    @Query("SELECT s.name AS skillName, COUNT(DISTINCT j) AS count " +
-           "FROM JobPost j " +
+    @Query("SELECT new com.zbib.hiresync.dto.SkillCountDTO(s.name, COUNT(DISTINCT j)) " +
+           "FROM Job j " +
            "JOIN j.skills s " +
            "GROUP BY s.name " +
-           "ORDER BY count DESC " +
+           "ORDER BY COUNT(DISTINCT j) DESC " +
            "LIMIT :limit")
-    List<SkillCountProjection> findTopSkillsForJobPostSpec(@Param("limit") int limit);
+    List<SkillCountDTO> findTopSkillsForJobPostSpec(@Param("limit") int limit);
 } 
