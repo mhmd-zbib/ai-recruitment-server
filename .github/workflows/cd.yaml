@@ -2,11 +2,10 @@ name: CD Pipeline
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
     paths-ignore:
       - '**.md'
       - 'docs/**'
-      - '.github/*.md'
   workflow_dispatch:
     inputs:
       environment:
@@ -14,29 +13,15 @@ on:
         required: true
         default: 'staging'
         type: choice
-        options:
-          - staging
-          - production
-      version:
-        description: 'Version tag (leave empty for auto)'
-        required: false
-        type: string
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false  # Don't cancel deployments in progress
+        options: [staging, production]
 
 env:
-  DOCKER_IMAGE: hiresync
   APP_NAME: hiresync
-  DOCKER_TAG: ${{ github.sha }}
 
 jobs:
-  prepare:
+  deploy:
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.set-version.outputs.version }}
-      deploy_env: ${{ steps.set-env.outputs.deploy_env }}
+    environment: ${{ github.event.inputs.environment || 'staging' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -46,244 +31,96 @@ jobs:
       - name: Set version
         id: set-version
         run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            # Generate version from git
-            VERSION="$(git describe --tags --abbrev=0 2>/dev/null || echo 'v0.1.0')-$(git rev-parse --short HEAD)"
-          fi
+          VERSION="$(git describe --tags --abbrev=0 2>/dev/null || echo 'v0.1.0')-$(git rev-parse --short HEAD)"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Using version: $VERSION"
       
-      - name: Set deployment environment
-        id: set-env
+      - name: Set deployment variables
+        id: vars
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            DEPLOY_ENV="${{ github.event.inputs.environment }}"
-          else
-            DEPLOY_ENV="staging"  # Default to staging on push to master
-          fi
-          echo "deploy_env=$DEPLOY_ENV" >> $GITHUB_OUTPUT
-          echo "Deploying to: $DEPLOY_ENV"
-
-  deploy-staging:
-    needs: prepare
-    if: needs.prepare.outputs.deploy_env == 'staging'
-    runs-on: ubuntu-latest
-    environment: staging
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+          ENV="${{ github.event.inputs.environment || 'staging' }}"
+          echo "deploy_env=$ENV" >> $GITHUB_OUTPUT
+          echo "is_prod=${{ github.event.inputs.environment == 'production' }}" >> $GITHUB_OUTPUT
+          echo "Deploying to: $ENV"
       
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
+          ssh-private-key: ${{ secrets[format('{0}_SSH_KEY', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
       
-      - name: Deploy to Staging
+      - name: Deploy
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          APP_VERSION: ${{ needs.prepare.outputs.version }}
-          SSH_HOST: ${{ secrets.STAGING_HOST }}
-          SSH_USER: ${{ secrets.STAGING_USER }}
-          SSH_PORT: ${{ secrets.STAGING_PORT || '22' }}
+          APP_VERSION: ${{ steps.set-version.outputs.version }}
+          SSH_HOST: ${{ secrets[format('{0}_HOST', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
+          SSH_USER: ${{ secrets[format('{0}_USER', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
+          SSH_PORT: ${{ secrets[format('{0}_PORT', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] || '22' }}
+          DB_USER: ${{ secrets[format('{0}_DB_USER', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
+          DB_PASSWORD: ${{ secrets[format('{0}_DB_PASSWORD', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
+          JWT_SECRET: ${{ secrets[format('{0}_JWT_SECRET', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
+          APPLY_INDEX_FIX: ${{ secrets.APPLY_INDEX_FIX || 'false' }}
+          PROFILE: ${{ steps.vars.outputs.deploy_env == 'production' && 'prod' || 'staging' }}
+          JWT_ISSUER: ${{ steps.vars.outputs.deploy_env == 'production' && 'hiresync' || 'hiresync-staging' }}
+          JWT_AUDIENCE: ${{ steps.vars.outputs.deploy_env == 'production' && 'hiresync-app' || 'hiresync-app-staging' }}
         run: |
-          echo "Deploying version $APP_VERSION to staging"
+          echo "Deploying version $APP_VERSION to ${{ steps.vars.outputs.deploy_env }}"
           
-          # Create deployment directory structure
+          # Prep deployment
           ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST "mkdir -p ~/deployments/$APP_NAME"
-          
-          # Copy deployment script and docker-compose file
           scp -o StrictHostKeyChecking=no -P $SSH_PORT scripts/deploy-prod.sh $SSH_USER@$SSH_HOST:~/deployments/$APP_NAME/deploy.sh
           scp -o StrictHostKeyChecking=no -P $SSH_PORT docker/docker-compose.prod.yaml $SSH_USER@$SSH_HOST:~/deployments/$APP_NAME/docker-compose.yaml
-          
-          # Make script executable
           ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST "chmod +x ~/deployments/$APP_NAME/deploy.sh"
           
-          # Create .env file for deployment
+          # Create .env file
           ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST "cat > ~/deployments/$APP_NAME/.env" << EOF
-          # Docker settings
-          DOCKER_IMAGE=$DOCKER_USERNAME/$DOCKER_IMAGE
+          DOCKER_IMAGE=$DOCKER_USERNAME/$APP_NAME
           DOCKER_TAG=$APP_VERSION
-          
-          # Database settings
           POSTGRES_DB=hiresync
-          POSTGRES_USER=${{ secrets.STAGING_DB_USER }}
-          POSTGRES_PASSWORD=${{ secrets.STAGING_DB_PASSWORD }}
-          
-          # Application settings
-          SPRING_PROFILES_ACTIVE=staging
-          SPRING_DATASOURCE_USERNAME=${{ secrets.STAGING_DB_USER }}
-          SPRING_DATASOURCE_PASSWORD=${{ secrets.STAGING_DB_PASSWORD }}
-          
-          # Security settings
-          JWT_SECRET=${{ secrets.STAGING_JWT_SECRET }}
-          JWT_ISSUER=hiresync-staging
-          JWT_AUDIENCE=hiresync-app-staging
-          
-          # Index fix flag (set to true if needed)
-          APPLY_INDEX_FIX=${{ secrets.APPLY_INDEX_FIX || 'false' }}
+          POSTGRES_USER=$DB_USER
+          POSTGRES_PASSWORD=$DB_PASSWORD
+          SPRING_PROFILES_ACTIVE=$PROFILE
+          SPRING_DATASOURCE_USERNAME=$DB_USER
+          SPRING_DATASOURCE_PASSWORD=$DB_PASSWORD
+          JWT_SECRET=$JWT_SECRET
+          JWT_ISSUER=$JWT_ISSUER
+          JWT_AUDIENCE=$JWT_AUDIENCE
+          APPLY_INDEX_FIX=$APPLY_INDEX_FIX
           EOF
           
-          # Run the deployment script
+          # Run deployment
           ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST "cd ~/deployments/$APP_NAME && ./deploy.sh"
       
       - name: Verify Deployment
         env:
-          SSH_HOST: ${{ secrets.STAGING_HOST }}
-          SSH_USER: ${{ secrets.STAGING_USER }}
-          SSH_PORT: ${{ secrets.STAGING_PORT || '22' }}
+          SSH_HOST: ${{ secrets[format('{0}_HOST', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
+          SSH_USER: ${{ secrets[format('{0}_USER', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
+          SSH_PORT: ${{ secrets[format('{0}_PORT', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] || '22' }}
         run: |
-          # Wait for application to be ready
-          echo "Waiting for application to be ready..."
-          attempt=1
-          max_attempts=12
-          until ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST "curl -s http://localhost:8080/actuator/health | grep -q 'UP'"; do
-            if [ $attempt -ge $max_attempts ]; then
-              echo "Application failed to start in time"
+          for i in {1..12}; do
+            if ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST "curl -s http://localhost:8080/actuator/health | grep -q 'UP'"; then
+              echo "✅ ${{ steps.vars.outputs.deploy_env }} deployment successful!"
+              break
+            fi
+            
+            if [ $i -eq 12 ]; then
+              echo "❌ Application failed to start in time"
               exit 1
             fi
-            echo "Waiting for application to be ready (attempt $attempt of $max_attempts)..."
+            
+            echo "Waiting for application to be ready (attempt $i of 12)..."
             sleep 10
-            attempt=$((attempt+1))
           done
-          
-          echo "✅ Staging deployment successful!"
-      
-      - name: Notify Success
-        if: success()
-        uses: slackapi/slack-github-action@v1.25.0
-        with:
-          payload: |
-            {
-              "text": "✅ Successfully deployed ${{ env.APP_NAME }} version ${{ needs.prepare.outputs.version }} to Staging",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "✅ Successfully deployed *${{ env.APP_NAME }}* to Staging"
-                  }
-                },
-                {
-                  "type": "section",
-                  "fields": [
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Version:*\n${{ needs.prepare.outputs.version }}"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*Deployed by:*\n${{ github.actor }}"
-                    }
-                  ]
-                }
-              ]
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_STAGING }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
-
-  deploy-production:
-    needs: [prepare, deploy-staging]
-    if: |
-      needs.prepare.outputs.deploy_env == 'production' || 
-      (always() && needs.prepare.outputs.deploy_env == 'staging' && needs.deploy-staging.result == 'success' && github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.PRODUCTION_SSH_KEY }}
-      
-      - name: Deploy to Production
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          APP_VERSION: ${{ needs.prepare.outputs.version }}
-          SSH_HOST: ${{ secrets.PRODUCTION_HOST }}
-          SSH_USER: ${{ secrets.PRODUCTION_USER }}
-          SSH_PORT: ${{ secrets.PRODUCTION_PORT || '22' }}
-        run: |
-          echo "Deploying version $APP_VERSION to production"
-          
-          # Create deployment directory structure
-          ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST "mkdir -p ~/deployments/$APP_NAME"
-          
-          # Copy deployment script and docker-compose file
-          scp -o StrictHostKeyChecking=no -P $SSH_PORT scripts/deploy-prod.sh $SSH_USER@$SSH_HOST:~/deployments/$APP_NAME/deploy.sh
-          scp -o StrictHostKeyChecking=no -P $SSH_PORT docker/docker-compose.prod.yaml $SSH_USER@$SSH_HOST:~/deployments/$APP_NAME/docker-compose.yaml
-          
-          # Make script executable
-          ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST "chmod +x ~/deployments/$APP_NAME/deploy.sh"
-          
-          # Create .env file for deployment
-          ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST "cat > ~/deployments/$APP_NAME/.env" << EOF
-          # Docker settings
-          DOCKER_IMAGE=$DOCKER_USERNAME/$DOCKER_IMAGE
-          DOCKER_TAG=$APP_VERSION
-          
-          # Database settings
-          POSTGRES_DB=hiresync
-          POSTGRES_USER=${{ secrets.PRODUCTION_DB_USER }}
-          POSTGRES_PASSWORD=${{ secrets.PRODUCTION_DB_PASSWORD }}
-          
-          # Application settings
-          SPRING_PROFILES_ACTIVE=prod
-          SPRING_DATASOURCE_USERNAME=${{ secrets.PRODUCTION_DB_USER }}
-          SPRING_DATASOURCE_PASSWORD=${{ secrets.PRODUCTION_DB_PASSWORD }}
-          
-          # Security settings
-          JWT_SECRET=${{ secrets.PRODUCTION_JWT_SECRET }}
-          JWT_ISSUER=hiresync
-          JWT_AUDIENCE=hiresync-app
-          
-          # Index fix flag (set to true if needed)
-          APPLY_INDEX_FIX=${{ secrets.APPLY_INDEX_FIX || 'false' }}
-          EOF
-          
-          # Run the deployment script
-          ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST "cd ~/deployments/$APP_NAME && ./deploy.sh"
-      
-      - name: Verify Deployment
-        env:
-          SSH_HOST: ${{ secrets.PRODUCTION_HOST }}
-          SSH_USER: ${{ secrets.PRODUCTION_USER }}
-          SSH_PORT: ${{ secrets.PRODUCTION_PORT || '22' }}
-        run: |
-          # Wait for application to be ready
-          echo "Waiting for application to be ready..."
-          attempt=1
-          max_attempts=12
-          until ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST "curl -s http://localhost:8080/actuator/health | grep -q 'UP'"; do
-            if [ $attempt -ge $max_attempts ]; then
-              echo "Application failed to start in time"
-              exit 1
-            fi
-            echo "Waiting for application to be ready (attempt $attempt of $max_attempts)..."
-            sleep 10
-            attempt=$((attempt+1))
-          done
-          
-          echo "✅ Production deployment successful!"
       
       - name: Create Release
+        if: steps.vars.outputs.is_prod == 'true'
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ needs.prepare.outputs.version }}
-          name: Release ${{ needs.prepare.outputs.version }}
+          tag: ${{ steps.set-version.outputs.version }}
+          name: Release ${{ steps.set-version.outputs.version }}
           body: |
-            Release ${{ needs.prepare.outputs.version }}
-            
+            Release ${{ steps.set-version.outputs.version }}
             Deployed to production on $(date)
-            
-            Changes in this release:
-            ${{ github.event.head_commit.message }}
           draft: false
-          prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Notify Success
@@ -292,13 +129,13 @@ jobs:
         with:
           payload: |
             {
-              "text": "🚀 Successfully deployed ${{ env.APP_NAME }} version ${{ needs.prepare.outputs.version }} to Production",
+              "text": "${{ steps.vars.outputs.is_prod == 'true' && '🚀' || '✅' }} Successfully deployed ${{ env.APP_NAME }} v${{ steps.set-version.outputs.version }} to ${{ steps.vars.outputs.deploy_env }}",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "🚀 Successfully deployed *${{ env.APP_NAME }}* to Production"
+                    "text": "${{ steps.vars.outputs.is_prod == 'true' && '🚀' || '✅' }} Successfully deployed *${{ env.APP_NAME }}* to ${{ steps.vars.outputs.deploy_env }}"
                   }
                 },
                 {
@@ -306,10 +143,10 @@ jobs:
                   "fields": [
                     {
                       "type": "mrkdwn",
-                      "text": "*Version:*\n${{ needs.prepare.outputs.version }}"
+                      "text": "*Version:*\n${{ steps.set-version.outputs.version }}"
                     },
                     {
-                      "type": "mrkdwn",
+                      "type": "mrkdwn", 
                       "text": "*Deployed by:*\n${{ github.actor }}"
                     }
                   ]
@@ -317,5 +154,5 @@ jobs:
               ]
             }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_PRODUCTION }}
+          SLACK_WEBHOOK_URL: ${{ secrets[format('{0}_WEBHOOK_{1}', 'SLACK', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
           SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK 

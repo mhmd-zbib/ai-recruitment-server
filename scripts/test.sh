@@ -6,10 +6,29 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 print_header() {
   echo -e "\n${BLUE}==>${NC} $1"
+}
+
+print_section() {
+  echo -e "\n${CYAN}================================================${NC}"
+  echo -e "${CYAN}  $1${NC}"
+  echo -e "${CYAN}================================================${NC}"
+}
+
+print_success() {
+  echo -e "${GREEN}✅ $1${NC}"
+}
+
+print_error() {
+  echo -e "${RED}❌ $1${NC}"
+}
+
+print_warning() {
+  echo -e "${YELLOW}⚠️  $1${NC}"
 }
 
 # Ensure devtools container is up
@@ -118,6 +137,57 @@ run_integration_tests() {
   fi
 }
 
+# Run checkstyle analysis
+run_checkstyle() {
+  print_section "Running Checkstyle"
+  ensure_devtools
+  run_maven checkstyle:check
+
+  if [ $? -eq 0 ]; then
+    print_success "Checkstyle passed!"
+  else
+    print_error "Checkstyle failed!"
+    if [ "$FAIL_FAST" = true ]; then
+      clean_up
+      exit 1
+    fi
+  fi
+}
+
+# Run PMD analysis
+run_pmd() {
+  print_section "Running PMD"
+  ensure_devtools
+  run_maven pmd:check
+
+  if [ $? -eq 0 ]; then
+    print_success "PMD passed!"
+  else
+    print_error "PMD failed!"
+    if [ "$FAIL_FAST" = true ]; then
+      clean_up
+      exit 1
+    fi
+  fi
+}
+
+# Run SpotBugs analysis
+run_spotbugs() {
+  print_section "Running SpotBugs"
+  ensure_devtools
+  run_maven spotbugs:check
+
+  if [ $? -eq 0 ]; then
+    print_success "SpotBugs passed!"
+  else
+    print_error "SpotBugs failed!"
+    if [ "$FAIL_FAST" = true ]; then
+      clean_up
+      exit 1
+    fi
+  fi
+}
+
 # Clean up resources
 clean_up() {
   print_header "Cleaning up"
@@ -137,6 +207,40 @@ run_all_tests() {
   echo -e "\n${GREEN}All tests completed successfully!${NC}"
 }
 
+# Run quality checks
+run_quality_checks() {
+  ensure_devtools
+  run_checkstyle
+  run_pmd
+  run_spotbugs
+  
+  echo -e "\n${GREEN}All quality checks completed successfully!${NC}"
+}
+
+# Show help
+show_help() {
+  echo "Usage: $0 [command] [options]"
+  echo ""
+  echo "Commands:"
+  echo "  all           Run all tests (unit + integration)"
+  echo "  unit          Run unit tests only"
+  echo "  integration   Run integration tests only" 
+  echo "  quality       Run all quality checks (checkstyle, pmd, spotbugs)"
+  echo "  checkstyle    Run checkstyle only"
+  echo "  pmd           Run PMD only"
+  echo "  spotbugs      Run SpotBugs only"
+  echo "  help          Show this help message"
+  echo ""
+  echo "Options:"
+  echo "  skip-failing  Skip known failing tests"
+  echo "  fail-fast     Exit immediately on first failure"
+  echo ""
+  echo "Examples:"
+  echo "  $0 unit                  # Run unit tests"
+  echo "  $0 quality               # Run all quality checks"
+  echo "  $0 all skip-failing      # Run all tests but skip known failures"
+}
+
 # Parse command line arguments
 SKIP_FAILING=false
 FAIL_FAST=false
@@ -153,7 +257,10 @@ for arg in "$@"; do
 done
 
 # Execute tests based on first argument
-case "$1" in
+case "${1:-all}" in
+  "all")
+    run_all_tests
+    ;;
   "unit")
     prepare_env
     run_unit_tests
@@ -163,7 +270,24 @@ case "$1" in
     start_test_environment
     run_integration_tests
     ;;
+  "quality")
+    run_quality_checks
+    ;;
+  "checkstyle")
+    run_checkstyle
+    ;;
+  "pmd")
+    run_pmd
+    ;;
+  "spotbugs")
+    run_spotbugs
+    ;;
+  "help")
+    show_help
+    ;;
   *)
-    run_all_tests
+    print_error "Unknown command: ${1:-all}"
+    show_help
+    exit 1
     ;;
 esac 
