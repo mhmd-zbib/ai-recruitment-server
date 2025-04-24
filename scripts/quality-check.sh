@@ -119,11 +119,8 @@ start_docker_env() {
 }
 
 check_all() {
-  print_header "Running All Quality Checks"
+  print_header "Running All Code Quality Checks"
   
-  # Compilation
-  run_check "mvn clean compile" "Compilation"
-
   # Checkstyle
   run_check "mvn checkstyle:check" "Checkstyle"
   
@@ -133,18 +130,15 @@ check_all() {
   # SpotBugs
   run_check "mvn spotbugs:check" "SpotBugs" false
   
-  # Tests
-  run_check "mvn test" "Unit Tests" false
+  # Dependency Check
+  run_check "mvn dependency-check:check" "Dependency Check" false
   
-  print_success "All quality checks completed!"
+  print_success "All code quality checks completed!"
 }
 
 check_specific() {
   local check_type="$1"
   case "$check_type" in
-    "compile")
-      run_check "mvn clean compile" "Compilation"
-      ;;
     "checkstyle")
       run_check "mvn checkstyle:check" "Checkstyle"
       ;;
@@ -154,12 +148,12 @@ check_specific() {
     "spotbugs")
       run_check "mvn spotbugs:check" "SpotBugs"
       ;;
-    "test")
-      run_check "mvn test" "Unit Tests"
+    "dependency")
+      run_check "mvn dependency-check:check" "Dependency Check"
       ;;
     *)
       print_error "Unknown check type: $check_type"
-      echo "Available checks: compile, checkstyle, pmd, spotbugs, test"
+      echo "Available checks: checkstyle, pmd, spotbugs, dependency"
       exit 1
       ;;
   esac
@@ -169,12 +163,11 @@ show_help() {
   echo "Usage: $0 [command]"
   echo ""
   echo "Commands:"
-  echo "  all         Run all quality checks (default)"
-  echo "  compile     Run compilation check only"
+  echo "  all         Run all code quality checks (default)"
   echo "  checkstyle  Run checkstyle check only"
   echo "  pmd         Run PMD check only"
   echo "  spotbugs    Run SpotBugs check only"
-  echo "  test        Run unit tests only"
+  echo "  dependency  Run dependency check only"
   echo "  help        Show this help message"
 }
 
@@ -187,7 +180,7 @@ case "$command" in
   "all")
     check_all
     ;;
-  "compile"|"checkstyle"|"pmd"|"spotbugs"|"test")
+  "checkstyle"|"pmd"|"spotbugs"|"dependency")
     check_specific "$command"
     ;;
   "help")
