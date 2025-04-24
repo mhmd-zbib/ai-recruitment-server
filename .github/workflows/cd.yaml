@@ -23,7 +23,9 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: ${{ (github.event.workflow_run.conclusion == 'success') || (github.event_name == 'workflow_dispatch') }}
+    if: |
+      (github.event.workflow_run.conclusion == 'success') || 
+      (github.event_name == 'workflow_dispatch')
     environment: ${{ github.event.inputs.environment || 'staging' }}
     steps:
       - name: Checkout code
@@ -31,6 +33,13 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_branch || github.ref }}
+      
+      - name: Debug event info
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Workflow run event: ${{ github.event.workflow_run.event }}"
+          echo "Workflow run conclusion: ${{ github.event.workflow_run.conclusion }}"
+          echo "Head branch: ${{ github.event.workflow_run.head_branch }}"
       
       - name: Set version
         id: set-version
