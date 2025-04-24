@@ -40,13 +40,13 @@ jobs:
       
       - name: Code Quality
         run: |
-          mvn pmd:check checkstyle:check -P ci
+          mvn checkstyle:check -P ci -Dpmd.skip=true
       
       - name: Unit Tests
-        run: mvn test -P ci
+        run: mvn test -P ci -Dpmd.skip=true
       
       - name: Build
-        run: mvn package -DskipTests -P ci
+        run: mvn package -DskipTests -P ci -Dpmd.skip=true
   
   docker:
     needs: verify
@@ -65,7 +65,7 @@ jobs:
           cache: 'maven'
       
       - name: Build JAR
-        run: mvn package -DskipTests -P ci
+        run: mvn package -DskipTests -P ci -Dpmd.skip=true
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

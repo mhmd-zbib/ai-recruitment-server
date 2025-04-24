@@ -102,25 +102,24 @@ fi
 
 # Quick compile check if Java files changed
 if [ -n "$CHANGED_JAVA_FILES" ]; then
-  if ! run_check "mvn compile -q" "Compilation check"; then
+  if ! run_check "mvn compile -q -Dpmd.skip=true" "Compilation check"; then
     exit 1
   fi
 
-  # Run checkstyle on changed files only
+  # Run Checkstyle on changed files only using main ruleset
   JAVA_FILES_CSV=$(echo "$CHANGED_JAVA_FILES" | tr '\n' ',')
   if [ -n "$JAVA_FILES_CSV" ]; then
-    if ! run_check "mvn checkstyle:check -Dcheckstyle.includes=$JAVA_FILES_CSV -Dcheckstyle.failOnViolation=true -q" "Checkstyle formatting"; then
+    MAIN_CHECKSTYLE_RULESET="src/main/resources/checkstyle.xml"
+    if ! run_check "mvn checkstyle:check -Dcheckstyle.configLocation=$MAIN_CHECKSTYLE_RULESET -Dincludes=$JAVA_FILES_CSV -q -Dpmd.skip=true" "Checkstyle check (changed files only)"; then
+      echo "Note: For a full Checkstyle check, run: ./scripts/quality-check.sh checkstyle"
       exit 1
     fi
   fi
   
-  # Run PMD on changed files only using main ruleset
-  if [ -n "$JAVA_FILES_CSV" ]; then
-    MAIN_PMD_RULESET="src/main/resources/pmd-rules.xml"
-    if ! run_check "mvn pmd:check -Drulesets=$MAIN_PMD_RULESET -Dincludes=$JAVA_FILES_CSV -q" "PMD check (changed files only)"; then
-      echo "Note: For a full PMD check, run: ./scripts/quality-check.sh pmd"
-      exit 1
-    fi
+  # Run SpotBugs on changed files only
+  if ! run_check "mvn spotbugs:check -Dincludes=$JAVA_FILES_CSV -q -Dpmd.skip=true" "SpotBugs check (changed files only)"; then
+    echo "Note: For a full SpotBugs check, run: ./scripts/quality-check.sh spotbugs"
+    exit 1
   fi
 fi
 

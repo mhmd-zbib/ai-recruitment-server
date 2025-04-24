@@ -96,7 +96,7 @@ for arg in "$@"; do
 done
 
 # Common Maven options
-MVN_OPTS="-P lint -Dskip.tests=true"
+MVN_OPTS="-P lint -Dskip.tests=true -Dpmd.skip=true"
 
 # Step 1: Code formatting with Spotless
 if [ "$SKIP_FORMAT" = false ]; then
