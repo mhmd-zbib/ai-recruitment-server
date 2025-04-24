@@ -13,33 +13,30 @@ on:
       environment:
         description: 'Environment to deploy to'
         required: true
-        default: 'staging'
+        default: 'dev'
         type: choice
-        options: [staging, production]
+        options: [dev, prod]
 
 env:
   APP_NAME: hiresync
+  DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
 jobs:
-  deploy:
+  prepare:
     runs-on: ubuntu-latest
     if: |
       (github.event.workflow_run.conclusion == 'success') || 
       (github.event_name == 'workflow_dispatch')
-    environment: ${{ github.event.inputs.environment || 'staging' }}
+    outputs:
+      version: ${{ steps.set-version.outputs.version }}
+      deploy_env: ${{ steps.vars.outputs.deploy_env }}
+      image_tag: ${{ steps.vars.outputs.image_tag }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_branch || github.ref }}
-      
-      - name: Debug event info
-        run: |
-          echo "Event name: ${{ github.event_name }}"
-          echo "Workflow run event: ${{ github.event.workflow_run.event }}"
-          echo "Workflow run conclusion: ${{ github.event.workflow_run.conclusion }}"
-          echo "Head branch: ${{ github.event.workflow_run.head_branch }}"
       
       - name: Set version
         id: set-version
@@ -51,90 +48,84 @@ jobs:
       - name: Set deployment variables
         id: vars
         run: |
-          ENV="${{ github.event.inputs.environment || 'staging' }}"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENV="${{ github.event.inputs.environment }}"
+          elif [[ "${{ github.event.workflow_run.head_branch || github.ref_name }}" == "master" ]]; then
+            ENV="prod"
+          else
+            ENV="dev"
+          fi
+          
+          IMAGE_TAG="${{ env.DOCKER_USERNAME }}/${{ env.APP_NAME }}:$VERSION"
+          
           echo "deploy_env=$ENV" >> $GITHUB_OUTPUT
-          echo "is_prod=${{ github.event.inputs.environment == 'production' }}" >> $GITHUB_OUTPUT
-          echo "Deploying to: $ENV"
-      
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "Deploying to: $ENV environment"
+          echo "Using image tag: $IMAGE_TAG"
+
+  deploy-dev:
+    needs: prepare
+    if: needs.prepare.outputs.deploy_env == 'dev'
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets[format('{0}_SSH_KEY', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
-      
-      - name: Deploy
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          APP_VERSION: ${{ steps.set-version.outputs.version }}
-          SSH_HOST: ${{ secrets[format('{0}_HOST', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
-          SSH_USER: ${{ secrets[format('{0}_USER', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
-          SSH_PORT: ${{ secrets[format('{0}_PORT', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] || '22' }}
-          DB_USER: ${{ secrets[format('{0}_DB_USER', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
-          DB_PASSWORD: ${{ secrets[format('{0}_DB_PASSWORD', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
-          JWT_SECRET: ${{ secrets[format('{0}_JWT_SECRET', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
-          APPLY_INDEX_FIX: ${{ secrets.APPLY_INDEX_FIX || 'false' }}
-          PROFILE: ${{ steps.vars.outputs.deploy_env == 'production' && 'prod' || 'staging' }}
-          JWT_ISSUER: ${{ steps.vars.outputs.deploy_env == 'production' && 'hiresync' || 'hiresync-staging' }}
-          JWT_AUDIENCE: ${{ steps.vars.outputs.deploy_env == 'production' && 'hiresync-app' || 'hiresync-app-staging' }}
+          ssh-private-key: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
+          
+      - name: Setup known hosts
         run: |
-          echo "Deploying version $APP_VERSION to ${{ steps.vars.outputs.deploy_env }}"
+          mkdir -p ~/.ssh
+          ssh-keyscan -t rsa ${{ secrets.DEV_SERVER_HOST }} >> ~/.ssh/known_hosts
           
-          # Prep deployment
-          ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST "mkdir -p ~/deployments/$APP_NAME"
-          scp -o StrictHostKeyChecking=no -P $SSH_PORT scripts/deploy-prod.sh $SSH_USER@$SSH_HOST:~/deployments/$APP_NAME/deploy.sh
-          scp -o StrictHostKeyChecking=no -P $SSH_PORT docker/docker-compose.prod.yaml $SSH_USER@$SSH_HOST:~/deployments/$APP_NAME/docker-compose.yaml
-          ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST "chmod +x ~/deployments/$APP_NAME/deploy.sh"
-          
-          # Create .env file
-          ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST "cat > ~/deployments/$APP_NAME/.env" << EOF
-          DOCKER_IMAGE=$DOCKER_USERNAME/$APP_NAME
-          DOCKER_TAG=$APP_VERSION
-          POSTGRES_DB=hiresync
-          POSTGRES_USER=$DB_USER
-          POSTGRES_PASSWORD=$DB_PASSWORD
-          SPRING_PROFILES_ACTIVE=$PROFILE
-          SPRING_DATASOURCE_USERNAME=$DB_USER
-          SPRING_DATASOURCE_PASSWORD=$DB_PASSWORD
-          JWT_SECRET=$JWT_SECRET
-          JWT_ISSUER=$JWT_ISSUER
-          JWT_AUDIENCE=$JWT_AUDIENCE
-          APPLY_INDEX_FIX=$APPLY_INDEX_FIX
+      - name: Deploy to Digital Ocean
+        run: |
+          ssh ${{ secrets.DEV_SSH_USER }}@${{ secrets.DEV_SERVER_HOST }} << 'EOF'
+            cd /opt/hiresync
+            
+            # Pull latest docker-compose file if needed
+            git pull origin dev
+            
+            # Login to DockerHub
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+            
+            # Pull latest image
+            docker pull ${{ needs.prepare.outputs.image_tag }}
+            
+            # Create .env file from secrets
+            cat > .env << 'EOT'
+            SPRING_PROFILES_ACTIVE=dev
+            APP_PORT=${{ secrets.DEV_APP_PORT }}
+            DB_HOST=${{ secrets.DEV_DB_HOST }}
+            DB_NAME=${{ secrets.DEV_DB_NAME }}
+            DB_USER=${{ secrets.DEV_DB_USER }}
+            DB_PASSWORD=${{ secrets.DEV_DB_PASSWORD }}
+            JWT_SECRET=${{ secrets.DEV_JWT_SECRET }}
+            JWT_EXPIRATION=${{ secrets.DEV_JWT_EXPIRATION }}
+            LOG_LEVEL_ROOT=INFO
+            LOG_LEVEL_APP=DEBUG
+            ACTUATOR_DETAILED_HEALTH=true
+            EOT
+            
+            # Update the image tag in docker-compose file
+            sed -i "s|image:.*|image: ${{ needs.prepare.outputs.image_tag }}|g" docker-compose.dev.yaml
+            
+            # Deploy with docker-compose
+            docker-compose -f docker-compose.dev.yaml down
+            docker-compose -f docker-compose.dev.yaml up -d
+            
+            # Clean up old images
+            docker system prune -af --volumes
           EOF
           
-          # Run deployment
-          ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST "cd ~/deployments/$APP_NAME && ./deploy.sh"
-      
       - name: Verify Deployment
-        env:
-          SSH_HOST: ${{ secrets[format('{0}_HOST', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
-          SSH_USER: ${{ secrets[format('{0}_USER', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
-          SSH_PORT: ${{ secrets[format('{0}_PORT', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] || '22' }}
         run: |
-          for i in {1..12}; do
-            if ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST "curl -s http://localhost:8080/actuator/health | grep -q 'UP'"; then
-              echo "✅ ${{ steps.vars.outputs.deploy_env }} deployment successful!"
-              break
-            fi
-            
-            if [ $i -eq 12 ]; then
-              echo "❌ Application failed to start in time"
-              exit 1
-            fi
-            
-            echo "Waiting for application to be ready (attempt $i of 12)..."
-            sleep 10
-          done
-      
-      - name: Create Release
-        if: steps.vars.outputs.is_prod == 'true'
-        uses: ncipollo/release-action@v1
-        with:
-          tag: ${{ steps.set-version.outputs.version }}
-          name: Release ${{ steps.set-version.outputs.version }}
-          body: |
-            Release ${{ steps.set-version.outputs.version }}
-            Deployed to production on $(date)
-          draft: false
-          token: ${{ secrets.GITHUB_TOKEN }}
+          echo "✅ Deployment to dev environment completed successfully!"
+          echo "The application is now available at: https://${{ secrets.DEV_APP_URL }}"
       
       - name: Notify Success
         if: success()
@@ -142,13 +133,13 @@ jobs:
         with:
           payload: |
             {
-              "text": "${{ steps.vars.outputs.is_prod == 'true' && '🚀' || '✅' }} Successfully deployed ${{ env.APP_NAME }} v${{ steps.set-version.outputs.version }} to ${{ steps.vars.outputs.deploy_env }}",
+              "text": "✅ Successfully deployed ${{ env.APP_NAME }} to dev environment",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "${{ steps.vars.outputs.is_prod == 'true' && '🚀' || '✅' }} Successfully deployed *${{ env.APP_NAME }}* to ${{ steps.vars.outputs.deploy_env }}"
+                    "text": "✅ Successfully deployed *${{ env.APP_NAME }}* to dev environment"
                   }
                 },
                 {
@@ -156,7 +147,7 @@ jobs:
                   "fields": [
                     {
                       "type": "mrkdwn",
-                      "text": "*Version:*\n${{ steps.set-version.outputs.version }}"
+                      "text": "*Version:*\n${{ needs.prepare.outputs.version }}"
                     },
                     {
                       "type": "mrkdwn", 
@@ -167,5 +158,107 @@ jobs:
               ]
             }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets[format('{0}_WEBHOOK_{1}', 'SLACK', steps.vars.outputs.deploy_env == 'production' && 'PRODUCTION' || 'STAGING')] }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK 
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_DEV }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+  deploy-prod:
+    needs: prepare
+    if: needs.prepare.outputs.deploy_env == 'prod'
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Deploy to AWS EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_SERVER_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          script: |
+            cd /opt/hiresync
+            
+            # Pull latest docker-compose file if needed
+            git pull origin master
+            
+            # Login to DockerHub
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+            
+            # Pull latest image
+            docker pull ${{ needs.prepare.outputs.image_tag }}
+            
+            # Create .env file from secrets
+            cat > .env << 'EOT'
+            SPRING_PROFILES_ACTIVE=prod
+            APP_PORT=${{ secrets.PROD_APP_PORT }}
+            DB_HOST=${{ secrets.PROD_DB_HOST }}
+            DB_NAME=${{ secrets.PROD_DB_NAME }}
+            DB_USER=${{ secrets.PROD_DB_USER }}
+            DB_PASSWORD=${{ secrets.PROD_DB_PASSWORD }}
+            JWT_SECRET=${{ secrets.PROD_JWT_SECRET }}
+            JWT_EXPIRATION=${{ secrets.PROD_JWT_EXPIRATION }}
+            LOG_LEVEL_ROOT=INFO
+            LOG_LEVEL_APP=INFO
+            ACTUATOR_DETAILED_HEALTH=false
+            EOT
+            
+            # Update the image tag in docker-compose file
+            sed -i "s|image:.*|image: ${{ needs.prepare.outputs.image_tag }}|g" docker-compose.prod.yaml
+            
+            # Deploy with docker-compose
+            docker-compose -f docker-compose.prod.yaml down
+            docker-compose -f docker-compose.prod.yaml up -d
+            
+            # Clean up old images (keep last 3)
+            docker image prune -a --filter "until=72h" -f
+            
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ needs.prepare.outputs.version }}
+          name: Release ${{ needs.prepare.outputs.version }}
+          body: |
+            Release ${{ needs.prepare.outputs.version }}
+            Deployed to production on $(date)
+          draft: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Verify Deployment
+        run: |
+          echo "🚀 Deployment to production environment completed successfully!"
+          echo "The application is now available at: https://${{ secrets.PROD_APP_URL }}"
+      
+      - name: Notify Success
+        if: success()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "🚀 Successfully deployed ${{ env.APP_NAME }} to production",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "🚀 Successfully deployed *${{ env.APP_NAME }}* to production"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Version:*\n${{ needs.prepare.outputs.version }}"
+                    },
+                    {
+                      "type": "mrkdwn", 
+                      "text": "*Deployed by:*\n${{ github.actor }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_PROD }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

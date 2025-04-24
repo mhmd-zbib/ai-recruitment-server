@@ -198,25 +198,62 @@ This will perform various checks including:
 - Checkstyle validation
 - SpotBugs static analysis
 - Code duplication detection
-- Code formatting verification
 
-### Database Management
-The PostgreSQL database will be automatically created on first startup with the credentials specified in your `.env` file. If you change these credentials after the initial setup, you'll need to run `./hiresync clean` to remove the existing database volume and recreate it with the new credentials.
+## Continuous Integration & Deployment
 
-### Application Structure
-- `/src/main`: Main application source code
-- `/src/test`: Test source code
-- `/docker`: Docker configuration files
-- `/scripts`: Utility scripts for development and deployment
+HireSync uses GitHub Actions for CI/CD to automate testing, building, and deployment processes.
 
-## Production Deployment
-For production deployment, use the production profile:
+### CI Pipeline
+
+The CI pipeline runs automatically on:
+- Every push to `master` and `dev` branches
+- Every pull request to these branches
+
+It performs the following tasks:
+- Code quality validation
+- Unit and integration tests
+- Building and packaging the application
+- Building and pushing Docker images to Docker Hub
+
+### CD Pipeline
+
+The CD pipeline automatically deploys the application to different environments:
+
+| Branch | Environment | Hosting Provider |
+|--------|-------------|------------------|
+| `dev`  | Development | Digital Ocean    |
+| `master` | Production | AWS EC2         |
+
+Deployments are fully automated - when code is merged to either branch, it is:
+1. Built and tested in the CI pipeline
+2. Packaged as a Docker image and pushed to Docker Hub
+3. Deployed to the corresponding environment
+
+### Manual Deployments
+
+To manually trigger a deployment:
+
+1. Go to the 'Actions' tab in the GitHub repository
+2. Select the 'CD Pipeline' workflow
+3. Click 'Run workflow'
+4. Select the branch and environment
+5. Click 'Run workflow'
+
+### Environment Setup
+
+For detailed instructions on setting up environments for deployment, see [CD Environment Setup](docs/cd-environment-setup.md).
+
+### Server Setup
+
+To set up a new server for deployment:
 
 ```bash
-./hiresync start
-```
+# For development environment
+./scripts/server-setup.sh dev
 
-Ensure you set appropriate secure values for all environment variables in a production environment.
+# For production environment
+./scripts/server-setup.sh prod
+```
 
 ## License
 Copyright (c) 2025 HireSync. All rights reserved.
@@ -319,3 +356,54 @@ SKIP_HOOKS=1 git commit
 # or on Windows
 set SKIP_HOOKS=1 && git commit
 ```
+
+## Code Quality Checks
+
+The project includes a comprehensive script for running code quality checks and formatting.
+
+### Quality Check Script
+
+Run the quality check script to ensure your code meets the project's quality standards:
+
+```bash
+./scripts/quality-check.sh
+```
+
+The script performs the following checks in sequence:
+
+1. **Code Formatting (Spotless)**: Ensures consistent code style
+2. **PMD**: Static code analysis to find code smells and potential bugs
+3. **SpotBugs**: Detects potential bugs through bytecode analysis
+4. **Checkstyle**: Verifies coding standards compliance
+5. **OWASP Dependency Check**: Identifies known security vulnerabilities in dependencies
+
+### Options
+
+The script supports several options:
+
+```
+Usage: ./scripts/quality-check.sh [options]
+Options:
+  --skip-format     Skip code formatting with Spotless
+  --skip-spotbugs   Skip SpotBugs checks
+  --skip-checkstyle Skip Checkstyle checks
+  --skip-depcheck   Skip OWASP Dependency Check
+  --fix             Fix issues when possible (currently only formatting)
+  --help            Show this help message
+```
+
+### Fixing Issues
+
+To automatically fix formatting issues:
+
+```bash
+./scripts/quality-check.sh --fix
+```
+
+### Customizing Rules
+
+The quality checks are configured using XML files in the `src/main/resources` directory:
+
+- `spotbugs-exclude.xml`: SpotBugs exclusions
+- `checkstyle-rules.xml`: Checkstyle rule configuration
+- `dependency-check-suppressions.xml`: OWASP dependency check suppressions
