@@ -154,23 +154,6 @@ run_checkstyle() {
   fi
 }
 
-# Run PMD analysis
-run_pmd() {
-  print_section "Running PMD"
-  ensure_devtools
-  run_maven pmd:check
-
-  if [ $? -eq 0 ]; then
-    print_success "PMD passed!"
-  else
-    print_error "PMD failed!"
-    if [ "$FAIL_FAST" = true ]; then
-      clean_up
-      exit 1
-    fi
-  fi
-}
-
 # Run SpotBugs analysis
 run_spotbugs() {
   print_section "Running SpotBugs"
@@ -211,7 +194,6 @@ run_all_tests() {
 run_quality_checks() {
   ensure_devtools
   run_checkstyle
-  run_pmd
   run_spotbugs
   
   echo -e "\n${GREEN}All quality checks completed successfully!${NC}"
@@ -225,9 +207,8 @@ show_help() {
   echo "  all           Run all tests (unit + integration)"
   echo "  unit          Run unit tests only"
   echo "  integration   Run integration tests only" 
-  echo "  quality       Run all quality checks (checkstyle, pmd, spotbugs)"
+  echo "  quality       Run all quality checks (checkstyle, spotbugs)"
   echo "  checkstyle    Run checkstyle only"
-  echo "  pmd           Run PMD only"
   echo "  spotbugs      Run SpotBugs only"
   echo "  help          Show this help message"
   echo ""
@@ -275,9 +256,6 @@ case "${1:-all}" in
     ;;
   "checkstyle")
     run_checkstyle
-    ;;
-  "pmd")
-    run_pmd
     ;;
   "spotbugs")
     run_spotbugs

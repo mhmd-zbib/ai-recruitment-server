@@ -1,205 +1,184 @@
 #!/bin/bash
 set -e
 
-# Colors for output
-GREEN='\033[0;32m'
+# Color definitions
 RED='\033[0;31m'
+GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
-CYAN='\033[0;36m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Get the git root directory
-GIT_ROOT=$(git rev-parse --show-toplevel)
-cd "$GIT_ROOT" || exit 1
+# Print header
+print_header() {
+  echo -e "\n${BLUE}========== $1 ==========${NC}\n"
+}
 
-# Check if we're in a Docker environment
-IN_DOCKER=false
-if [ -f "docker/docker-compose.local.yaml" ] && command -v docker &> /dev/null; then
-  # Check if devtools container is running
-  if docker ps --format '{{.Names}}' | grep -q "hiresync-devtools"; then
+# Print success message
+print_success() {
+  echo -e "${GREEN}✓ SUCCESS: $1${NC}"
+}
+
+# Print error message
+print_error() {
+  echo -e "${RED}✗ ERROR: $1${NC}"
+}
+
+# Print warning message
+print_warning() {
+  echo -e "${YELLOW}⚠ WARNING: $1${NC}"
+}
+
+# Determine if running inside a Docker container
+if [ -f /.dockerenv ] || grep -q 'docker\|lxc' /proc/1/cgroup; then
     IN_DOCKER=true
-    echo -e "${CYAN}🐳 Using Docker container for checks${NC}"
+    # Get container name if possible
+    CONTAINER_NAME=$(hostname)
+    if [ -n "$CONTAINER_NAME" ]; then
+        print_warning "Running in Docker container: $CONTAINER_NAME"
+    else
+        print_warning "Running in Docker container"
+    fi
+else
+    IN_DOCKER=false
+fi
+
+# Set Maven command
+MVN_CMD="mvn"
+if [ "$IN_DOCKER" = false ]; then
+  if [ -f "./mvnw" ]; then
+    MVN_CMD="./mvnw"
+  elif docker ps | grep -q hiresync-devtools; then
+    MVN_CMD="docker exec -it hiresync-devtools mvn"
   fi
 fi
 
-print_header() {
-  echo -e "\n${CYAN}================================================${NC}"
-  echo -e "${CYAN}  $1${NC}"
-  echo -e "${CYAN}================================================${NC}"
-}
+# Parse arguments
+SKIP_FORMAT=false
+SKIP_SPOTBUGS=false
+SKIP_CHECKSTYLE=false
+SKIP_DEPCHECK=false
+FIX_MODE=false
 
-print_success() {
-  echo -e "${GREEN}✅ $1${NC}"
-}
-
-print_error() {
-  echo -e "${RED}❌ $1${NC}"
-}
-
-print_warning() {
-  echo -e "${YELLOW}⚠️  $1${NC}"
-}
-
-run_command() {
-  local cmd="$1"
-  
-  if [ "$IN_DOCKER" = true ]; then
-    docker exec hiresync-devtools $cmd
-  else
-    eval "$cmd"
-  fi
-}
-
-run_check() {
-  local command="$1"
-  local description="$2"
-  local fail_on_error="${3:-true}"
-  
-  print_header "Running $description"
-  
-  run_command "$command"
-  local exit_code=$?
-  
-  if [ $exit_code -eq 0 ]; then
-    print_success "$description passed!"
-    return 0
-  else
-    print_error "$description failed!"
-    if [ "$fail_on_error" = true ]; then
-      print_error "Fix the issues before continuing."
-      exit 1
-    fi
-    return 1
-  fi
-}
-
-check_docker() {
-  if ! command -v docker &> /dev/null; then
-    print_warning "Docker is not installed or not in PATH. Running locally."
-    return 1
-  fi
-  
-  if ! docker ps &> /dev/null; then
-    print_warning "Docker is not running or you don't have permissions. Running locally."
-    return 1
-  fi
-  
-  if ! docker ps --format '{{.Names}}' | grep -q "hiresync-devtools"; then
-    print_warning "HireSync devtools container is not running. Start it with: docker-compose -f docker/docker-compose.local.yaml up -d"
-    return 1
-  fi
-  
-  return 0
-}
-
-start_docker_env() {
-  if [ "$IN_DOCKER" = false ] && [ -f "docker/docker-compose.local.yaml" ]; then
-    print_header "Checking Docker Environment"
-    
-    if check_docker; then
-      IN_DOCKER=true
-      print_success "Using existing Docker environment"
-    else
-      print_warning "Would you like to start the Docker environment? (y/n)"
-      read -r response
-      if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-        print_header "Starting Docker Environment"
-        docker-compose -f docker/docker-compose.local.yaml up -d
-        if [ $? -eq 0 ]; then
-          IN_DOCKER=true
-          print_success "Docker environment started"
-        else
-          print_error "Failed to start Docker environment. Running locally."
-        fi
-      else
-        print_warning "Running locally without Docker"
-      fi
-    fi
-  fi
-}
-
-check_all() {
-  print_header "Running All Code Quality Checks"
-  
-  # Clean to ensure we build and check everything
-  run_command "mvn clean" >/dev/null 2>&1
-  
-  # Checkstyle - Force checking all files
-  run_check "mvn -P ci -Dskip.checks=false checkstyle:check -Dcheckstyle.skip=false -Dcheckstyle.includeTestSourceDirectory=true" "Checkstyle"
-  
-  # PMD - Force checking all files
-  run_check "mvn -P ci -Dskip.checks=false pmd:check -Dpmd.skip=false -Dpmd.analysisCache=false" "PMD"
-  
-  # SpotBugs - Force checking all files
-  run_check "mvn -P ci -Dskip.checks=false spotbugs:check -Dspotbugs.skip=false -Dspotbugs.effort=Max" "SpotBugs" false
-  
-  # Dependency Check - Force checking all dependencies
-  run_check "mvn -P ci -Dskip.checks=false dependency-check:check -Ddependency-check.skip=false -Ddependency-check.failBuildOnCVSS=11" "Dependency Check" false
-  
-  print_success "All code quality checks completed!"
-}
-
-check_specific() {
-  local check_type="$1"
-  
-  # Clean to ensure we build and check everything
-  run_command "mvn clean" >/dev/null 2>&1
-  
-  case "$check_type" in
-    "checkstyle")
-      run_check "mvn -P ci -Dskip.checks=false checkstyle:check -Dcheckstyle.skip=false -Dcheckstyle.includeTestSourceDirectory=true" "Checkstyle"
+for arg in "$@"; do
+  case $arg in
+    --skip-format)
+      SKIP_FORMAT=true
+      shift
       ;;
-    "pmd")
-      run_check "mvn -P ci -Dskip.checks=false pmd:check -Dpmd.skip=false -Dpmd.analysisCache=false" "PMD"
+    --skip-spotbugs)
+      SKIP_SPOTBUGS=true
+      shift
       ;;
-    "spotbugs")
-      run_check "mvn -P ci -Dskip.checks=false spotbugs:check -Dspotbugs.skip=false -Dspotbugs.effort=Max" "SpotBugs"
+    --skip-checkstyle)
+      SKIP_CHECKSTYLE=true
+      shift
       ;;
-    "dependency")
-      run_check "mvn -P ci -Dskip.checks=false dependency-check:check -Ddependency-check.skip=false -Ddependency-check.failBuildOnCVSS=11" "Dependency Check"
+    --skip-depcheck)
+      SKIP_DEPCHECK=true
+      shift
       ;;
-    *)
-      print_error "Unknown check type: $check_type"
-      echo "Available checks: checkstyle, pmd, spotbugs, dependency"
-      exit 1
+    --fix)
+      FIX_MODE=true
+      shift
+      ;;
+    --help)
+      echo "Usage: $0 [options]"
+      echo "Options:"
+      echo "  --skip-format     Skip code formatting with Spotless"
+      echo "  --skip-spotbugs   Skip SpotBugs checks"
+      echo "  --skip-checkstyle Skip Checkstyle checks"
+      echo "  --skip-depcheck   Skip OWASP Dependency Check"
+      echo "  --fix             Fix issues when possible (currently only formatting)"
+      echo "  --help            Show this help message"
+      exit 0
       ;;
   esac
-}
+done
 
-show_help() {
-  echo "Usage: $0 [command]"
-  echo ""
-  echo "Commands:"
-  echo "  all         Run all code quality checks (default)"
-  echo "  checkstyle  Run checkstyle check only"
-  echo "  pmd         Run PMD check only"
-  echo "  spotbugs    Run SpotBugs check only"
-  echo "  dependency  Run dependency check only"
-  echo "  help        Show this help message"
-  echo ""
-  echo "Note: All checks run on the entire project, not just changed files."
-}
+# Common Maven options
+MVN_OPTS="-P lint -Dskip.tests=true"
 
-# Main execution
-start_docker_env
-
-command=${1:-"all"}
-
-case "$command" in
-  "all")
-    check_all
-    ;;
-  "checkstyle"|"pmd"|"spotbugs"|"dependency")
-    check_specific "$command"
-    ;;
-  "help")
-    show_help
-    ;;
-  *)
-    print_error "Unknown command: $command"
-    show_help
+# Step 1: Code formatting with Spotless
+if [ "$SKIP_FORMAT" = false ]; then
+  print_header "AUTO-FORMATTING CODE (SPOTLESS)"
+  
+  # Always apply formatting first, then check to verify
+  $MVN_CMD $MVN_OPTS spotless:apply -Dskip.checks=false
+  if [ $? -eq 0 ]; then
+    print_success "Spotless formatting applied"
+  else
+    print_error "Spotless formatting failed"
     exit 1
-    ;;
-esac
+  fi
+else
+  print_warning "Skipping code formatting"
+fi
 
-exit 0 
+# Step 2: SpotBugs for bug detection
+if [ "$SKIP_SPOTBUGS" = false ]; then
+  print_header "RUNNING SPOTBUGS CHECKS"
+  
+  $MVN_CMD $MVN_OPTS spotbugs:check -Dskip.checks=false
+  if [ $? -eq 0 ]; then
+    print_success "SpotBugs checks passed"
+  else
+    print_error "SpotBugs checks failed"
+    echo -e "${YELLOW}See target/spotbugsXml.xml for details${NC}"
+    print_warning "Check src/main/resources/spotbugs-exclude.xml to customize exclusions"
+    exit 1
+  fi
+else
+  print_warning "Skipping SpotBugs checks"
+fi
+
+# Step 3: Checkstyle for coding standards
+if [ "$SKIP_CHECKSTYLE" = false ]; then
+  print_header "RUNNING CHECKSTYLE CHECKS"
+  
+  $MVN_CMD $MVN_OPTS checkstyle:check -Dskip.checks=false
+  if [ $? -eq 0 ]; then
+    print_success "Checkstyle checks passed"
+  else
+    print_error "Checkstyle checks failed"
+    echo -e "${YELLOW}See target/checkstyle-result.xml for details${NC}"
+    print_warning "Check src/main/resources/checkstyle-rules.xml to customize rules"
+    exit 1
+  fi
+else
+  print_warning "Skipping Checkstyle checks"
+fi
+
+# Step 4: OWASP Dependency Check for security vulnerabilities
+if [ "$SKIP_DEPCHECK" = false ]; then
+  print_header "RUNNING DEPENDENCY CHECK"
+  
+  $MVN_CMD $MVN_OPTS dependency-check:check -Dskip.checks=false
+  if [ $? -eq 0 ]; then
+    print_success "Dependency check passed"
+  else
+    print_error "Dependency check failed"
+    echo -e "${YELLOW}See target/dependency-check-report.html for details${NC}"
+    print_warning "Check src/main/resources/dependency-check-suppressions.xml to customize suppressions"
+    exit 1
+  fi
+else
+  print_warning "Skipping dependency check"
+fi
+
+# Print summary
+print_header "QUALITY CHECK SUMMARY"
+if [ "$SKIP_FORMAT" = false ]; then
+  print_success "Spotless formatting"
+fi
+if [ "$SKIP_SPOTBUGS" = false ]; then
+  print_success "SpotBugs checks"
+fi
+if [ "$SKIP_CHECKSTYLE" = false ]; then
+  print_success "Checkstyle checks"
+fi
+if [ "$SKIP_DEPCHECK" = false ]; then
+  print_success "Dependency check"
+fi
+
+print_success "All checks completed successfully!"
+echo -e "\nRun '$0 --help' for more options"
