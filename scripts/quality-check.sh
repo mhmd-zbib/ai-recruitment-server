@@ -125,16 +125,16 @@ check_all() {
   run_command "mvn clean" >/dev/null 2>&1
   
   # Checkstyle - Force checking all files
-  run_check "mvn checkstyle:check -Dcheckstyle.skip=false -Dcheckstyle.includeTestSourceDirectory=true" "Checkstyle"
+  run_check "mvn -P ci -Dskip.checks=false checkstyle:check -Dcheckstyle.skip=false -Dcheckstyle.includeTestSourceDirectory=true" "Checkstyle"
   
   # PMD - Force checking all files
-  run_check "mvn pmd:check -Dpmd.skip=false -Dpmd.analysisCache=false" "PMD"
+  run_check "mvn -P ci -Dskip.checks=false pmd:check -Dpmd.skip=false -Dpmd.analysisCache=false" "PMD"
   
   # SpotBugs - Force checking all files
-  run_check "mvn spotbugs:check -Dspotbugs.skip=false -Dspotbugs.effort=Max" "SpotBugs" false
+  run_check "mvn -P ci -Dskip.checks=false spotbugs:check -Dspotbugs.skip=false -Dspotbugs.effort=Max" "SpotBugs" false
   
   # Dependency Check - Force checking all dependencies
-  run_check "mvn dependency-check:check -Ddependency-check.skip=false -Ddependency-check.failBuildOnCVSS=11" "Dependency Check" false
+  run_check "mvn -P ci -Dskip.checks=false dependency-check:check -Ddependency-check.skip=false -Ddependency-check.failBuildOnCVSS=11" "Dependency Check" false
   
   print_success "All code quality checks completed!"
 }
@@ -147,16 +147,16 @@ check_specific() {
   
   case "$check_type" in
     "checkstyle")
-      run_check "mvn checkstyle:check -Dcheckstyle.skip=false -Dcheckstyle.includeTestSourceDirectory=true" "Checkstyle"
+      run_check "mvn -P ci -Dskip.checks=false checkstyle:check -Dcheckstyle.skip=false -Dcheckstyle.includeTestSourceDirectory=true" "Checkstyle"
       ;;
     "pmd")
-      run_check "mvn pmd:check -Dpmd.skip=false -Dpmd.analysisCache=false" "PMD"
+      run_check "mvn -P ci -Dskip.checks=false pmd:check -Dpmd.skip=false -Dpmd.analysisCache=false" "PMD"
       ;;
     "spotbugs")
-      run_check "mvn spotbugs:check -Dspotbugs.skip=false -Dspotbugs.effort=Max" "SpotBugs"
+      run_check "mvn -P ci -Dskip.checks=false spotbugs:check -Dspotbugs.skip=false -Dspotbugs.effort=Max" "SpotBugs"
       ;;
     "dependency")
-      run_check "mvn dependency-check:check -Ddependency-check.skip=false -Ddependency-check.failBuildOnCVSS=11" "Dependency Check"
+      run_check "mvn -P ci -Dskip.checks=false dependency-check:check -Ddependency-check.skip=false -Ddependency-check.failBuildOnCVSS=11" "Dependency Check"
       ;;
     *)
       print_error "Unknown check type: $check_type"
