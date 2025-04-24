@@ -101,21 +101,33 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up SSH (Mock for testing)
-        run: |
-          echo "Setting up SSH for deployment to dev environment"
-          echo "This is a temporary step to verify workflow execution"
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
           
-      - name: Deploy to Development (Mock)
+      - name: Deploy to Railway Dev Environment
         run: |
-          echo "Deploying to Development Environment"
+          echo "Deploying to Railway Dev Environment"
           echo "Image: ${{ needs.prepare.outputs.image_tag }}"
-          echo "This is a placeholder for the actual deployment step"
+          
+          # Deploy using Railway CLI with Docker image from Docker Hub
+          railway link ${{ secrets.RAILWAY_PROJECT_ID }} --environment dev
+          railway variables set SPRING_PROFILES_ACTIVE=dev
+          railway variables set DB_HOST=${{ secrets.DEV_DB_HOST }}
+          railway variables set DB_NAME=${{ secrets.DEV_DB_NAME }}
+          railway variables set DB_USER=${{ secrets.DEV_DB_USER }}
+          railway variables set DB_PASSWORD=${{ secrets.DEV_DB_PASSWORD }}
+          railway variables set JWT_SECRET=${{ secrets.DEV_JWT_SECRET }}
+          railway variables set JWT_EXPIRATION=${{ secrets.DEV_JWT_EXPIRATION }}
+          
+          # Deploy using the Docker image from Docker Hub
+          railway up --image ${{ needs.prepare.outputs.image_tag }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           
       - name: Verify Deployment
         run: |
-          echo "✅ Mock deployment to dev environment completed successfully!"
-          echo "In a real setup, the application would be available at your domain"
+          echo "✅ Deployment to Railway dev environment completed successfully!"
+          echo "The application is now available at: ${{ secrets.DEV_APP_URL }}"
       
       - name: Notify Success
         run: |
@@ -132,11 +144,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         
-      - name: Deploy to Production (Mock)
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+        
+      - name: Deploy to Railway Production Environment
         run: |
-          echo "Deploying to Production Environment"
+          echo "Deploying to Railway Production Environment"
           echo "Image: ${{ needs.prepare.outputs.image_tag }}"
-          echo "This is a placeholder for the actual deployment step"
+          
+          # Deploy using Railway CLI with Docker image from Docker Hub
+          railway link ${{ secrets.RAILWAY_PROJECT_ID }} --environment prod
+          railway variables set SPRING_PROFILES_ACTIVE=prod
+          railway variables set DB_HOST=${{ secrets.PROD_DB_HOST }}
+          railway variables set DB_NAME=${{ secrets.PROD_DB_NAME }}
+          railway variables set DB_USER=${{ secrets.PROD_DB_USER }}
+          railway variables set DB_PASSWORD=${{ secrets.PROD_DB_PASSWORD }}
+          railway variables set JWT_SECRET=${{ secrets.PROD_JWT_SECRET }}
+          railway variables set JWT_EXPIRATION=${{ secrets.PROD_JWT_EXPIRATION }}
+          
+          # Deploy using the Docker image from Docker Hub
+          railway up --image ${{ needs.prepare.outputs.image_tag }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
             
       - name: Create Release
         uses: ncipollo/release-action@v1
@@ -151,8 +180,8 @@ jobs:
       
       - name: Verify Deployment
         run: |
-          echo "🚀 Mock deployment to production environment completed successfully!"
-          echo "In a real setup, the application would be available at your domain"
+          echo "🚀 Deployment to Railway production environment completed successfully!"
+          echo "The application is now available at: ${{ secrets.PROD_APP_URL }}"
       
       - name: Notify Success
         run: |
