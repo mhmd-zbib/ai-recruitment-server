@@ -78,6 +78,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # First push only to Docker Hub to ensure at least one registry succeeds
+      # We rebuild the image here instead of reusing CI's build because:
+      # 1. We need different tags for release versioning
+      # 2. CI only verifies build process but doesn't push
       - name: Build and Push to Docker Hub
         uses: docker/build-push-action@v5
         with:
