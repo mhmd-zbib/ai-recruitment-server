@@ -22,9 +22,10 @@ env:
   HIRESYNC_FEATURES_DEBUG-MODE: true
 
 jobs:
-  verify:
+  code-quality:
+    name: Code Quality
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -38,21 +39,14 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
       
-      - name: Code Quality
-        run: |
-          mvn checkstyle:check -P ci -Dpmd.skip=true
-      
-      - name: Unit Tests
-        run: mvn test -P ci -Dpmd.skip=true
-      
-      - name: Build
-        run: mvn package -DskipTests -P ci -Dpmd.skip=true
+      - name: Run Checkstyle
+        run: mvn checkstyle:check -P ci -Dpmd.skip=true
   
-  docker:
-    needs: verify
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
+    needs: code-quality
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -64,8 +58,50 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
       
-      - name: Build JAR
+      - name: Run Unit and Integration Tests
+        run: mvn test -P ci -Dpmd.skip=true
+  
+  build:
+    name: Build JAR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+      
+      - name: Build JAR File
         run: mvn package -DskipTests -P ci -Dpmd.skip=true
+      
+      - name: Upload JAR Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: application-jar
+          path: target/*.jar
+          retention-days: 1
+  
+  docker-check:
+    name: Verify Docker Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: build
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download JAR Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: application-jar
+          path: target
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
