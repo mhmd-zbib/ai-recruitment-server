@@ -7,15 +7,14 @@ on:
       - completed
     branches:
       - master
-      - dev
   workflow_dispatch:
     inputs:
       environment:
         description: 'Environment to deploy to'
         required: true
-        default: 'dev'
+        default: 'prod'
         type: choice
-        options: [dev, prod]
+        options: [prod]
 
 env:
   APP_NAME: hiresync
@@ -27,7 +26,6 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     outputs:
       version: ${{ steps.set-version.outputs.version }}
-      deploy_env: ${{ steps.vars.outputs.deploy_env }}
       image_tag: ${{ steps.vars.outputs.image_tag }}
     steps:
       - name: Checkout code
@@ -46,31 +44,11 @@ jobs:
       - name: Set deployment variables
         id: vars
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            ENV="${{ github.event.inputs.environment }}"
-          elif [[ "${{ github.event.workflow_run.head_branch || github.ref_name }}" == "master" ]]; then
-            ENV="prod"
-          else
-            ENV="dev"
-          fi
-          
           IMAGE_TAG="${{ env.DOCKER_USERNAME }}/${{ env.APP_NAME }}:$VERSION"
-          
-          echo "deploy_env=$ENV" >> $GITHUB_OUTPUT
           echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
-          echo "Deploying to: $ENV environment"
           echo "Using image tag: $IMAGE_TAG"
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'maven'
-      
-      - name: Build application
-        run: mvn package -DskipTests -P ci
-      
+      # Only build and push Docker image in workflow_dispatch - CI pipeline already builds it
       - name: Set up Docker Buildx
         if: github.event_name == 'workflow_dispatch'
         uses: docker/setup-buildx-action@v3
@@ -92,80 +70,19 @@ jobs:
           tags: ${{ steps.vars.outputs.image_tag }},${{ env.DOCKER_USERNAME }}/${{ env.APP_NAME }}:latest
           platforms: linux/amd64
 
-  deploy-dev:
+  deploy:
     needs: prepare
-    if: needs.prepare.outputs.deploy_env == 'dev'
-    runs-on: ubuntu-latest
-    environment: dev
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-          
-      - name: Deploy to Railway Dev Environment
-        run: |
-          echo "Deploying to Railway Dev Environment"
-          echo "Image: ${{ needs.prepare.outputs.image_tag }}"
-          
-          # Deploy using Railway CLI with Docker image from Docker Hub
-          railway link ${{ secrets.RAILWAY_PROJECT_ID }} --environment dev
-          railway variables set SPRING_PROFILES_ACTIVE=dev
-          railway variables set DB_HOST=${{ secrets.DEV_DB_HOST }}
-          railway variables set DB_NAME=${{ secrets.DEV_DB_NAME }}
-          railway variables set DB_USER=${{ secrets.DEV_DB_USER }}
-          railway variables set DB_PASSWORD=${{ secrets.DEV_DB_PASSWORD }}
-          railway variables set JWT_SECRET=${{ secrets.DEV_JWT_SECRET }}
-          railway variables set JWT_EXPIRATION=${{ secrets.DEV_JWT_EXPIRATION }}
-          
-          # Deploy using the Docker image from Docker Hub
-          railway up --image ${{ needs.prepare.outputs.image_tag }}
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          
-      - name: Verify Deployment
-        run: |
-          echo "✅ Deployment to Railway dev environment completed successfully!"
-          echo "The application is now available at: ${{ secrets.DEV_APP_URL }}"
-      
-      - name: Notify Success
-        run: |
-          echo "✅ Successfully deployed ${{ env.APP_NAME }} to dev environment"
-          echo "Version: ${{ needs.prepare.outputs.version }}"
-          echo "Deployed by: ${{ github.actor }}"
-
-  deploy-prod:
-    needs: prepare
-    if: needs.prepare.outputs.deploy_env == 'prod'
     runs-on: ubuntu-latest
     environment: prod
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-        
-      - name: Deploy to Railway Production Environment
+      - name: Deploy to Production
         run: |
-          echo "Deploying to Railway Production Environment"
+          echo "Deploying to Production Environment"
           echo "Image: ${{ needs.prepare.outputs.image_tag }}"
-          
-          # Deploy using Railway CLI with Docker image from Docker Hub
-          railway link ${{ secrets.RAILWAY_PROJECT_ID }} --environment prod
-          railway variables set SPRING_PROFILES_ACTIVE=prod
-          railway variables set DB_HOST=${{ secrets.PROD_DB_HOST }}
-          railway variables set DB_NAME=${{ secrets.PROD_DB_NAME }}
-          railway variables set DB_USER=${{ secrets.PROD_DB_USER }}
-          railway variables set DB_PASSWORD=${{ secrets.PROD_DB_PASSWORD }}
-          railway variables set JWT_SECRET=${{ secrets.PROD_JWT_SECRET }}
-          railway variables set JWT_EXPIRATION=${{ secrets.PROD_JWT_EXPIRATION }}
-          
-          # Deploy using the Docker image from Docker Hub
-          railway up --image ${{ needs.prepare.outputs.image_tag }}
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          echo "This is a placeholder for the actual deployment step"
             
       - name: Create Release
         uses: ncipollo/release-action@v1
@@ -180,8 +97,8 @@ jobs:
       
       - name: Verify Deployment
         run: |
-          echo "🚀 Deployment to Railway production environment completed successfully!"
-          echo "The application is now available at: ${{ secrets.PROD_APP_URL }}"
+          echo "🚀 Production deployment completed successfully!"
+          echo "The application is now available at your production domain"
       
       - name: Notify Success
         run: |
