@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -e
+
+# Get the absolute path of the script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/scripts" && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Define colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+# Function to display help message
+show_help() {
+  echo -e "${BLUE}${BOLD}HireSync - Developer Toolkit${NC}"
+  echo -e "Usage: ./hiresync COMMAND [OPTIONS]"
+  echo -e "Example: ./hiresync start --debug\n"
+  echo -e "${BOLD}Available commands:${NC}"
+  echo -e "  ${BOLD}start${NC}       - Start the application (--debug for verbose output)"
+  echo -e "  ${BOLD}stop${NC}        - Stop Docker containers"
+  echo -e "  ${BOLD}restart${NC}     - Restart the application"
+  echo -e "  ${BOLD}logs${NC}        - View application logs"
+  echo -e "  ${BOLD}shell${NC}       - Open a shell in the container"
+  echo -e "  ${BOLD}db${NC}          - Database operations"
+  echo -e "  ${BOLD}help${NC}        - Display this help message"
+}
+
+# Function to check if a script exists
+script_exists() {
+  [ -f "$SCRIPT_DIR/$1.sh" ]
+}
+
+# Get command from first argument
+COMMAND="$1"
+shift || true
+
+# Show usage if no command provided
+if [ -z "$COMMAND" ] || [ "$COMMAND" == "help" ] || [ "$COMMAND" == "--help" ]; then
+  show_help
+  exit 0
+fi
+
+# Route to appropriate script
+if script_exists "$COMMAND"; then
+  bash "$SCRIPT_DIR/${COMMAND}.sh" "$@"
+else
+  echo -e "${RED}${BOLD}Error: Unknown command: $COMMAND${NC}"
+  echo -e "Run ${YELLOW}./hiresync help${NC} to see available commands."
+  exit 1
+fi

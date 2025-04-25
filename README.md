@@ -1,145 +1,409 @@
-# HireSync API
+# HireSync - AI-Powered Recruitment Platform
 
-HireSync is an AI-enhanced recruitment pipeline backend application built with Spring Boot.
+HireSync is a comprehensive recruitment management platform that simplifies and enhances the hiring process with AI assistance.
 
-## Features
+## Quick Start
 
-- User authentication and authorization with JWT
-- Job management
-- Application tracking
-- Interview scheduling
-- Comprehensive logging
-- Error handling
+The application can be controlled using the centralized `hiresync` command:
 
-## Environment Configuration
+```bash
+# Start the application in production mode
+./hiresync start
 
-HireSync uses environment variables for configuration. A `.env` file is used to manage these variables:
+# Start in local development mode with hot reload
+./hiresync local
 
-1. Copy the sample environment file:
+# View service status
+./hiresync status
+
+# Stop all services
+./hiresync stop
+```
+
+## Available Commands
+
+Run `./hiresync help` to see all available commands:
+
+```
+Commands:
+  start       Start the application in production mode
+  local       Start in local development mode with hot reload
+  app         Run the application without services
+  services    Manage supporting services
+  status      Show status of services
+  stop        Stop all services
+  restart     Restart all services
+  clean       Stop services and clean data
+  lint        Run code linting
+  quality     Run all quality checks
+  help        Show this help message
+```
+
+## Development
+
+For development, use the local mode with additional options:
+
+```bash
+# Start in local mode with database migrations
+./hiresync local --migrate
+
+# Enable remote debugging
+./hiresync local --debug
+
+# Start without services (if you're running them separately)
+./hiresync local --no-services
+```
+
+## Advanced Usage
+
+For managing services separately:
+
+```bash
+# Start just the services (database, etc.)
+./hiresync services start
+
+# View service logs
+./hiresync services logs
+
+# Clean up data volumes (WARNING: removes all data)
+./hiresync services clean
+```
+
+For running the application with specific profiles:
+
+```bash
+# Run with production profile
+./hiresync app prod
+
+# Run with test profile and debugging enabled
+./hiresync app test --debug
+```
+
+## Overview
+HireSync is a modern recruitment platform that leverages AI to streamline the hiring process, making it more efficient and effective for both recruiters and candidates.
+
+## Environment Setup
+
+### Prerequisites
+- Docker and Docker Compose
+- Git
+- Bash-compatible shell (Git Bash for Windows users)
+
+### Quick Start
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-repo/hiresync.git
+   cd hiresync
    ```
-   cp src/main/resources/.env.example src/main/resources/.env
+
+2. Configure environment variables:
+   - Copy the sample environment file:
+     ```bash
+     cp .env.example .env
+     ```
+   - Edit the `.env` file to customize your settings (if needed)
+
+3. Start the application:
+   
+   For local development with hot reloading:
+   ```bash
+   ./hiresync local
+   ```
+   
+   For production-like mode:
+   ```bash
+   ./hiresync start
    ```
 
-2. Edit the `.env` file with your configuration values.
+4. Access the application:
+   - API: http://localhost:8080/api
+   - Swagger UI: http://localhost:8080/api/swagger-ui.html
 
-3. The application supports two main environment profiles:
-   - `dev`: For local development with containerized dependencies
-   - `prod`: For production deployment with all services containerized
+### Environment Variables
+The application uses the following environment variables that you can customize in the `.env` file:
 
-4. For local development:
-   - Run `run-local.bat` to start dependencies with Docker and run the app locally
-   - This uses the `dev` profile which connects to containerized services on localhost
+#### Application Configuration
+- `SPRING_PROFILES_ACTIVE`: Application profile (local, dev, test, prod)
+- `TZ`: Time zone (default: UTC)
+- `APP_PORT`: Application port (default: 8080)
+- `DEBUG_PORT`: Debug port for remote debugging (default: 5005)
 
-5. For production deployment:
-   - Run `docker-compose -f docker-compose.prod.yaml up -d` to start all services
-   - This uses the `prod` profile which connects to containerized services within the Docker network
+#### Database Configuration
+- `DB_PORT`: Database port mapped to host (default: 5433)
+- `DB_HOST`: Database host (default: localhost)
+- `DB_NAME`: Database name (default: hiresync)
+- `DB_USER`: Database username (default: hiresync)
+- `DB_PASSWORD`: Database password (default: hiresync)
 
-Available configuration options include:
-- Database connection details (separate for dev/prod)
-- JWT authentication settings
-- Logging levels
-- External service integrations (Elasticsearch, RabbitMQ, Minio)
+#### Docker Resources
+- `NETWORK_NAME`: Docker network name (default: hiresync-network)
+- `POSTGRES_VOLUME`: PostgreSQL data volume name (default: hiresync-postgres-data)
+- `MAVEN_REPO_VOLUME`: Maven repository volume name (default: hiresync-maven-repo)
 
-## Prerequisites
+#### Security Configuration
+- `JWT_SECRET`: JWT signing secret (auto-generated for local development)
+- `JWT_EXPIRATION`: JWT token validity in milliseconds (default: 86400000 - 24h)
 
-- Java 17
-- Maven
-- PostgreSQL
-- Docker (optional)
+### Usage
 
-## Local Development
+The project uses a unified command interface through the `hiresync` script:
 
-### Option 1: Local App with Containerized Dependencies (Recommended)
+- `./hiresync start`: Start all services and the application in production mode
+- `./hiresync local`: Start local development environment with hot reloading
+- `./hiresync stop`: Stop all services
+- `./hiresync status`: Show status of services
+- `./hiresync app`: Start only the Spring Boot application
+- `./hiresync services`: Manage supporting services (PostgreSQL, etc.)
+- `./hiresync clean`: Stop services and remove volumes (data reset)
+- `./hiresync lint`: Run comprehensive code quality and linting checks
+- `./hiresync help`: Show help information
 
-1. Make sure Docker is running
-2. Create your `.env` file from the `.env.example`
-3. Run the application:
-```
-run-local.bat
-```
-This will:
-- Start PostgreSQL and Minio in containers
-- Run the application locally using the dev profile
-- Connect to the containerized services via localhost ports
+## Development
 
-### Option 2: Without Docker
+### Local Development Environment
 
-1. Configure PostgreSQL and update `application.yaml` with your database credentials
-2. Run the application:
-```
-mvn spring-boot:run
-```
+The `./hiresync local` command sets up a complete development environment with the following features:
 
-### Option 3: Fully Containerized (Production-like)
+- **Hot reloading**: Automatically reloads the application when Java files change
+- **Environment configuration**: Sets up development-specific environment variables
+- **Service management**: Starts and orchestrates Docker containers in the right order
+- **Database initialization**: Manages database migrations and development data seeding
+- **Health monitoring**: Monitors the status of running services
 
-1. Make sure Docker is running
-2. Create your `.env` file from the `.env.example`
-3. Run the application:
-```
-docker-compose -f docker-compose.prod.yaml up -d
-```
-This will:
-- Start PostgreSQL, Minio, and the application in containers
-- Run everything in a Docker network
-- Use the production profile
+To use additional development features, use command-line flags:
 
-## Deploying to Render
+```bash
+# Run database migrations
+./hiresync local --migrate
 
-### Method 1: Deploy from GitHub
+# Seed the database with development data
+./hiresync local --seed
 
-1. Push your code to a GitHub repository
-2. Create an account on [Render](https://render.com/)
-3. Click **New** and select **Web Service**
-4. Choose **Build and deploy from a Git repository**
-5. Connect your GitHub account and select your repository
-6. Configure the service:
-   - **Name**: hiresync-api
-   - **Region**: Choose the closest to your users
-   - **Branch**: main (or your deployment branch)
-   - **Runtime**: Docker
-   - **Plan**: Free tier (or select a paid plan for production)
-7. Set environment variables:
-   - `SPRING_PROFILES_ACTIVE=prod`
-   - `JDBC_DATABASE_URL=postgres://...` (Get this from your Render PostgreSQL instance)
-   - `JDBC_DATABASE_USERNAME=...`
-   - `JDBC_DATABASE_PASSWORD=...`
-   - `JWT_SECRET=...` (Generate a secure random string)
-8. Click **Create Web Service**
+# Run with both migrations and data seeding
+./hiresync local --migrate --seed
 
-### Method 2: Deploy from Docker Hub
-
-1. Build your Docker image:
-```
-docker build -t yourusername/hiresync:latest .
+# Enable remote debugging
+./hiresync local --debug
 ```
 
-2. Push to Docker Hub:
+### Code Quality
+
+Run linting and code quality checks with:
+
+```bash
+./hiresync lint
 ```
-docker login
-docker push yourusername/hiresync:latest
+
+This will perform various checks including:
+- Checkstyle validation
+- SpotBugs static analysis
+- Code duplication detection
+
+## Continuous Integration & Deployment
+
+HireSync uses GitHub Actions for CI/CD to automate testing, building, and deployment processes.
+
+### CI Pipeline
+
+The CI pipeline runs automatically on:
+- Every push to `master` and `dev` branches
+- Every pull request to these branches
+
+It performs the following tasks:
+- Code quality validation
+- Unit and integration tests
+- Building and packaging the application
+- Building and pushing Docker images to Docker Hub
+
+### CD Pipeline
+
+The CD pipeline automatically deploys the application to different environments:
+
+| Branch | Environment | Hosting Provider |
+|--------|-------------|------------------|
+| `dev`  | Development | Digital Ocean    |
+| `master` | Production | AWS EC2         |
+
+Deployments are fully automated - when code is merged to either branch, it is:
+1. Built and tested in the CI pipeline
+2. Packaged as a Docker image and pushed to Docker Hub
+3. Deployed to the corresponding environment
+
+### Manual Deployments
+
+To manually trigger a deployment:
+
+1. Go to the 'Actions' tab in the GitHub repository
+2. Select the 'CD Pipeline' workflow
+3. Click 'Run workflow'
+4. Select the branch and environment
+5. Click 'Run workflow'
+
+### Environment Setup
+
+For detailed instructions on setting up environments for deployment, see [CD Environment Setup](docs/cd-environment-setup.md).
+
+### Server Setup
+
+To set up a new server for deployment:
+
+```bash
+# For development environment
+./scripts/server-setup.sh dev
+
+# For production environment
+./scripts/server-setup.sh prod
 ```
 
-3. On Render:
-   - Go to your profile settings
-   - Enable **Early Access -> Deploy from external registries**
-   - Create a new Web Service
-   - Select **Deploy an existing image from a registry**
-   - Enter your Docker Hub image URL
-   - Configure environment variables as above
-   - Deploy the service
+## License
+Copyright (c) 2025 HireSync. All rights reserved.
 
-## Setting Up a Database on Render
+## Development Scripts
 
-1. On Render dashboard, click **New** and select **PostgreSQL**
-2. Configure your database:
-   - **Name**: hiresync-db
-   - **Database**: hiresync_db
-   - **User**: hiresync_user
-   - Select your preferred region and plan
-3. After creation, use the Internal Database URL in your web service environment variables
+HireSync includes a comprehensive set of development scripts to help manage the application lifecycle.
 
-## API Documentation
+### Main Commands
 
-Once deployed, API documentation is available at:
-- Locally: `http://localhost:8080/api/swagger-ui.html`
-- On Render: `https://your-service-name.onrender.com/api/swagger-ui.html` 
+The main entry point is the `hiresync` script in the root directory, which provides access to all functionality:
+
+```bash
+# View help and available commands
+./hiresync help
+
+# Application commands
+./hiresync app start     # Start in production mode
+./hiresync app dev       # Start in development mode with hot reload
+./hiresync app test      # Start in test mode
+./hiresync app stop      # Stop the application
+
+# Build and deployment commands
+./hiresync build package # Build application package
+./hiresync build docker  # Build Docker image
+./hiresync build deploy  # Deploy application
+
+# Service management
+./hiresync services start  # Start services
+./hiresync services stop   # Stop services
+./hiresync services status # View service status
+
+# Database operations
+./hiresync database migrate # Run database migrations
+./hiresync database backup  # Backup database
+./hiresync database seed    # Seed database with data
+
+# Code quality
+./hiresync quality test     # Run tests
+./hiresync quality lint     # Check code style
+./hiresync quality format   # Format code
+```
+
+### Script Organization
+
+Scripts are organized in a modular structure:
+
+```
+scripts/
+├── common/           # Common utilities
+│   ├── app.sh        # Application operations
+│   ├── docker.sh     # Docker operations
+│   ├── env.sh        # Environment setup
+│   ├── init.sh       # Script initialization
+│   ├── logging.sh    # Logging utilities
+│   └── utils.sh      # Common utilities
+├── core/             # Core application scripts
+│   ├── app.sh        # Application runtime management
+│   ├── build.sh      # Build and deployment operations
+│   ├── quality.sh    # Code quality operations
+│   └── services.sh   # Service management
+└── database/         # Database operations
+    ├── backup.sh     # Database backup/restore
+    ├── db.sh         # Main database script
+    ├── migrate.sh    # Database migrations
+    └── seed.sh       # Data seeding
+```
+
+## Git Hooks
+
+This project uses Git hooks to ensure code quality before commits. To install the hooks:
+
+### On Unix/Linux/MacOS:
+```bash
+# Make the scripts executable
+chmod +x .git-hooks/install-hooks.sh .git-hooks/pre-commit
+
+# Install the hooks
+./.git-hooks/install-hooks.sh
+```
+
+### On Windows:
+```powershell
+# Install the hooks using PowerShell
+# This will create a symlink to the pre-commit hook
+git config core.hooksPath .git-hooks
+```
+
+The pre-commit hook performs the following lightweight checks:
+- Checks for merge conflicts
+- Detects large files (>500KB)
+- Validates commit message format (conventional commits)
+- Compiles the code
+- Runs checkstyle on changed files only
+- Runs PMD rules on changed files only using the main ruleset
+
+To bypass the pre-commit hook temporarily, use:
+```bash
+SKIP_HOOKS=1 git commit
+# or on Windows
+set SKIP_HOOKS=1 && git commit
+```
+
+## Code Quality Checks
+
+The project includes a comprehensive script for running code quality checks and formatting.
+
+### Quality Check Script
+
+Run the quality check script to ensure your code meets the project's quality standards:
+
+```bash
+./scripts/quality-check.sh
+```
+
+The script performs the following checks in sequence:
+
+1. **Code Formatting (Spotless)**: Ensures consistent code style
+2. **PMD**: Static code analysis to find code smells and potential bugs
+3. **SpotBugs**: Detects potential bugs through bytecode analysis
+4. **Checkstyle**: Verifies coding standards compliance
+5. **OWASP Dependency Check**: Identifies known security vulnerabilities in dependencies
+
+### Options
+
+The script supports several options:
+
+```
+Usage: ./scripts/quality-check.sh [options]
+Options:
+  --skip-format     Skip code formatting with Spotless
+  --skip-spotbugs   Skip SpotBugs checks
+  --skip-checkstyle Skip Checkstyle checks
+  --skip-depcheck   Skip OWASP Dependency Check
+  --fix             Fix issues when possible (currently only formatting)
+  --help            Show this help message
+```
+
+### Fixing Issues
+
+To automatically fix formatting issues:
+
+```bash
+./scripts/quality-check.sh --fix
+```
+
+### Customizing Rules
+
+The quality checks are configured using XML files in the `src/main/resources` directory:
+
+- `spotbugs-exclude.xml`: SpotBugs exclusions
+- `checkstyle-rules.xml`: Checkstyle rule configuration
+- `dependency-check-suppressions.xml`: OWASP dependency check suppressions

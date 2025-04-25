@@ -1,8 +1,87 @@
-HELP.md
+# Maven build artifacts
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+
+# Compiled class files
+*.class
+
+# Package files
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE - IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# IDE - Eclipse
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# IDE - VS Code
+.vscode/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Maven wrapper
+!maven-wrapper.jar
+
+# Environment & configuration
+.env
+.env.local
+application-local.properties
+application-local.yml
+application-local.yaml
+*.pfx
+*.p12
+*.jks
+*.keystore
+
+# Test & Coverage reports
+.coverage/
+coverage/
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.pytest_cache/
+junit/
+coverage-reports/
+
+# Docker volumes
+postgres-data/
+app-logs/
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+*.swp
+*~
+._*
+.cache/
 
 ### STS ###
 .apt_generated
@@ -12,12 +91,6 @@ target/
 .settings
 .springBeans
 .sts4-cache
-
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
 
 ### NetBeans ###
 /nbproject/private/
@@ -45,3 +118,6 @@ log/
 # Environment files
 .env
 !.env.example
+
+# Don't ignore git hooks directory
+!.git-hooks/

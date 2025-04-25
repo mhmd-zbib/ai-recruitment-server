@@ -1,85 +1,243 @@
 package com.zbib.hiresync.logging;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zbib.hiresync.exceptions.AppException;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
-import org.springframework.http.HttpStatus;
+import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.util.StopWatch;
 
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
+/**
+ * Aspect for logging method execution with detailed information.
+ */
 @Aspect
 @Component
-@Log4j2
 @RequiredArgsConstructor
+@Order(1) // Ensure this aspect runs first
+@ConditionalOnProperty(name = "hiresync.logging.method-logging-enabled", havingValue = "true", matchIfMissing = true)
 public class LoggingAspect {
-
-    private final ObjectMapper jacksonObjectMapper;
-    private final HttpServletRequest request;
-    private final LogContextBuilder logContextBuilder;
-    private final LogFormatter logFormatter;
-
-    @Pointcut("within(com.zbib.hiresync.controller..*)")
-    public void loggableMethods() {
-    }
-
+    private static final Logger logger = LogManager.getLogger(LoggingAspect.class);
+    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
+    
+    // Track method calls within a single thread to avoid duplicate logging
+    private static final ThreadLocal<Set<String>> LOGGED_METHODS = ThreadLocal.withInitial(ConcurrentHashMap::newKeySet);
+    
+    /**
+     * Define a pointcut for methods annotated with LoggableService
+     */
+    @Pointcut("@annotation(com.zbib.hiresync.logging.LoggableService)")
+    public void loggableMethods() {}
+    
+    /**
+     * Main logging pointcut that avoids duplicate logging of the same logical operation
+     */
     @Around("loggableMethods()")
-    public Object logAroundMethod(ProceedingJoinPoint joinPoint) throws Throwable {
-        long startTime = System.currentTimeMillis();
-
-        Map<String, String> logContext = logContextBuilder.buildInitialContext(joinPoint, request);
-        logContext.forEach(ThreadContext::put);
-
+    public Object logMethodExecution(ProceedingJoinPoint joinPoint) throws Throwable {
+        MethodSignature signature = (MethodSignature) joinPoint.getSignature();
+        
+        // Generate a unique ID for this method call including class/method and parameters hash
+        String methodId = signature.getDeclaringTypeName() + "." + signature.getName() + 
+                          "#" + joinPoint.getArgs().length;
+        
+        // Skip if we're already logging this method or one of its callers
+        if (!LOGGED_METHODS.get().add(methodId)) {
+            // Just proceed without logging to avoid duplication
+            return joinPoint.proceed();
+        }
+        
         try {
+            return doLogMethodExecution(joinPoint, signature);
+        } finally {
+            // Clean up after method execution
+            LOGGED_METHODS.get().remove(methodId);
+            if (LOGGED_METHODS.get().isEmpty()) {
+                LOGGED_METHODS.remove();
+            }
+        }
+    }
+    
+    /**
+     * Actual logging implementation
+     */
+    private Object doLogMethodExecution(ProceedingJoinPoint joinPoint, MethodSignature signature) throws Throwable {
+        LoggableService annotation = signature.getMethod().getAnnotation(LoggableService.class);
+        
+        // Create log message template
+        String methodName = signature.getDeclaringTypeName() + "." + signature.getName();
+        String messageTemplate = annotation.message().isEmpty() ? "Executing " + methodName : annotation.message();
+        
+        // Add context for structured logging
+        ThreadContext.put(ContextKeys.CLASS, signature.getDeclaringTypeName());
+        ThreadContext.put(ContextKeys.METHOD, signature.getName());
+        
+        // Extract arguments map for placeholder substitution
+        Map<String, Object> argsMap = extractArgsMap(joinPoint, signature);
+        
+        // Process placeholders in the message
+        String processedMessage = processPlaceholders(messageTemplate, argsMap);
+        
+        // Execute method and time it
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
+        
+        try {
+            // Execute the method without logging the start
             Object result = joinPoint.proceed();
-            logSuccessResponse(result, startTime);
+            
+            // Log method success only once at completion
+            stopWatch.stop();
+            long executionTime = stopWatch.getTotalTimeMillis();
+            ThreadContext.put(ContextKeys.EXECUTION_TIME, String.valueOf(executionTime));
+            
+            // Log concise message with execution time
+            log(annotation.level(), "{} ({}ms)", processedMessage, executionTime);
+            
             return result;
-        } catch (Exception ex) {
-            logError(ex, startTime, logContext.get("message"));
+        } catch (Throwable ex) {
+            // Log method failure
+            if (stopWatch.isRunning()) {
+                stopWatch.stop();
+            }
+            
+            // Add error context
+            long executionTime = stopWatch.getTotalTimeMillis();
+            ThreadContext.put(ContextKeys.EXCEPTION, ex.getClass().getName());
+            ThreadContext.put(ContextKeys.ERROR_MESSAGE, ex.getMessage());
+            ThreadContext.put(ContextKeys.EXECUTION_TIME, String.valueOf(executionTime));
+            
+            log(LogLevel.ERROR, "{} failed after {}ms: {}", processedMessage, executionTime, ex.getMessage());
             throw ex;
         } finally {
-            ThreadContext.clearMap();
+            // Clean up context
+            ThreadContext.remove(ContextKeys.CLASS);
+            ThreadContext.remove(ContextKeys.METHOD);
+            ThreadContext.remove(ContextKeys.EXECUTION_TIME);
+            ThreadContext.remove(ContextKeys.EXCEPTION);
+            ThreadContext.remove(ContextKeys.ERROR_MESSAGE);
         }
     }
-
-    private void logSuccessResponse(Object result, long startTime) {
-        long executionTime = System.currentTimeMillis() - startTime;
-        logFormatter.formatSuccessResponse(result, executionTime, jacksonObjectMapper);
-        log.info(ThreadContext.get("message"));
+    
+    /**
+     * Processes placeholders in the message template using the argument values
+     */
+    private String processPlaceholders(String template, Map<String, Object> args) {
+        if (args.isEmpty() || !template.contains("${")) {
+            return template;
+        }
+        
+        Matcher matcher = PLACEHOLDER_PATTERN.matcher(template);
+        StringBuffer result = new StringBuffer();
+        
+        while (matcher.find()) {
+            String placeholder = matcher.group(1);
+            String[] parts = placeholder.split("\\.");
+            
+            // Handle simple parameter references like ${email}
+            if (parts.length == 1 && args.containsKey(parts[0])) {
+                Object value = args.get(parts[0]);
+                String replacement = maskIfSensitive(parts[0], value);
+                // Escape special regex chars in the replacement
+                replacement = Matcher.quoteReplacement(replacement);
+                matcher.appendReplacement(result, replacement);
+            } 
+            // Handle nested properties like ${request.email}
+            else if (parts.length > 1 && args.containsKey(parts[0])) {
+                try {
+                    Object value = getNestedProperty(args.get(parts[0]), parts, 1);
+                    if (value != null) {
+                        String replacement = maskIfSensitive(parts[parts.length-1], value);
+                        // Escape special regex chars in the replacement
+                        replacement = Matcher.quoteReplacement(replacement);
+                        matcher.appendReplacement(result, replacement);
+                        continue;
+                    }
+                } catch (Exception e) {
+                    // If we can't resolve the property, leave placeholder as is
+                }
+            }
+            
+            // If we get here, keep the original placeholder but convert to a more readable form
+            matcher.appendReplacement(result, Matcher.quoteReplacement("[" + placeholder + "]"));
+        }
+        
+        matcher.appendTail(result);
+        return result.toString();
     }
-
-    private void logError(Exception ex, long startTime, String message) {
-        long executionTime = System.currentTimeMillis() - startTime;
-        HttpStatus status = determineHttpStatus(ex);
-
-        String errorMessage = String.format("%s - %s: %s",
-                message,
-                ex.getClass().getName(),
-                ex.getMessage());
-
-        if (status.is4xxClientError()) {
-            logFormatter.formatClientError(ex, message, executionTime, jacksonObjectMapper);
-            log.warn(errorMessage);
-        } else {
-            logFormatter.formatServerError(ex, message, executionTime, jacksonObjectMapper);
-            log.error(errorMessage, ex);
+    
+    /**
+     * Gets a nested property value using reflection
+     */
+    private Object getNestedProperty(Object obj, String[] parts, int index) {
+        if (obj == null || index >= parts.length) {
+            return obj;
+        }
+        
+        try {
+            String fieldName = parts[index];
+            java.lang.reflect.Field field = obj.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return getNestedProperty(field.get(obj), parts, index + 1);
+        } catch (Exception e) {
+            return null;
         }
     }
-
-    private HttpStatus determineHttpStatus(Exception ex) {
-        if (ex instanceof ResponseStatusException) {
-            return (HttpStatus) ((ResponseStatusException) ex).getStatusCode();
-        } else if (ex instanceof AppException) {
-            return ((AppException) ex).getStatus();
+    
+    /**
+     * Masks sensitive values
+     */
+    private String maskIfSensitive(String name, Object value) {
+        String valueStr = String.valueOf(value);
+        
+        // Add any additional sensitive fields here
+        if (name.toLowerCase().contains("password") || 
+            name.toLowerCase().contains("token") ||
+            name.toLowerCase().contains("secret") ||
+            name.toLowerCase().contains("key")) {
+            return "********";
         }
-        return HttpStatus.INTERNAL_SERVER_ERROR;
+        
+        return valueStr;
+    }
+    
+    private Map<String, Object> extractArgsMap(ProceedingJoinPoint joinPoint, MethodSignature signature) {
+        String[] paramNames = signature.getParameterNames();
+        Object[] args = joinPoint.getArgs();
+        
+        if (paramNames.length == 0 || args.length == 0) {
+            return Map.of();
+        }
+        
+        return IntStream.range(0, Math.min(paramNames.length, args.length))
+                .boxed()
+                .filter(i -> args[i] != null)
+                .collect(Collectors.toMap(
+                        i -> paramNames[i],
+                        i -> args[i],
+                        (k1, k2) -> k2
+                ));
+    }
+    
+    private void log(LogLevel level, String format, Object... args) {
+        switch (level) {
+            case DEBUG -> logger.debug(format, args);
+            case INFO -> logger.info(format, args);
+            case WARN -> logger.warn(format, args);
+            case ERROR -> logger.error(format, args);
+        }
     }
 }

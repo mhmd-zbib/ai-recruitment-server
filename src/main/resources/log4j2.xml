@@ -1,54 +1,109 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration monitorInterval="30">
+<Configuration status="WARN" monitorInterval="30">
     <Properties>
-        <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight{%-5level} %highlight{[%c{1.}]}{cyan} %highlight{%msg}{bright} %style{%X{correlationId}}{magenta}%n%style{%X{httpMethod} %X{apiPath}}{blue}%style{%X{executionTime}}{yellow}%style{%X{errorInfo}}{red}</Property>
-        <Property name="JSON_PATTERN">{"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%level","service":"%c{1}","message":"%X{message}","request":%X{request},"response":%X{response},"apiPath":"%X{apiPath}","httpMethod":"%X{httpMethod}","correlationId":"%X{correlationId}","executionTime":"%X{executionTime}","clientIP":"%X{clientIP}","userAgent":"%X{userAgent}","errorInfo":%X{errorInfo},"stackTrace":"%exception{full}"}%n</Property>
-        <Property name="ERROR_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%c{1.}] %msg %X{correlationId}%n%X{httpMethod} %X{apiPath}%n%exception{full}</Property>
+        <!-- Simple human-readable terminal log pattern -->
+        <Property name="TERMINAL_PATTERN">%d{HH:mm:ss.SSS} %highlight{%-5p}{FATAL=bright_red, ERROR=red, WARN=yellow, INFO=blue, DEBUG=green, TRACE=white} %X{userId:--} %X{correlationId:--} %m%n</Property>
+        
+        <!-- Detailed structured log pattern for file logs -->
+        <Property name="STRUCTURED_PATTERN">{
+  "timestamp": "%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}",
+  "level": "%p",
+  "logger": "%c{1}",
+  "correlationId": "%X{correlationId}",
+  "requestId": "%X{requestId}",
+  "userId": "%X{userId}",
+  "sessionId": "%X{sessionId}",
+  "tenantId": "%X{tenantId}",
+  "class": "%X{class}",
+  "method": "%X{method}",
+  "path": "%X{path}",
+  "httpMethod": "%X{httpMethod}",
+  "clientIp": "%X{clientIp}",
+  "status": "%X{status}",
+  "duration": "%X{duration}",
+  "executionTime": "%X{executionTime}",
+  "exception": "%X{exception}",
+  "errorMessage": "%X{errorMessage}",
+  "message": "%enc{%m}{JSON}"
+}%n</Property>
+        
+        <Property name="APP_LOG_ROOT">logs</Property>
     </Properties>
+
     <Appenders>
-        <Console name="ConsoleAppender" target="SYSTEM_OUT">
-            <PatternLayout pattern="${LOG_PATTERN}" disableAnsi="false"/>
-            <ThresholdFilter level="DEBUG"/>
+        <!-- Console appender with simplified format for human readability -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${TERMINAL_PATTERN}" disableAnsi="false"/>
+            <ThresholdFilter level="INFO"/>
         </Console>
-        <RollingFile name="JsonFileAppender"
-                     fileName="logs/app.log"
-                     filePattern="logs/hiresync-%d{yyyy-MM-dd}-%i.json.gz">
-            <PatternLayout pattern="${JSON_PATTERN}"/>
+
+        <!-- Application log file with detailed structured format -->
+        <RollingRandomAccessFile name="AppLogFile" fileName="${APP_LOG_ROOT}/hiresync-app.log" 
+                     filePattern="${APP_LOG_ROOT}/hiresync-app-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${STRUCTURED_PATTERN}"/>
             <Policies>
-                <TimeBasedTriggeringPolicy/>
-                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true" />
+                <SizeBasedTriggeringPolicy size="100 MB" />
             </Policies>
-            <DefaultRolloverStrategy max="30"/>
-        </RollingFile>
-        <RollingFile name="ErrorFileAppender"
-                     fileName="logs/error.log"
-                     filePattern="logs/error-%d{yyyy-MM-dd}-%i.log">
-            <PatternLayout pattern="${ERROR_PATTERN}"/>
+            <DefaultRolloverStrategy max="30">
+                <Delete basePath="${APP_LOG_ROOT}" maxDepth="1">
+                    <IfFileName glob="hiresync-app-*.log.gz" />
+                    <IfLastModified age="30d" />
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingRandomAccessFile>
+
+        <!-- Error log file -->
+        <RollingRandomAccessFile name="ErrorLogFile" fileName="${APP_LOG_ROOT}/hiresync-errors.log" 
+                     filePattern="${APP_LOG_ROOT}/hiresync-errors-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${STRUCTURED_PATTERN}"/>
+            <ThresholdFilter level="ERROR"/>
             <Policies>
-                <TimeBasedTriggeringPolicy/>
-                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true" />
+                <SizeBasedTriggeringPolicy size="50 MB" />
             </Policies>
-            <DefaultRolloverStrategy max="30"/>
-            <LevelRangeFilter minLevel="ERROR" maxLevel="ERROR" onMatch="ACCEPT" onMismatch="DENY"/>
-        </RollingFile>
+            <DefaultRolloverStrategy max="30">
+                <Delete basePath="${APP_LOG_ROOT}" maxDepth="1">
+                    <IfFileName glob="hiresync-errors-*.log.gz" />
+                    <IfLastModified age="60d" />
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingRandomAccessFile>
+        
+        <!-- Async wrappers for performance -->
+        <Async name="AsyncAppLog" bufferSize="1024">
+            <AppenderRef ref="AppLogFile"/>
+        </Async>
+        
+        <Async name="AsyncErrorLog" bufferSize="256">
+            <AppenderRef ref="ErrorLogFile"/>
+        </Async>
     </Appenders>
+
     <Loggers>
-        <!-- Reduce noise from Hibernate -->
-        <Logger name="org.hibernate" level="WARN"/>
-        <Logger name="org.hibernate.SQL" level="DEBUG"/>
-        <Logger name="org.hibernate.type.descriptor.sql" level="TRACE"/>
-        
-        <!-- Spring Framework -->
-        <Logger name="org.springframework" level="INFO"/>
-        <Logger name="org.springframework.web" level="INFO"/>
-        
-        <!-- Application Logs -->
-        <Logger name="com.zbib.hiresync" level="DEBUG"/>
-        
+        <!-- Default logger configuration -->
         <Root level="INFO">
-            <AppenderRef ref="ConsoleAppender"/>
-            <AppenderRef ref="JsonFileAppender"/>
-            <AppenderRef ref="ErrorFileAppender"/>
+            <AppenderRef ref="Console" />
+            <AppenderRef ref="AsyncAppLog" />
+            <AppenderRef ref="AsyncErrorLog" />
         </Root>
+
+        <!-- Framework loggers -->
+        <Logger name="org.springframework" level="INFO" additivity="false">
+            <AppenderRef ref="Console" />
+            <AppenderRef ref="AsyncAppLog" />
+        </Logger>
+
+        <Logger name="org.hibernate" level="WARN" additivity="false">
+            <AppenderRef ref="Console" />
+            <AppenderRef ref="AsyncAppLog" />
+        </Logger>
+        
+        <!-- Application loggers -->
+        <Logger name="com.zbib.hiresync" level="DEBUG">
+            <AppenderRef ref="Console" />
+            <AppenderRef ref="AsyncAppLog" />
+            <AppenderRef ref="AsyncErrorLog" />
+        </Logger>
     </Loggers>
 </Configuration>

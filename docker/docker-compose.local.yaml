@@ -1,0 +1,68 @@
+services:
+  # Database service
+  postgres:
+    image: postgres:16-alpine
+    container_name: hiresync-postgres
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    environment:
+      POSTGRES_USER: ${DB_USER:-hiresync}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-hiresync}
+      POSTGRES_DB: ${DB_NAME:-hiresync}
+      TZ: ${TZ:-UTC}
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${DB_USER:-hiresync}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Development tools container
+  devtools:
+    image: maven:3.9-eclipse-temurin-21-jammy
+    container_name: hiresync-devtools
+    volumes:
+      # Explicitly mount parent directory to /app
+      - ../:/app
+      - maven_repo:/root/.m2/repository
+    working_dir: /app
+    ports:
+      - "127.0.0.1:8080:8080"    # Application
+      - "127.0.0.1:5005:5005"    # Remote debugger
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-hiresync}
+      DB_USER: ${DB_USER:-hiresync}
+      DB_PASSWORD: ${DB_PASSWORD:-hiresync}
+    command: tail -f /dev/null
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Shared networks and volumes
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  maven_repo:

@@ -1,0 +1,59 @@
+# Configuration for local development
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:hiresync}
+    username: ${DB_USER:hiresync}
+    password: ${DB_PASSWORD:hiresync}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      auto-commit: true
+      pool-name: HireSyncHikariPool
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+  devtools:
+    restart:
+      enabled: true
+      additional-paths: src/main/java,src/main/resources
+      exclude: static/**,public/**
+    livereload:
+      enabled: true
+  # Fix for map syntax errors in properties
+  main:
+    cloud-platform: none
+
+# Server configuration
+server:
+  port: 8080
+
+# API Documentation
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    filter: true
+    display-request-duration: true
+  show-actuator: true
+  default-produces-media-type: application/json
+
+# JWT settings
+jwt:
+  issuer: hiresync-local
+  expiration: 86400000  # 24 hours in milliseconds
+
+# Local development features
+hiresync:
+  features:
+    debug-mode: true

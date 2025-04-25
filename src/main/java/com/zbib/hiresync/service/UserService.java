@@ -1,32 +1,21 @@
 package com.zbib.hiresync.service;
 
 import com.zbib.hiresync.entity.User;
+import com.zbib.hiresync.exception.auth.UserNotFoundException;
 import com.zbib.hiresync.repository.UserRepository;
-import com.zbib.hiresync.security.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-
-import java.util.UUID;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class UserService implements UserDetailsService {
+public class UserService {
 
     private final UserRepository userRepository;
 
-    @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-
-        return new UserDetailsImpl(user);
+    @Transactional(readOnly = true)
+    public User findByUsernameOrThrow(String username) {
+        return userRepository.findByEmail(username)
+                .orElseThrow(() -> new UserNotFoundException("User not found with email: " + username));
     }
-
-    public User getUserById(UUID id) {
-        return userRepository.findById(id).orElseThrow(null);
-    }
-
-}
+} 

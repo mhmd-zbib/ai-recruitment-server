@@ -1,0 +1,160 @@
+name: hiresync-dev
+
+services:
+  # Application service
+  app:
+    image: ${REGISTRY:-ghcr.io}/${GITHUB_ACTOR:-local}/${IMAGE_NAME:-hiresync}:${IMAGE_TAG:-dev}
+    container_name: hiresync-dev-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_DEV_NAME:-hiresync}
+      SPRING_DATASOURCE_USERNAME: ${DB_DEV_USER:-hiresync}
+      SPRING_DATASOURCE_PASSWORD: ${DB_DEV_PASSWORD:-hiresync}
+      # Add other environment variables as needed
+      TZ: UTC
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hiresync-dev-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    labels:
+      org.hiresync.component: "api"
+      org.hiresync.environment: "development"
+
+  # Database service
+  postgres:
+    image: postgres:16-alpine
+    container_name: hiresync-dev-postgres
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    environment:
+      POSTGRES_USER: ${DB_DEV_USER:-hiresync}
+      POSTGRES_PASSWORD: ${DB_DEV_PASSWORD:-hiresync}
+      POSTGRES_DB: ${DB_DEV_NAME:-hiresync}
+      TZ: UTC
+      PGTZ: UTC
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_DEV_USER:-hiresync} -d ${DB_DEV_NAME:-hiresync}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    command: >
+      postgres
+        -c shared_buffers=256MB
+        -c max_connections=200
+        -c effective_cache_size=768MB
+        -c work_mem=16MB
+        -c maintenance_work_mem=64MB
+    networks:
+      - hiresync-dev-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.7'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    labels:
+      org.hiresync.component: "database"
+      org.hiresync.environment: "development"
+      
+  # Prometheus for monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: hiresync-dev-prometheus
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - hiresync-dev-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.3'
+    labels:
+      org.hiresync.component: "monitoring"
+      org.hiresync.environment: "development"
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: hiresync-dev-grafana
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    depends_on:
+      - prometheus
+    networks:
+      - hiresync-dev-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.3'
+    labels:
+      org.hiresync.component: "monitoring"
+      org.hiresync.environment: "development"
+
+# Shared networks
+networks:
+  hiresync-dev-network:
+    name: hiresync-dev-network
+    driver: bridge
+
+# Persistent volumes
+volumes:
+  postgres-data:
+    name: hiresync-dev-postgres-data
+  prometheus-data:
+    name: hiresync-dev-prometheus-data
+  grafana-data:
+    name: hiresync-dev-grafana-data 

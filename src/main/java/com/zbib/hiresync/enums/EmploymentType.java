@@ -1,8 +1,13 @@
 package com.zbib.hiresync.enums;
 
+/**
+ * Represents different types of employment
+ */
 public enum EmploymentType {
-    FULLTIME,
-    PARTTIME,
+    FULL_TIME,
+    PART_TIME,
     CONTRACT,
-    INTERNSHIP
-}
+    FREELANCE,
+    INTERNSHIP,
+    TEMPORARY
+} 

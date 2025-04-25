@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: hiresync-test-app
+    restart: on-failure
+    environment:
+      - SPRING_PROFILES_ACTIVE=test
+      - TZ=UTC
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/hiresync_test
+      - SPRING_DATASOURCE_USERNAME=test
+      - SPRING_DATASOURCE_PASSWORD=test
+      - SPRING_JPA_HIBERNATE_DDL-AUTO=create-drop
+      - SPRING_JPA_SHOW-SQL=true
+      - SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL=true
+      - LOG_LEVEL_ROOT=WARN
+      - LOG_LEVEL_APP=DEBUG
+      - LOG_LEVEL_SQL=DEBUG
+      - JWT_SECRET=test-secret-key-with-minimum-length-of-32-characters
+      - JWT_ISSUER=hiresync-test
+      - JWT_EXPIRATION=86400000
+      - JWT_REFRESH_EXPIRATION=604800000
+      - SPRINGDOC_SWAGGER_UI_ENABLED=false
+      - SPRINGDOC_API_DOCS_ENABLED=false
+      - MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info
+      - MANAGEMENT_ENDPOINT_HEALTH_SHOW-DETAILS=never
+      - HIRESYNC_FEATURES_DEBUG-MODE=true
+    ports:
+      - "127.0.0.1:8080:8080"  # Only expose locally
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - test-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: hiresync-test-db
+    restart: on-failure
+    environment:
+      - POSTGRES_DB=hiresync_test
+      - POSTGRES_USER=test
+      - POSTGRES_PASSWORD=test
+      - TZ=UTC
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+    ports:
+      - "127.0.0.1:5432:5432"  # Only bind to localhost
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d hiresync_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  test-network:
+    driver: bridge
+
+volumes:
+  postgres_test_data:
+    driver: local
