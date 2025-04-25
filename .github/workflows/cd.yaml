@@ -114,7 +114,7 @@ jobs:
           echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.version }}"
           echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.branch }}-latest"
 
-      - name: Deploy to Server
+      - name: Deploy to Render Server
         if: success() && (steps.set-version.outputs.branch == 'master' || github.event.inputs.environment == 'prod')
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -123,14 +123,13 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
+            # Application environment variables are configured in Render dashboard
             cd ${{ secrets.APP_DIRECTORY }}
             export REGISTRY=${{ env.REGISTRY }}
             export REPO_OWNER=${{ env.REPO_OWNER }}
             export IMAGE_NAME=${{ env.APP_NAME }}
             export IMAGE_TAG=${{ steps.set-version.outputs.version }}
-            export JDBC_DATABASE_URL="${{ secrets.JDBC_DATABASE_URL }}"
-            export DB_USER="${{ secrets.DB_USER }}"
-            export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
+            # Database credentials and application secrets are managed directly on Render
             export SPRING_PROFILES_ACTIVE=prod
             
             echo "Pulling latest image from registry..."
