@@ -17,6 +17,10 @@ on:
         type: choice
         options: [prod]
 
+# Status badge URLs:
+# https://github.com/mhmd-zbib/ai-recruitment-server/actions/workflows/cd.yaml/badge.svg?branch=master
+# https://github.com/mhmd-zbib/ai-recruitment-server/actions/workflows/cd.yaml/badge.svg?branch=dev
+
 env:
   APP_NAME: hiresync
   DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}

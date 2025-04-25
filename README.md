@@ -1,6 +1,16 @@
-# HireSync - AI-Powered Recruitment Platform
+# HireSync
 
-HireSync is a comprehensive recruitment management platform that simplifies and enhances the hiring process with AI assistance.
+[![CI Pipeline](https://github.com/mhmd-zbib/ai-recruitment-server/actions/workflows/ci.yaml/badge.svg?branch=master)](https://github.com/mhmd-zbib/ai-recruitment-server/actions/workflows/ci.yaml)
+[![CD Pipeline](https://github.com/mhmd-zbib/ai-recruitment-server/actions/workflows/cd.yaml/badge.svg?branch=master)](https://github.com/mhmd-zbib/ai-recruitment-server/actions/workflows/cd.yaml)
+
+An AI-powered recruitment platform for managing job applications and hiring processes.
+
+## Features
+
+- Streamlined job application tracking
+- AI-powered candidate matching
+- Comprehensive interview management
+- Analytical insights for hiring decisions
 
 ## Quick Start
 

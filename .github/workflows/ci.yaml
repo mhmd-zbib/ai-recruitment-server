@@ -10,6 +10,10 @@ on:
     branches: [master, dev]
   workflow_dispatch:
 
+# Status badge URLs:
+# https://github.com/mhmd-zbib/ai-recruitment-server/actions/workflows/ci.yaml/badge.svg?branch=master
+# https://github.com/mhmd-zbib/ai-recruitment-server/actions/workflows/ci.yaml/badge.svg?branch=dev
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
