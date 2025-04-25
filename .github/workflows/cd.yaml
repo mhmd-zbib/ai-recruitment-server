@@ -7,6 +7,7 @@ on:
       - completed
     branches:
       - master
+      - dev
   workflow_dispatch:
     inputs:
       environment:
@@ -19,14 +20,14 @@ on:
 env:
   APP_NAME: hiresync
   DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  REGISTRY: ghcr.io
+  REPO_OWNER: zbib
 
 jobs:
-  prepare:
+  deploy:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
-    outputs:
-      version: ${{ steps.set-version.outputs.version }}
-      image_tag: ${{ steps.vars.outputs.image_tag }}
+    environment: ${{ github.event.inputs.environment || 'prod' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -41,67 +42,65 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Using version: $VERSION"
       
-      - name: Set deployment variables
-        id: vars
-        run: |
-          IMAGE_TAG="${{ env.DOCKER_USERNAME }}/${{ env.APP_NAME }}:$VERSION"
-          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
-          echo "Using image tag: $IMAGE_TAG"
-
-      # Only build and push Docker image in workflow_dispatch - CI pipeline already builds it
-      - name: Set up Docker Buildx
-        if: github.event_name == 'workflow_dispatch'
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Login to Docker Hub
-        if: github.event_name == 'workflow_dispatch'
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      
-      - name: Build and push Docker image
-        if: github.event_name == 'workflow_dispatch'
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push to GitHub Container Registry
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./docker/Dockerfile
           push: true
-          tags: ${{ steps.vars.outputs.image_tag }},${{ env.DOCKER_USERNAME }}/${{ env.APP_NAME }}:latest
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/${{ env.APP_NAME }}:latest
           platforms: linux/amd64
 
-  deploy:
-    needs: prepare
-    runs-on: ubuntu-latest
-    environment: prod
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
-      - name: Deploy to Production
-        run: |
-          echo "Deploying to Production Environment"
-          echo "Image: ${{ needs.prepare.outputs.image_tag }}"
-          echo "This is a placeholder for the actual deployment step"
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd ${{ secrets.APP_DIRECTORY }}
+            export REGISTRY=${{ env.REGISTRY }}
+            export REPO_OWNER=${{ env.REPO_OWNER }}
+            export IMAGE_NAME=${{ env.APP_NAME }}
+            export IMAGE_TAG=${{ steps.set-version.outputs.version }}
+            export JDBC_DATABASE_URL="${{ secrets.JDBC_DATABASE_URL }}"
+            export DB_USER="${{ secrets.DB_USER }}"
+            export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
+            export SPRING_PROFILES_ACTIVE=prod
             
+            echo "Pulling latest image from registry..."
+            docker compose -f docker/docker-compose.prod.yaml pull app
+            
+            echo "Deploying application..."
+            docker compose -f docker/docker-compose.prod.yaml up -d --force-recreate app
+            
+            echo "Cleanup old containers and images..."
+            docker system prune -af --volumes
+      
       - name: Create Release
+        if: github.ref == 'refs/heads/master'
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ needs.prepare.outputs.version }}
-          name: Release ${{ needs.prepare.outputs.version }}
+          tag: ${{ steps.set-version.outputs.version }}
+          name: Release ${{ steps.set-version.outputs.version }}
           body: |
-            Release ${{ needs.prepare.outputs.version }}
+            Release ${{ steps.set-version.outputs.version }}
             Deployed to production on $(date)
           draft: false
           token: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Verify Deployment
-        run: |
-          echo "🚀 Production deployment completed successfully!"
-          echo "The application is now available at your production domain"
-      
       - name: Notify Success
         run: |
-          echo "🚀 Successfully deployed ${{ env.APP_NAME }} to production"
-          echo "Version: ${{ needs.prepare.outputs.version }}"
+          echo "🚀 Successfully deployed ${{ env.APP_NAME }} to ${{ github.event.inputs.environment || 'production' }}"
+          echo "Version: ${{ steps.set-version.outputs.version }}"
           echo "Deployed by: ${{ github.actor }}"
