@@ -1,20 +1,17 @@
 version: '3.8'
 
-# Production-specific overrides with dev profile
+# Production-specific configuration
 services:
-  # App config with dev profile 
+  # Application service
   app:
     image: ${REGISTRY:-ghcr.io}/${REPO_OWNER:-zbib}/${IMAGE_NAME:-hiresync}:${IMAGE_TAG:-latest}
     container_name: hiresync-app
     restart: ${APP_RESTART_POLICY:-always}
-    depends_on:
-      postgres:
-        condition: service_healthy
     environment:
-      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${DB_NAME:-hiresync}
-      - SPRING_DATASOURCE_USERNAME=${DB_USER:-hiresync}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-hiresync}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
+      - SPRING_DATASOURCE_URL=${JDBC_DATABASE_URL}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
       - SERVER_PORT=${APP_PORT:-8080}
       - MANAGEMENT_SERVER_PORT=${ACTUATOR_PORT:-8081}
       - JAVA_OPTS=${JAVA_OPTS:--Xms512m -Xmx2g}
@@ -33,10 +30,8 @@ services:
     networks:
       - hiresync-network
 
-# Configure volume backup
+# Configure volumes
 volumes:
-  postgres-data:
-    name: ${POSTGRES_VOLUME:-hiresync-postgres-data}
   app-logs:
     name: hiresync-app-logs
 
