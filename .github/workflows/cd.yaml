@@ -21,11 +21,16 @@ on:
 # https://github.com/mhmd-zbib/ai-recruitment-server/actions/workflows/cd.yaml/badge.svg?branch=master
 # https://github.com/mhmd-zbib/ai-recruitment-server/actions/workflows/cd.yaml/badge.svg?branch=dev
 
+# Grant required permissions
+permissions:
+  contents: write    # Needed for creating releases
+  packages: write    # Needed for GitHub Container Registry (ghcr.io)
+
 env:
   APP_NAME: hiresync
   DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
   REGISTRY: ghcr.io
-  REPO_OWNER: zbib
+  REPO_OWNER: ${{ github.repository_owner }}
 
 jobs:
   deploy:
@@ -44,6 +49,7 @@ jobs:
           echo "Event name: ${{ github.event_name }}"
           echo "Workflow run conclusion: ${{ github.event.workflow_run.conclusion }}"
           echo "Branch: ${{ github.event.workflow_run.head_branch || github.ref_name }}"
+          echo "Repository owner: ${{ github.repository_owner }}"
           echo "Running CD workflow after successful CI"
       
       - name: Set version
@@ -68,10 +74,11 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
+          username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push Images
+      # First push only to Docker Hub to ensure at least one registry succeeds
+      - name: Build and Push to Docker Hub
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -80,8 +87,19 @@ jobs:
           tags: |
             ${{ env.DOCKER_USERNAME }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.version }}
             ${{ env.DOCKER_USERNAME }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.branch }}-latest
-            ${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.branch }}-latest
+          platforms: linux/amd64
+          
+      # Then try to push to GitHub Container Registry
+      - name: Build and Push to GitHub Container Registry
+        continue-on-error: true  # Don't fail the workflow if GHCR push fails
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.branch }}-latest
           platforms: linux/amd64
       
       - name: Verify Docker Hub Push
@@ -89,9 +107,9 @@ jobs:
           echo "Images pushed to Docker Hub:"
           echo "${{ env.DOCKER_USERNAME }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.version }}"
           echo "${{ env.DOCKER_USERNAME }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.branch }}-latest"
-          echo "Images pushed to GitHub Container Registry:"
-          echo "${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.version }}"
-          echo "${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.branch }}-latest"
+          echo "Images pushed to GitHub Container Registry (attempt):"
+          echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.version }}"
+          echo "${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.branch }}-latest"
 
       - name: Deploy to Server
         if: success() && (steps.set-version.outputs.branch == 'master' || github.event.inputs.environment == 'prod')
