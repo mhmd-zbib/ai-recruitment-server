@@ -14,7 +14,7 @@ spring:
       max-lifetime: 1800000
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:validate}
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
@@ -22,9 +22,10 @@ spring:
 
 # Production logging configuration
 logging:
+  config: classpath:log4j2.xml
   level:
-    root: INFO
-    com.zbib.hiresync: INFO
+    root: WARN
+    com.zbib.hiresync: WARN
     org.hibernate.SQL: ERROR
     org.springframework.web: WARN
 

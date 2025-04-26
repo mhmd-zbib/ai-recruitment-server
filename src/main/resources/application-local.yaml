@@ -1,7 +1,7 @@
-# Configuration for local development
+# Local environment configuration
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:hiresync}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:hiresync}
     username: ${DB_USER:hiresync}
     password: ${DB_PASSWORD:hiresync}
     driver-class-name: org.postgresql.Driver
@@ -21,8 +21,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
-        jdbc:
-          time_zone: UTC
   devtools:
     restart:
       enabled: true
@@ -30,30 +28,29 @@ spring:
       exclude: static/**,public/**
     livereload:
       enabled: true
-  # Fix for map syntax errors in properties
-  main:
-    cloud-platform: none
 
-# Server configuration
-server:
-  port: 8080
+# Logging configuration
+logging:
+  config: classpath:log4j2.xml
+  level:
+    root: INFO
+    com.zbib.hiresync: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE
+    com.zbib.hiresync.logging: DEBUG
+    org.springframework.aop: WARN
 
-# API Documentation
+# API Documentation - override specific settings
 springdoc:
   swagger-ui:
-    path: /swagger-ui.html
     operationsSorter: method
     filter: true
     display-request-duration: true
-  show-actuator: true
-  default-produces-media-type: application/json
+  cache:
+    disabled: true
 
-# JWT settings
-jwt:
-  issuer: hiresync-local
-  expiration: 86400000  # 24 hours in milliseconds
-
-# Local development features
+# Local environment features
 hiresync:
   features:
     debug-mode: true
+    enable-email-notifications: false

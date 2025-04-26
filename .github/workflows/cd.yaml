@@ -29,6 +29,11 @@ permissions:
 env:
   APP_NAME: hiresync
   DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  # Production environment variables
+  SPRING_PROFILES_ACTIVE: prod
+  DEBUG_MODE: false
+  SPRINGDOC_ENABLED: false
+  SWAGGER_UI_ENABLED: false
 
 jobs:
   build-and-publish:
@@ -78,6 +83,11 @@ jobs:
             ${{ env.DOCKER_USERNAME }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.version }}
             ${{ env.DOCKER_USERNAME }}/${{ env.APP_NAME }}:${{ steps.set-version.outputs.branch }}-latest
           platforms: linux/amd64
+          build-args: |
+            SPRING_PROFILES_ACTIVE=${{ env.SPRING_PROFILES_ACTIVE }}
+            DEBUG_MODE=${{ env.DEBUG_MODE }}
+            SPRINGDOC_ENABLED=${{ env.SPRINGDOC_ENABLED }}
+            SWAGGER_UI_ENABLED=${{ env.SWAGGER_UI_ENABLED }}
       
       - name: Verify Docker Hub Push
         run: |

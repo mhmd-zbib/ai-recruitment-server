@@ -23,7 +23,8 @@ env:
   SPRING_PROFILES_ACTIVE: test
   JWT_SECRET: ${{ secrets.JWT_TEST_SECRET || 'f5a8f9g6v4afetgasgbga2g4qwtoplju' }}
   JWT_ISSUER: hiresync-test
-  HIRESYNC_FEATURES_DEBUG-MODE: true
+  JWT_AUDIENCE: hiresync-app-test
+  DEBUG_MODE: true
 
 jobs:
   code-quality:
