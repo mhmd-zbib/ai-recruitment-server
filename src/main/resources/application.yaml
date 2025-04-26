@@ -48,16 +48,16 @@ spring:
 
 # JWT Security configuration
 jwt:
-  secret: ${JWT_SECRET:your-256-bit-secret-key-must-be-at-least-32-characters-long}
-  expiration: ${JWT_EXPIRATION:86400000}
-  issuer: ${JWT_ISSUER:hiresync}
-  audience: ${JWT_AUDIENCE:hiresync-app}
-  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION}
+  issuer: ${JWT_ISSUER}
+  audience: ${JWT_AUDIENCE}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION}
 
 # Security configuration
 security:
   cors:
-    allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+    allowed-origins: ${CORS_ORIGINS}
     allowed-methods:
       - GET
       - POST
