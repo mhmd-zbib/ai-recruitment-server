@@ -2,12 +2,14 @@
 spring:
   datasource:
     # Support multiple environment variable patterns for database connectivity
-    url: ${SPRING_DATASOURCE_URL:${JDBC_DATABASE_URL:jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}}}
-    username: ${SPRING_DATASOURCE_USERNAME:${JDBC_DATABASE_USERNAME:${POSTGRES_USER}}}
-    password: ${SPRING_DATASOURCE_PASSWORD:${JDBC_DATABASE_PASSWORD:${POSTGRES_PASSWORD}}}
+    url: ${SPRING_DATASOURCE_URL:${JDBC_DATABASE_URL:jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:hiresync}}}
+    username: ${SPRING_DATASOURCE_USERNAME:${JDBC_DATABASE_USERNAME:${POSTGRES_USER:postgres}}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${JDBC_DATABASE_PASSWORD:${POSTGRES_PASSWORD:password}}}
     hikari:
       maximum-pool-size: ${DB_MAX_POOL_SIZE:10}
-      minimum-idle: ${DB_MIN_IDLE:2}
+      minimum-idle: ${DB_MIN_IDLE:5}
+      connection-timeout: 20000
+      pool-name: HireSyncProdHikariCP
   jpa:
     hibernate:
       ddl-auto: validate
@@ -15,6 +17,21 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc.batch_size: 50
+        order_inserts: true
+        order_updates: true
+        generate_statistics: false
+  task:
+    execution:
+      pool:
+        core-size: 8
+        max-size: 16
+        queue-capacity: 200
+        keep-alive: 60s
+      thread-name-prefix: hiresync-prod-task-
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
 
 # Production logging configuration
 logging:
@@ -24,6 +41,8 @@ logging:
     com.zbib.hiresync: WARN
     org.hibernate.SQL: ERROR
     org.springframework.web: WARN
+    com.zaxxer.hikari: WARN
+    org.apache.catalina: WARN
 
 # Disable documentation UI in production
 springdoc:
@@ -36,8 +55,43 @@ springdoc:
 jwt:
   issuer: hiresync-prod
 
+# Management endpoints configuration for production
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
+  server:
+    port: ${MANAGEMENT_PORT:8081}
+    address: 127.0.0.1
+
+# Server configuration optimizations for production
+server:
+  tomcat:
+    max-threads: 200
+    min-spare-threads: 20
+    max-connections: 10000
+    accept-count: 100
+  compression:
+    min-response-size: 2048
+
 # Production environment specific features
 hiresync:
   features:
     debug-mode: false
     enable-email-notifications: true
+    enable-file-upload: true
+  rate-limiting:
+    enabled: true
+    default-limit: 100
+    default-duration: 60

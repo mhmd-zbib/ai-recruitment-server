@@ -16,6 +16,11 @@ spring:
   h2:
     console:
       enabled: true
+  jackson:
+    serialization:
+      indent-output: true
+    deserialization:
+      fail-on-unknown-properties: false
 
 # Test-specific JWT configuration
 jwt:
@@ -37,3 +42,8 @@ hiresync:
   features:
     debug-mode: true
     enable-email-notifications: false
+    enable-file-upload: true
+  rate-limiting:
+    enabled: false
+    default-limit: 1000
+    default-duration: 60
