@@ -4,14 +4,9 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:hiresync}
     username: ${DB_USER:hiresync}
     password: ${DB_PASSWORD:hiresync}
-    driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 5
       minimum-idle: 2
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
-      auto-commit: true
       pool-name: HireSyncHikariPool
   jpa:
     hibernate:
@@ -31,7 +26,6 @@ spring:
 
 # Logging configuration
 logging:
-  config: classpath:log4j2.xml
   level:
     root: INFO
     com.zbib.hiresync: INFO
