@@ -1,10 +1,10 @@
 # Production environment configuration
 spring:
   datasource:
-    # Support multiple environment variable patterns for database connectivity
-    url: ${SPRING_DATASOURCE_URL:${JDBC_DATABASE_URL:jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:hiresync}}}
-    username: ${SPRING_DATASOURCE_USERNAME:${JDBC_DATABASE_USERNAME:${POSTGRES_USER:postgres}}}
-    password: ${SPRING_DATASOURCE_PASSWORD:${JDBC_DATABASE_PASSWORD:${POSTGRES_PASSWORD:password}}}
+    # Using standardized environment variables for database connectivity
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:hiresync}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:password}
     hikari:
       maximum-pool-size: ${DB_MAX_POOL_SIZE:10}
       minimum-idle: ${DB_MIN_IDLE:5}

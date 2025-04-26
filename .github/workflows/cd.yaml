@@ -29,11 +29,17 @@ permissions:
 env:
   APP_NAME: hiresync
   DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-  # Production environment variables
+  # Production environment variables - using standardized naming convention
   SPRING_PROFILES_ACTIVE: prod
   DEBUG_MODE: false
   SPRINGDOC_ENABLED: false
   SWAGGER_UI_ENABLED: false
+  # Essential environment variables that need to be passed to Docker builds
+  POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+  POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+  POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+  POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+  POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
 
 jobs:
   build-and-publish:
@@ -88,6 +94,11 @@ jobs:
             DEBUG_MODE=${{ env.DEBUG_MODE }}
             SPRINGDOC_ENABLED=${{ env.SPRINGDOC_ENABLED }}
             SWAGGER_UI_ENABLED=${{ env.SWAGGER_UI_ENABLED }}
+            POSTGRES_HOST=${{ env.POSTGRES_HOST }}
+            POSTGRES_PORT=${{ env.POSTGRES_PORT }}
+            POSTGRES_DB=${{ env.POSTGRES_DB }}
+            POSTGRES_USER=${{ env.POSTGRES_USER }}
+            POSTGRES_PASSWORD=${{ env.POSTGRES_PASSWORD }}
       
       - name: Verify Docker Hub Push
         run: |

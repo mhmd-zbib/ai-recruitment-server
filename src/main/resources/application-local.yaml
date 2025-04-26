@@ -1,9 +1,9 @@
 # Local environment configuration
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:hiresync}
-    username: ${DB_USER:hiresync}
-    password: ${DB_PASSWORD:hiresync}
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:hiresync}
+    username: ${POSTGRES_USER:hiresync}
+    password: ${POSTGRES_PASSWORD:hiresync}
     hikari:
       maximum-pool-size: 5
       minimum-idle: 2

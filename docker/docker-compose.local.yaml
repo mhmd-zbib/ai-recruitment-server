@@ -5,16 +5,16 @@ services:
     container_name: hiresync-postgres
     restart: unless-stopped
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_USER: ${DB_USER:-hiresync}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-hiresync}
-      POSTGRES_DB: ${DB_NAME:-hiresync}
+      POSTGRES_USER: ${POSTGRES_USER:-hiresync}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hiresync}
+      POSTGRES_DB: ${POSTGRES_DB:-hiresync}
       TZ: ${TZ:-UTC}
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${DB_USER:-hiresync}"]
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-hiresync}"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -39,11 +39,11 @@ services:
       - "${DEBUG_PORT:-5005}:5005"
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: ${DB_NAME:-hiresync}
-      DB_USER: ${DB_USER:-hiresync}
-      DB_PASSWORD: ${DB_PASSWORD:-hiresync}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-hiresync}
+      POSTGRES_USER: ${POSTGRES_USER:-hiresync}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hiresync}
       JWT_SECRET: ${JWT_SECRET:-default-dev-secret-key-replace-in-production}
       JWT_ISSUER: ${JWT_ISSUER:-hiresync-local}
       JWT_AUDIENCE: ${JWT_AUDIENCE:-hiresync-app}

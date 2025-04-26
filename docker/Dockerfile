@@ -11,7 +11,7 @@ RUN mvn dependency:go-offline -B
 COPY src ./src
 
 # Build application with specified profile and test skipping
-ARG SPRING_PROFILES_ACTIVE=dev
+ARG SPRING_PROFILES_ACTIVE=prod
 ARG SKIP_TESTS=true
 RUN mvn clean package \
     -DskipTests=${SKIP_TESTS} \
@@ -27,12 +27,19 @@ WORKDIR /app
 # Create non-root user for running the application
 RUN groupadd -r hiresync && useradd -r -g hiresync hiresync
 
-# Set environment variables
-ENV SPRING_PROFILES_ACTIVE=dev \
-    APP_PORT=8080 \
-    ACTUATOR_PORT=8081 \
-    PROMETHEUS_PORT=9090 \
-    TZ=UTC
+# Set environment variables with safe defaults
+# IMPORTANT: These are overridden by actual environment variables at runtime
+ENV SPRING_PROFILES_ACTIVE=prod \
+    TZ=UTC \
+    # Port configurations
+    PORT=8080 \
+    MANAGEMENT_PORT=8081 \
+    # Placeholder database values - MUST be overridden at runtime
+    POSTGRES_HOST=db \
+    POSTGRES_PORT=5432 \
+    POSTGRES_DB=hiresync \
+    POSTGRES_USER=postgres \
+    POSTGRES_PASSWORD=password
 
 # Copy only the built JAR file from the build stage
 COPY --from=build /app/target/*.jar /app/app.jar
@@ -49,12 +56,12 @@ RUN echo "hiresync soft nofile 65536" >> /etc/security/limits.conf \
 # Switch to non-root user
 USER hiresync
 
-# Expose necessary ports 
-EXPOSE ${APP_PORT} ${ACTUATOR_PORT} ${PROMETHEUS_PORT}
+# Expose necessary ports - use the environment variable references
+EXPOSE ${PORT} ${MANAGEMENT_PORT}
 
 # Health check - check application health endpoint
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-  CMD curl -f http://localhost:${ACTUATOR_PORT}/actuator/health || exit 1
+  CMD curl -f http://localhost:${MANAGEMENT_PORT}/actuator/health || exit 1
 
 # JVM tuning parameters for containers
 ENTRYPOINT ["java", \
@@ -66,6 +73,6 @@ ENTRYPOINT ["java", \
   "-XX:+ExitOnOutOfMemoryError", \
   "-XX:+UseContainerSupport", \
   "-XX:MaxRAMPercentage=75.0", \
-  "-Dserver.port=${APP_PORT}", \
-  "-Dmanagement.server.port=${ACTUATOR_PORT}", \
-  "-jar", "/app/app.jar"] 
+  "-Dserver.port=${PORT}", \
+  "-Dmanagement.server.port=${MANAGEMENT_PORT}", \
+  "-jar", "/app/app.jar"]

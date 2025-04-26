@@ -24,11 +24,11 @@ spring:
 
 # Test-specific JWT configuration
 jwt:
-  secret: test-secret-key-that-is-at-least-32-characters-long
-  expiration: 3600000
-  refresh-expiration: 86400000
-  issuer: hiresync-test
-  audience: hiresync-app-test
+  secret: ${JWT_SECRET:test-secret-key-that-is-at-least-32-characters-long}
+  expiration: ${JWT_EXPIRATION:3600000}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:86400000}
+  issuer: ${JWT_ISSUER:hiresync-test}
+  audience: ${JWT_AUDIENCE:hiresync-app-test}
 
 # Test logging configuration
 logging:
@@ -40,9 +40,9 @@ logging:
 # Test environment features
 hiresync:
   features:
-    debug-mode: true
-    enable-email-notifications: false
-    enable-file-upload: true
+    debug-mode: ${DEBUG_MODE:true}
+    enable-email-notifications: ${ENABLE_EMAIL:false}
+    enable-file-upload: ${ENABLE_FILE_UPLOAD:true}
   rate-limiting:
     enabled: false
     default-limit: 1000
