@@ -36,32 +36,23 @@ services:
     working_dir: /app
     ports:
       - "${PORT:-8080}:8080"    # Application
-      - "5005:5005"             # Remote debugger
+      - "${DEBUG_PORT:-5005}:5005"
     environment:
-      # Spring Configuration
-      SPRING_PROFILES_ACTIVE: local
-      
-      # Database Configuration
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-hiresync}
       DB_USER: ${DB_USER:-hiresync}
       DB_PASSWORD: ${DB_PASSWORD:-hiresync}
-      
-      # JWT Configuration
       JWT_SECRET: ${JWT_SECRET:-default-dev-secret-key-replace-in-production}
       JWT_ISSUER: ${JWT_ISSUER:-hiresync-local}
       JWT_AUDIENCE: ${JWT_AUDIENCE:-hiresync-app}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
       JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-604800000}
-      
-      # Feature Configuration
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       DEBUG_MODE: ${DEBUG_MODE:-true}
       ENABLE_EMAIL: ${ENABLE_EMAIL:-false}
       ENABLE_FILE_UPLOAD: ${ENABLE_FILE_UPLOAD:-true}
-      
-      # Documentation Configuration
       SPRINGDOC_ENABLED: ${SPRINGDOC_ENABLED:-true}
       SWAGGER_UI_ENABLED: ${SWAGGER_UI_ENABLED:-true}
       ACTUATOR_DETAILED_HEALTH: ${ACTUATOR_DETAILED_HEALTH:-always}

@@ -35,20 +35,33 @@ echo "===================================="
 echo "     HireSync Development Tool      "
 echo "===================================="
 
-# Load environment variables
+# Set default values if not provided in .env
+export DB_USER=${DB_USER:-hiresync}
+export DB_PASSWORD=${DB_PASSWORD:-hiresync}
+export DB_NAME=${DB_NAME:-hiresync}
+export DB_PORT=${DB_PORT:-5432}
+export PORT=${PORT:-8080}
+export SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-local}
+export JWT_SECRET=${JWT_SECRET:-default-dev-secret-key-replace-in-production}
+export JWT_ISSUER=${JWT_ISSUER:-hiresync-local}
+export JWT_AUDIENCE=${JWT_AUDIENCE:-hiresync-app}
+export JWT_EXPIRATION=${JWT_EXPIRATION:-86400000}
+export JWT_REFRESH_EXPIRATION=${JWT_REFRESH_EXPIRATION:-604800000}
+
+# Load environment variables if .env exists
 if [ -f "$PROJECT_ROOT/.env" ]; then
   export $(grep -v '^#' "$PROJECT_ROOT/.env" | xargs)
   echo "✅ Loaded environment from .env"
-  
-  # Display loaded environment variables
-  echo "📋 Environment variables:"
-  echo "   PORT=${PORT:-8080}"
-  echo "   DB_PORT=${DB_PORT:-5432}"
-  echo "   DB_NAME=${DB_NAME:-hiresync}"
-  echo "   DB_USER=${DB_USER:-hiresync}"
-  echo "   SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-local}"
-  echo "   DEBUG_MODE=${DEBUG_MODE:-false}"
 fi
+
+# Display configuration
+echo "📋 Environment variables:"
+echo "   PORT=${PORT}"
+echo "   DB_PORT=${DB_PORT}"
+echo "   DB_NAME=${DB_NAME}"
+echo "   DB_USER=${DB_USER}"
+echo "   SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}"
+echo "   DEBUG_MODE=${DEBUG_MODE}"
 
 # Check if Docker is running
 if ! docker info &>/dev/null; then
@@ -83,11 +96,6 @@ fi
 # Show running containers
 echo "🐳 Current containers:"
 docker ps | grep "hiresync-" | awk '{print "   " $NF " (" $2 ")"}'
-
-# Check the PORT variable
-PORT=${PORT:-8080}
-echo "🌐 Application will be available at: http://localhost:$PORT/api"
-echo "📚 Swagger UI: http://localhost:$PORT/api/swagger-ui.html"
 
 # Configure Maven logging
 if [ "$DEBUG_MODE" = true ]; then

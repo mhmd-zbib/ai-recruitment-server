@@ -15,7 +15,7 @@ public class AuthResponseBuilder {
     
     private AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken, Long expiresIn, String sessionId) {
         return AuthResponse.builder()
-            .userId(user.getId().toString())
+            .id(user.getId().toString())
             .email(user.getEmail())
             .firstName(user.getFirstName())
             .lastName(user.getLastName())

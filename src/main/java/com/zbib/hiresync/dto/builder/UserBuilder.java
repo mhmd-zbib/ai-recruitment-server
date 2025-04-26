@@ -2,6 +2,7 @@ package com.zbib.hiresync.dto.builder;
 
 import com.zbib.hiresync.dto.request.SignupRequest;
 import com.zbib.hiresync.entity.User;
+import com.zbib.hiresync.entity.enums.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -19,6 +20,7 @@ public class UserBuilder {
             .lastName(request.getLastName())
             .email(request.getEmail())
             .password(passwordEncoder.encode(request.getPassword()))
+            .role(String.valueOf(Role.USER)) 
             .enabled(true)
             .locked(false)
             .build();

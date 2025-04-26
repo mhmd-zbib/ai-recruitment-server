@@ -15,20 +15,4 @@ import java.util.UUID;
 @Repository
 public interface SkillRepository extends JpaRepository<Skill, UUID> {
     Optional<Skill> findByNameIgnoreCase(String name);
-    
-    List<Skill> findByCategoryIgnoreCase(String category);
-    
-    /**
-     * Find top skills for job posts
-     * 
-     * @param limit the maximum number of skills to return
-     * @return list of top skills with counts
-     */
-    @Query("SELECT new com.zbib.hiresync.dto.SkillCountDTO(s.name, COUNT(DISTINCT j)) " +
-           "FROM Job j " +
-           "JOIN j.skills s " +
-           "GROUP BY s.name " +
-           "ORDER BY COUNT(DISTINCT j) DESC " +
-           "LIMIT :limit")
-    List<SkillCountDTO> findTopSkillsForJobPostSpec(@Param("limit") int limit);
 } 

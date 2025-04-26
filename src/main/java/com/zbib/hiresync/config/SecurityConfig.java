@@ -59,17 +59,17 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // Auth endpoints
-                .requestMatchers("/api/v1/auth/login", "/api/v1/auth/signup", "/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
+                .requestMatchers("/v1/auth/login", "/v1/auth/signup", "/v1/auth/refresh", "/v1/auth/logout").permitAll()
                 
                 // Public job posts endpoints
-                .requestMatchers(HttpMethod.GET, "/api/v1/jobs/public/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/v1/jobs/public/**").permitAll()
                 
                 // Public application endpoints
-                .requestMatchers(HttpMethod.POST, "/api/v1/applications").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/v1/public/applications/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/v1/applications").permitAll()
+                .requestMatchers(HttpMethod.GET, "/v1/public/applications/**").permitAll()
                 
                 // Public job feed endpoints
-                .requestMatchers(HttpMethod.GET, "/api/v1/feed/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/v1/feed/**").permitAll()
                 
                 // Swagger and docs
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()

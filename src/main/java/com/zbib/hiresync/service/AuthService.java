@@ -32,6 +32,8 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.Collections;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 /**
  * Service for authentication operations.
@@ -80,27 +82,26 @@ public class AuthService {
             throw new UserAuthenticationException("Email is already in use: " + request.getEmail());
         }
 
+        // First create and save the user
         User user = userBuilder.buildUser(request);
         User savedUser = userRepository.save(user);
 
-        try {
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        // Create authentication token directly (skip password verification since we just created the user)
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+            savedUser.getEmail(),
+            null, // No need to include the password here
+            Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
+        );
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            String deviceInfo = extractDeviceInfo();
-            String ipAddress = extractIpAddress();
+        String deviceInfo = extractDeviceInfo();
+        String ipAddress = extractIpAddress();
 
-            // Create and store session
-            UserSession session = createUserSession(savedUser, deviceInfo, ipAddress);
+        // Create and store session
+        UserSession session = createUserSession(savedUser, deviceInfo, ipAddress);
 
-            return authResponseBuilder.buildSignupResponse(savedUser, authentication, session.getSessionId());
-
-        } catch (Exception e) {
-            logger.error("Error during signup authentication: {}", e.getMessage());
-            throw new UserAuthenticationException("Registration successful but unable to authenticate");
-        }
+        return authResponseBuilder.buildSignupResponse(savedUser, authentication, session.getSessionId());
     }
 
     @Transactional

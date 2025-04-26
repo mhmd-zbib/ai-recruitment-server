@@ -16,18 +16,5 @@ import java.util.UUID;
 @Repository
 public interface TagRepository extends JpaRepository<Tag, UUID> {
     Optional<Tag> findByNameIgnoreCase(String name);
-    
-    /**
-     * Find top tags for job posts
-     * 
-     * @param limit the maximum number of tags to return
-     * @return list of top tags with counts
-     */
-    @Query("SELECT new com.zbib.hiresync.dto.TagCountDTO(t.name, COUNT(DISTINCT j)) " +
-           "FROM Job j " +
-           "JOIN j.tags t " +
-           "GROUP BY t.name " +
-           "ORDER BY COUNT(DISTINCT j) DESC " +
-           "LIMIT :limit")
-    List<TagCountDTO> findTopTagsForJobPostSpec(@Param("limit") int limit);
+
 } 
