@@ -53,7 +53,7 @@ services:
       - maven-repo:/root/.m2
     networks:
       - test-network
-    command: ["./mvnw", "test", "-Dspring.profiles.active=test", "-Dtest=*Test"]
+    command: ["mvn", "test", "-Dspring.profiles.active=test", "-Dtest=*Test"]
 
   #---------------------------------------------------------------------------
   # Integration Tests Container
@@ -104,7 +104,7 @@ services:
       - maven-repo:/root/.m2
     networks:
       - test-network
-    command: ["./mvnw", "verify", "-Dspring.profiles.active=test", "-Dtest=*IT"]
+    command: ["mvn", "verify", "-Dspring.profiles.active=test", "-Dtest=*IT"]
 
   #---------------------------------------------------------------------------
   # Application Container for Testing

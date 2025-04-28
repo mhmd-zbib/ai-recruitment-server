@@ -10,16 +10,12 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy Maven wrapper and POM file
-COPY mvnw mvnw.cmd ./
-COPY .mvn .mvn
+# Copy POM file first for dependency resolution
 COPY pom.xml .
 
-# Make the Maven wrapper executable
-RUN chmod +x mvnw
-
+# Use Maven directly instead of the wrapper
 # Download dependencies (separate layer for caching)
-RUN ./mvnw dependency:go-offline -B
+RUN mvn dependency:go-offline -B
 
 # Copy the source code
 COPY src src
@@ -33,7 +29,7 @@ ARG SKIP_TESTS=true
 
 # Build the application
 # Tests can be skipped based on the build argument
-RUN ./mvnw package \
+RUN mvn package \
     ${SKIP_TESTS:+-DskipTests} \
     -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE} \
     -Ddebug.mode=${DEBUG_MODE} \
@@ -102,4 +98,4 @@ ENV SPRING_PROFILES_ACTIVE=test \
 RUN mkdir -p /app/target/surefire-reports
 
 # Default command to run tests
-CMD ["./mvnw", "test"]
+CMD ["mvn", "test"]

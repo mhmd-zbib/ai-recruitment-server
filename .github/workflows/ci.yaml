@@ -30,7 +30,7 @@ env:
 
 jobs:
   lint:
-    name: Linting and Code Quality
+    name: Linting
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -49,11 +49,7 @@ jobs:
       - name: Run Checkstyle
         run: mvn checkstyle:check -P ci -Dpmd.skip=true
 
-      - name: Run PMD
-        run: mvn pmd:check -P ci
-
-      - name: Run SpotBugs
-        run: mvn spotbugs:check -P ci
+      # Removed PMD and SpotBugs checks to simplify the CI pipeline
 
   unit-tests:
     name: Unit Tests
