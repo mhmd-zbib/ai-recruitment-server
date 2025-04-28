@@ -1,78 +1,61 @@
-FROM maven:3.9-eclipse-temurin-21-jammy AS build
+FROM eclipse-temurin:21-jdk AS builder
+
+# Set working directory
 WORKDIR /app
 
-# Copy POM file first for dependency caching - this layer will only be rebuilt if the POM changes
-COPY pom.xml settings.xml* ./
+# Copy maven wrapper, pom.xml, and mvnw files
+COPY mvnw .
+COPY .mvn .mvn
+COPY pom.xml .
 
-# Download dependencies separately (will be cached if POM doesn't change)
-RUN mvn dependency:go-offline -B
+# Make the mvnw script executable
+RUN chmod +x mvnw
 
-# Copy source code
-COPY src ./src
+# Download dependencies (separate layer for caching)
+RUN ./mvnw dependency:go-offline -B
 
-# Build application with specified profile and test skipping
+# Copy the source code
+COPY src src
+
+# Build the application
 ARG SPRING_PROFILES_ACTIVE=prod
-ARG SKIP_TESTS=true
-RUN mvn clean package \
-    -DskipTests=${SKIP_TESTS} \
+ARG DEBUG_MODE=false
+ARG SPRINGDOC_ENABLED=false
+ARG SWAGGER_UI_ENABLED=false
+
+# Pass build-time arguments to Maven
+RUN ./mvnw package -DskipTests \
     -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE} \
-    -Dmaven.test.skip=${SKIP_TESTS}
+    -Ddebug.mode=${DEBUG_MODE} \
+    -Dspringdoc.enabled=${SPRINGDOC_ENABLED} \
+    -Dswagger.ui.enabled=${SWAGGER_UI_ENABLED}
 
-# Create a specific runtime image
-FROM eclipse-temurin:21-jre-jammy AS runtime
+# Runtime image
+FROM eclipse-temurin:21-jre
 
-# Set working directory 
+# Set working directory
 WORKDIR /app
 
-# Create non-root user for running the application
-RUN groupadd -r hiresync && useradd -r -g hiresync hiresync
+# Add a non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Set environment variables with safe defaults
-# IMPORTANT: These are overridden by actual environment variables at runtime
-ENV SPRING_PROFILES_ACTIVE=prod \
-    TZ=UTC \
-    # Port configurations
-    PORT=8080 \
-    MANAGEMENT_PORT=8081 \
-    # Placeholder database values - MUST be overridden at runtime
-    POSTGRES_HOST=db \
-    POSTGRES_PORT=5432 \
-    POSTGRES_DB=hiresync \
-    POSTGRES_USER=postgres \
-    POSTGRES_PASSWORD=password
+# Copy the built jar from the builder stage
+COPY --from=builder /app/target/*.jar app.jar
 
-# Copy only the built JAR file from the build stage
-COPY --from=build /app/target/*.jar /app/app.jar
-
-# Create log directory with appropriate permissions
-RUN mkdir -p /app/logs \
-    && chown -R hiresync:hiresync /app \
-    && chmod -R 755 /app/logs
-
-# Set security limits
-RUN echo "hiresync soft nofile 65536" >> /etc/security/limits.conf \
-    && echo "hiresync hard nofile 65536" >> /etc/security/limits.conf
+# Set environment variables
+ENV SPRING_PROFILES_ACTIVE=prod
+ENV JAVA_OPTS="-Xms512m -Xmx1024m"
+ENV DB_HOST=postgres_db
+ENV DB_PORT=5432
+ENV DB_NAME=hiresync
+ENV DB_USERNAME=postgres
+ENV DB_PASSWORD=postgres
 
 # Switch to non-root user
-USER hiresync
+USER appuser
 
-# Expose necessary ports - use the environment variable references
-EXPOSE ${PORT} ${MANAGEMENT_PORT}
+# Expose the port
+EXPOSE 8080
 
-# Health check - check application health endpoint
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-  CMD curl -f http://localhost:${MANAGEMENT_PORT}/actuator/health || exit 1
-
-# JVM tuning parameters for containers
-ENTRYPOINT ["java", \
-  "-Djava.security.egd=file:/dev/./urandom", \
-  "-XX:+UseG1GC", \
-  "-XX:MaxGCPauseMillis=200", \
-  "-XX:+HeapDumpOnOutOfMemoryError", \
-  "-XX:HeapDumpPath=/app/logs/", \
-  "-XX:+ExitOnOutOfMemoryError", \
-  "-XX:+UseContainerSupport", \
-  "-XX:MaxRAMPercentage=75.0", \
-  "-Dserver.port=${PORT}", \
-  "-Dmanagement.server.port=${MANAGEMENT_PORT}", \
-  "-jar", "/app/app.jar"]
+# Run the application
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

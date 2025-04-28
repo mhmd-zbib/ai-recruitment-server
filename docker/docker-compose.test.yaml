@@ -1,96 +1,66 @@
 version: '3.8'
 
 services:
-  app:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    container_name: hiresync-test-app
-    restart: on-failure
+  # PostgreSQL service for testing
+  test-db:
+    image: postgres:16-alpine
+    container_name: postgres_test_db
     environment:
-      # Application profile
-      - SPRING_PROFILES_ACTIVE=test
-      - TZ=UTC
-      
-      # Database configuration using standardized naming
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=hiresync_test
-      - POSTGRES_USER=test
-      - POSTGRES_PASSWORD=test
-      
-      # JPA configuration
-      - SPRING_JPA_HIBERNATE_DDL-AUTO=create-drop
-      - SPRING_JPA_SHOW-SQL=true
-      - SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL=true
-      
-      # Logging configuration
-      - LOG_LEVEL_ROOT=WARN
-      - LOG_LEVEL_APP=DEBUG
-      - LOG_LEVEL_SQL=DEBUG
-      
-      # Security configuration
-      - JWT_SECRET=test-secret-key-with-minimum-length-of-32-characters
-      - JWT_ISSUER=hiresync-test
-      - JWT_EXPIRATION=86400000
-      - JWT_REFRESH_EXPIRATION=604800000
-      
-      # Documentation configuration
-      - SPRINGDOC_ENABLED=false
-      - SWAGGER_UI_ENABLED=false
-      
-      # Management endpoints
-      - MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info
-      - MANAGEMENT_ENDPOINT_HEALTH_SHOW-DETAILS=never
-      
-      # Feature flags
-      - DEBUG_MODE=true
-      
+      POSTGRES_DB: hiresync_test
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
     ports:
-      - "127.0.0.1:8080:8080"  # Only expose locally
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 1G
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - "5432:5432"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - test-network
-
-  postgres:
-    image: postgres:15-alpine
-    container_name: hiresync-test-db
-    restart: on-failure
-    environment:
-      - POSTGRES_DB=hiresync_test
-      - POSTGRES_USER=test
-      - POSTGRES_PASSWORD=test
-      - TZ=UTC
-      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
-    ports:
-      - "127.0.0.1:5432:5432"  # Only bind to localhost
-    volumes:
-      - postgres_test_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U test -d hiresync_test"]
+      test: ["CMD-SHELL", "pg_isready -U test_user -d hiresync_test"]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
       - test-network
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+
+  # Spring Boot application service for testing
+  app-test:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        - SPRING_PROFILES_ACTIVE=test
+        - DEBUG_MODE=true
+        - SPRINGDOC_ENABLED=false
+        - SWAGGER_UI_ENABLED=false
+    container_name: hiresync_test_app
+    depends_on:
+      test-db:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=test
+      - DB_HOST=test-db
+      - DB_PORT=5432
+      - DB_NAME=hiresync_test
+      - DB_USERNAME=test_user
+      - DB_PASSWORD=test_password
+      - JPA_DDL_AUTO=create-drop
+      - JPA_SHOW_SQL=true
+      - SERVER_PORT=8080
+      - JWT_SECRET=test_secret_key_for_development_only
+      - JWT_EXPIRATION=86400000
+      - JWT_REFRESH_EXPIRATION=604800000
+      - JWT_ISSUER=hiresync-test
+      - JWT_AUDIENCE=hiresync-app-test
+    ports:
+      - "8080:8080"
+    networks:
+      - test-network
+    # Command to run tests instead of starting the application
+    command: ["./mvnw", "test"]
+    # This volume is for development to hot-reload changes
+    volumes:
+      - ../src:/app/src
+      - ../target:/app/target
+      - ../logs:/app/logs
 
 networks:
   test-network:

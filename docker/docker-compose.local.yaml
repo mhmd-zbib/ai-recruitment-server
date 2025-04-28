@@ -1,79 +1,24 @@
+version: '3.8'
+
 services:
-  # Database service
-  postgres:
-    image: postgres:16-alpine
-    container_name: hiresync-postgres
-    restart: unless-stopped
+  # PostgreSQL service
+  db:
+    image: postgres:16-alpine  
+    container_name: postgres_db
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${DB_PORT}:${DB_PORT}"
+    networks:
+      - mynetwork
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-hiresync}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hiresync}
-      POSTGRES_DB: ${POSTGRES_DB:-hiresync}
-      TZ: ${TZ:-UTC}
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-hiresync}"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    networks:
-      - backend
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
-  # Development tools container
-  devtools:
-    image: maven:3.9-eclipse-temurin-21-jammy
-    container_name: hiresync-devtools
-    volumes:
-      - ../:/app
-      - maven_repo:/root/.m2/repository
-    working_dir: /app
-    ports:
-      - "${PORT:-8080}:8080"    # Application
-      - "${DEBUG_PORT:-5005}:5005"
-    environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB:-hiresync}
-      POSTGRES_USER: ${POSTGRES_USER:-hiresync}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hiresync}
-      JWT_SECRET: ${JWT_SECRET:-default-dev-secret-key-replace-in-production}
-      JWT_ISSUER: ${JWT_ISSUER:-hiresync-local}
-      JWT_AUDIENCE: ${JWT_AUDIENCE:-hiresync-app}
-      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
-      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-604800000}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
-      DEBUG_MODE: ${DEBUG_MODE:-true}
-      ENABLE_EMAIL: ${ENABLE_EMAIL:-false}
-      ENABLE_FILE_UPLOAD: ${ENABLE_FILE_UPLOAD:-true}
-      SPRINGDOC_ENABLED: ${SPRINGDOC_ENABLED:-true}
-      SWAGGER_UI_ENABLED: ${SWAGGER_UI_ENABLED:-true}
-      ACTUATOR_DETAILED_HEALTH: ${ACTUATOR_DETAILED_HEALTH:-always}
-    # Keep container running until explicitly started with scripts/dev.sh
-    command: tail -f /dev/null
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - backend
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-# Shared networks and volumes
 networks:
-  backend:
+  mynetwork:
     driver: bridge
 
 volumes:
   postgres_data:
-  maven_repo:
