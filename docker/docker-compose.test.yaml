@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL service for testing
   test-db:
@@ -55,9 +53,7 @@ services:
       - "8080:8080"
     networks:
       - test-network
-    # Command to run tests instead of starting the application
-    entrypoint: ["./mvnw", "test"]
-    # This volume is for development to hot-reload changes
+    command: ["./mvnw", "test"]
     volumes:
       - ../src:/app/src
       - ../target:/app/target
