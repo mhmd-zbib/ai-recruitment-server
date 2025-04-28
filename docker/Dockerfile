@@ -51,7 +51,7 @@ ENV DB_NAME=hiresync
 ENV DB_USERNAME=postgres
 
 # These should be passed at runtime, not built into the image
-# We're removing DB_PASSWORD from the Dockerfile for security reasons
+# DB_PASSWORD should be passed at runtime for security reasons
 
 # Switch to non-root user
 USER appuser
@@ -60,4 +60,4 @@ USER appuser
 EXPOSE 8080
 
 # Run the application
-ENTRYPOINT ["java", "${JAVA_OPTS}", "-jar", "/app/app.jar"]
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
