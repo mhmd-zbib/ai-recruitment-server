@@ -21,7 +21,7 @@ concurrency:
 env:
   DOCKER_IMAGE: hiresync
   DOCKER_REGISTRY: docker.io
-  DOCKER_USERNAME: ${{ secrets.DOKCERHUB_USERNAME }}
+  DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
   SPRING_PROFILES_ACTIVE: test
   JWT_SECRET: ${{ secrets.JWT_TEST_SECRET || 'f5a8f9g6v4afetgasgbga2g4qwtoplju' }}
   JWT_ISSUER: hiresync-test
@@ -237,7 +237,7 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ env.DOCKER_USERNAME }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Extract branch info, version, and build tag
