@@ -1,5 +1,9 @@
+version: '3.8'
+
 services:
-  # PostgreSQL service for testing
+  #---------------------------------------------------------------------------
+  # PostgreSQL Database for Testing
+  #---------------------------------------------------------------------------
   test-db:
     image: postgres:16-alpine
     container_name: postgres_test_db
@@ -14,58 +18,91 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 10s
     networks:
       - test-network
     volumes:
       - postgres_test_data:/var/lib/postgresql/data
+    restart: unless-stopped
 
-  # Spring Boot application service for testing
+  #---------------------------------------------------------------------------
+  # Spring Boot Application for Testing
+  #---------------------------------------------------------------------------
   app-test:
     build:
       context: ..
-      dockerfile: docker/Dockerfile
-      args:
-        - SPRING_PROFILES_ACTIVE=test
-        - DEBUG_MODE=true
-        - SPRINGDOC_ENABLED=false
-        - SWAGGER_UI_ENABLED=false
+      dockerfile: docker/Dockerfile.test
     container_name: hiresync_test_app
     depends_on:
       test-db:
         condition: service_healthy
     environment:
-      - SPRING_PROFILES_ACTIVE=test
-      - DB_HOST=test-db
-      - DB_PORT=5432
-      - DB_NAME=hiresync_test
-      - DB_USERNAME=test_user
-      - DB_PASSWORD=test_password
-      - JPA_DDL_AUTO=create-drop
-      - JPA_SHOW_SQL=true
-      - SERVER_PORT=8080
-      - JWT_SECRET=test_secret_key_for_development_only
-      - JWT_EXPIRATION=86400000
-      - JWT_REFRESH_EXPIRATION=604800000
-      - JWT_ISSUER=hiresync-test
-      - JWT_AUDIENCE=hiresync-app-test
-      - JAVA_OPTS=-Xms512m -Xmx1024m -Dspring.profiles.active=test
+      # Database Configuration
+      DB_HOST: test-db
+      DB_PORT: 5432
+      DB_NAME: hiresync_test
+      DB_USERNAME: test_user
+      DB_PASSWORD: test_password
+
+      # JPA Configuration
+      JPA_DDL_AUTO: create-drop
+      JPA_SHOW_SQL: "true"
+
+      # Server Configuration
+      SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: test
+
+      # Security Configuration
+      JWT_SECRET: test_secret_key_for_development_only
+      JWT_EXPIRATION: 86400000
+      JWT_REFRESH_EXPIRATION: 604800000
+      JWT_ISSUER: hiresync-test
+      JWT_AUDIENCE: hiresync-app-test
+
+      # JVM Configuration
+      JAVA_OPTS: -Xms512m -Xmx1024m -Dspring.profiles.active=test
     ports:
       - "8080:8080"
     networks:
       - test-network
-    command: ["./mvnw", "test"]
     volumes:
-      - ../src:/app/src
+      # Mount source code and build artifacts
+      - ../src:/app/src:ro
       - ../target:/app/target
       - ../logs:/app/logs
-      - ../.mvn:/app/.mvn
-      - ../mvnw:/app/mvnw
-      - ../pom.xml:/app/pom.xml
 
+      # Mount Maven configuration
+      - ../.mvn:/app/.mvn:ro
+      - ../mvnw:/app/mvnw:ro
+      - ../pom.xml:/app/pom.xml:ro
+
+      # Mount Maven local repository for caching dependencies
+      - maven-repo:/root/.m2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+#---------------------------------------------------------------------------
+# Networks Configuration
+#---------------------------------------------------------------------------
 networks:
   test-network:
     driver: bridge
+    name: hiresync_test_network
 
+#---------------------------------------------------------------------------
+# Volumes Configuration
+#---------------------------------------------------------------------------
 volumes:
+  # Database storage
   postgres_test_data:
     driver: local
+    name: hiresync_postgres_test_data
+
+  # Maven repository cache
+  maven-repo:
+    driver: local
+    name: hiresync_maven_repo

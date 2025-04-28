@@ -1,0 +1,28 @@
+FROM eclipse-temurin:21-jdk
+
+# Set working directory
+WORKDIR /app
+
+# Copy maven wrapper, pom.xml, and mvnw files
+COPY mvnw .
+COPY .mvn .mvn
+COPY pom.xml .
+
+# Make the mvnw script executable
+RUN chmod +x mvnw
+
+# Download dependencies (separate layer for caching)
+RUN ./mvnw dependency:go-offline -B
+
+# Copy the source code
+COPY src src
+
+# Set environment variables for testing
+ENV SPRING_PROFILES_ACTIVE=test
+ENV DEBUG_MODE=true
+ENV SPRINGDOC_ENABLED=false
+ENV SWAGGER_UI_ENABLED=false
+
+# Default command to run tests
+# This can be overridden in docker-compose
+CMD ["./mvnw", "test"]
