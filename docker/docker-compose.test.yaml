@@ -147,7 +147,7 @@ services:
       JWT_AUDIENCE: hiresync-app-test
 
       # JVM Configuration
-      JAVA_OPTS: "-Xms512m -Xmx1024m -XX:+UseG1GC -XX:+UseContainerSupport -Dspring.profiles.active=test"
+      JAVA_OPTS: "-Xms256m -Xmx512m -XX:+UseG1GC -XX:+UseContainerSupport -Djava.security.egd=file:/dev/./urandom -Dspring.profiles.active=test"
     ports:
       - "8080:8080"
     networks:
@@ -157,10 +157,10 @@ services:
       - ../logs:/app/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 40s
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 60s
 
 #---------------------------------------------------------------------------
 # Networks Configuration

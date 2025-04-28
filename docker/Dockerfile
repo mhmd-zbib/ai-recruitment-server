@@ -53,7 +53,7 @@ COPY --from=builder /app/target/*.jar app.jar
 
 # Set default environment variables
 ENV SPRING_PROFILES_ACTIVE=prod \
-    JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -XX:+UseContainerSupport" \
+    JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:+UseContainerSupport -Djava.security.egd=file:/dev/./urandom" \
     DB_HOST=postgres_db \
     DB_PORT=5432 \
     DB_NAME=hiresync \
@@ -84,7 +84,7 @@ FROM builder AS test
 
 # Set environment variables for testing
 ENV SPRING_PROFILES_ACTIVE=test \
-    JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -XX:+UseContainerSupport" \
+    JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:+UseContainerSupport -Djava.security.egd=file:/dev/./urandom" \
     DB_HOST=test-db \
     DB_PORT=5432 \
     DB_NAME=hiresync_test \
