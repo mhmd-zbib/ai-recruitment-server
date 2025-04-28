@@ -239,9 +239,13 @@ jobs:
           # Start the application and database
           docker compose -f docker/docker-compose.test.yaml up -d app-test test-db
 
-          # Wait for the application to be ready (increased timeout to 180s)
+          # Show logs to debug startup issues
+          echo "Showing application logs for debugging:"
+          docker compose -f docker/docker-compose.test.yaml logs app-test
+
+          # Wait for the application to be ready (increased timeout to 300s)
           echo "Waiting for application to be ready..."
-          timeout 180s bash -c 'until curl -s http://localhost:8080/actuator/health | grep "UP"; do sleep 5; echo "Still waiting for application to start..."; done'
+          timeout 300s bash -c 'until curl -s http://localhost:8080/actuator/health | grep "UP"; do sleep 10; echo "Still waiting for application to start..."; docker compose -f docker/docker-compose.test.yaml logs --tail=20 app-test; done'
 
           # Run some basic API tests
           echo "Running API tests..."

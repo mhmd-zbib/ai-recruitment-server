@@ -53,7 +53,7 @@ COPY --from=builder /app/target/*.jar app.jar
 
 # Set default environment variables
 ENV SPRING_PROFILES_ACTIVE=prod \
-    JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:+UseContainerSupport -Djava.security.egd=file:/dev/./urandom" \
+    JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:+UseContainerSupport -XX:+AlwaysPreTouch -XX:+DisableExplicitGC -Djava.security.egd=file:/dev/./urandom" \
     DB_HOST=postgres_db \
     DB_PORT=5432 \
     DB_NAME=hiresync \
@@ -61,6 +61,8 @@ ENV SPRING_PROFILES_ACTIVE=prod \
     SERVER_PORT=8080 \
     JPA_DDL_AUTO=update \
     JPA_SHOW_SQL=false \
+    SPRING_MAIN_LAZY_INITIALIZATION=true \
+    SPRING_JPA_OPEN_IN_VIEW=false \
     TZ=UTC
 
 # Create directory for logs with proper permissions
@@ -84,7 +86,7 @@ FROM builder AS test
 
 # Set environment variables for testing
 ENV SPRING_PROFILES_ACTIVE=test \
-    JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:+UseContainerSupport -Djava.security.egd=file:/dev/./urandom" \
+    JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:+UseContainerSupport -XX:+AlwaysPreTouch -XX:+DisableExplicitGC -Djava.security.egd=file:/dev/./urandom" \
     DB_HOST=test-db \
     DB_PORT=5432 \
     DB_NAME=hiresync_test \
@@ -92,7 +94,9 @@ ENV SPRING_PROFILES_ACTIVE=test \
     DB_PASSWORD=test_password \
     SERVER_PORT=8080 \
     JPA_DDL_AUTO=create-drop \
-    JPA_SHOW_SQL=true
+    JPA_SHOW_SQL=true \
+    SPRING_MAIN_LAZY_INITIALIZATION=true \
+    SPRING_JPA_OPEN_IN_VIEW=false
 
 # Create directory for test results
 RUN mkdir -p /app/target/surefire-reports

@@ -135,6 +135,11 @@ services:
       JPA_DDL_AUTO: create-drop
       JPA_SHOW_SQL: "true"
 
+      # Spring Boot Optimization
+      SPRING_MAIN_LAZY_INITIALIZATION: "true"
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: "org.hibernate.dialect.PostgreSQLDialect"
+      SPRING_JPA_OPEN_IN_VIEW: "false"
+
       # Server Configuration
       SERVER_PORT: 8080
       SPRING_PROFILES_ACTIVE: test
@@ -147,7 +152,7 @@ services:
       JWT_AUDIENCE: hiresync-app-test
 
       # JVM Configuration
-      JAVA_OPTS: "-Xms256m -Xmx512m -XX:+UseG1GC -XX:+UseContainerSupport -Djava.security.egd=file:/dev/./urandom -Dspring.profiles.active=test"
+      JAVA_OPTS: "-Xms256m -Xmx512m -XX:+UseG1GC -XX:+UseContainerSupport -XX:+AlwaysPreTouch -XX:+DisableExplicitGC -Djava.security.egd=file:/dev/./urandom -Dspring.profiles.active=test"
     ports:
       - "8080:8080"
     networks:
