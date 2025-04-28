@@ -2,157 +2,59 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [master, dev]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
+    branches:
+      - master
+      - dev
   pull_request:
-    branches: [master, dev]
-  workflow_dispatch:
-
-# Status badge URLs:
-# https://github.com/mhmd-zbib/ai-recruitment-server/actions/workflows/ci.yaml/badge.svg?branch=master
-# https://github.com/mhmd-zbib/ai-recruitment-server/actions/workflows/ci.yaml/badge.svg?branch=dev
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-env:
-  SPRING_PROFILES_ACTIVE: test
-  JWT_SECRET: ${{ secrets.JWT_TEST_SECRET || 'f5a8f9g6v4afetgasgbga2g4qwtoplju' }}
-  JWT_ISSUER: hiresync-test
-  JWT_AUDIENCE: hiresync-app-test
-  DEBUG_MODE: true
+    branches:
+      - master
+      - dev
 
 jobs:
-  lint:
-    name: Linting
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+  ci-pipeline:
+    runs-on: ubuntu-22.04
 
-      - name: Set up JDK 21
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: 'maven'
 
-      - name: Run Checkstyle
-        run: mvn checkstyle:check -P ci -Dpmd.skip=true
-
-      # Removed PMD and SpotBugs checks to simplify the CI pipeline
-
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: lint
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - name: Cache Maven Dependencies
+        uses: actions/cache@v4
         with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'maven'
+          path: ~/.m2hashFiles
+          key: ${{ runner.os }}-maven-${{ ('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Make Maven Executable
+        run: chmod +x ./mvnw
+
+      - name: Lint Code
+        run: ./mvnw checkstyle:check
+
+      - name: Build JAR
+        run: ./mvnw clean package -DskipTests=true
 
       - name: Run Unit Tests
-        run: mvn test -P ci -Dtest=*Test
+        run: ./mvnw test
 
-      - name: Upload Test Results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: unit-test-results
-          path: target/surefire-reports
-          retention-days: 5
+      - name: Build Docker Image
+        run: docker build -t ${{secrets.DOCKER_USERNAME}}/hiresync:latest .
 
-  build-jar:
-    name: Build JAR
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: unit-tests
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: Build JAR File
-        run: mvn package -DskipTests -P ci
-
-      - name: Upload JAR Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: application-jar
-          path: target/*.jar
-          retention-days: 1
-
-  integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: build-jar
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download JAR Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: application-jar
-          path: target
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Extract branch or PR info
-        shell: bash
+      - name: Run Docker Compose
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "BUILD_TAG=pr-${{ github.event.pull_request.number }}-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
-          else
-            echo "BUILD_TAG=${GITHUB_REF#refs/heads/}-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
-          fi
+          docker-compose -f docker-compose.test.yaml up -d
+          docker-compose -f docker-compose.test.yaml exec -T app bash -c "while ! nc -z db 5432; do sleep 1; done; ./mvnw verify -P ci -DskipUnitTests=true"
 
       - name: Run Integration Tests
-        run: |
-          # Run the integration tests using Docker Compose
-          docker compose -f docker/docker-compose.test.yaml up \
-            --abort-on-container-exit \
-            --exit-code-from integration-tests \
-            integration-tests test-db
+        run: | 
+          docker-compose -f docker-compose.test.yaml exec -T app ./mvnw verify -P ci -DskipUnitTests=true
 
-      - name: Collect Test Results
-        if: always()
-        run: |
-          echo "Collecting integration test results..."
-          mkdir -p integration-test-results
-          docker cp hiresync_integration_tests:/app/target/surefire-reports ./integration-test-results || true
-
-          # Print summary of test results if available
-          if [ -d "./integration-test-results" ]; then
-            echo "Integration test results summary:"
-            find ./integration-test-results -name "TEST-*.xml" -exec grep "testsuite" {} \; | head -n 5
-          fi
-
-      - name: Upload Integration Test Results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: integration-test-results
-          path: integration-test-results
-          retention-days: 5
+      - name: Shutdown Docker Compose
+        run: docker-compose -f docker-compose.test.yaml down

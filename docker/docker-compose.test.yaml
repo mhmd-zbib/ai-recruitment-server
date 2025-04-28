@@ -1,190 +1,37 @@
-version: '3.8'
-
 services:
-  #---------------------------------------------------------------------------
-  # PostgreSQL Database for Testing
-  #---------------------------------------------------------------------------
-  test-db:
+  postgres:
     image: postgres:16-alpine
-    container_name: postgres_test_db
+    container_name: test-db
     environment:
-      POSTGRES_DB: hiresync_test
-      POSTGRES_USER: test_user
-      POSTGRES_PASSWORD: test_password
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: testdb
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U test_user -d hiresync_test"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U test -d testdb"]
+      interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
     networks:
-      - test-network
-    volumes:
-      - postgres_test_data:/var/lib/postgresql/data
-    restart: unless-stopped
+      - app-network
 
-  #---------------------------------------------------------------------------
-  # Unit Tests Container
-  #---------------------------------------------------------------------------
-  unit-tests:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-      target: test
-      args:
-        SPRING_PROFILES_ACTIVE: test
-        DEBUG_MODE: "true"
-        SPRINGDOC_ENABLED: "true"
-        SWAGGER_UI_ENABLED: "true"
-        SKIP_TESTS: "false"
-    container_name: hiresync_unit_tests
-    environment:
-      # Test Configuration
-      SPRING_PROFILES_ACTIVE: test
-      MAVEN_OPTS: "-Xms512m -Xmx1024m"
-    volumes:
-      # Mount source code for hot reloading during development
-      - ../src:/app/src:ro
-      # Mount test results for CI/CD pipeline
-      - ../target:/app/target
-      # Mount Maven local repository for caching dependencies
-      - maven-repo:/root/.m2
-    networks:
-      - test-network
-    command: ["mvn", "test", "-Dspring.profiles.active=test", "-Dtest=*Test"]
-
-  #---------------------------------------------------------------------------
-  # Integration Tests Container
-  #---------------------------------------------------------------------------
-  integration-tests:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-      target: test
-      args:
-        SPRING_PROFILES_ACTIVE: test
-        DEBUG_MODE: "true"
-        SPRINGDOC_ENABLED: "true"
-        SWAGGER_UI_ENABLED: "true"
-        SKIP_TESTS: "false"
-    container_name: hiresync_integration_tests
-    depends_on:
-      test-db:
-        condition: service_healthy
-    environment:
-      # Database Configuration
-      DB_HOST: test-db
-      DB_PORT: 5432
-      DB_NAME: hiresync_test
-      DB_USERNAME: test_user
-      DB_PASSWORD: test_password
-
-      # JPA Configuration
-      JPA_DDL_AUTO: create-drop
-      JPA_SHOW_SQL: "true"
-
-      # Test Configuration
-      SPRING_PROFILES_ACTIVE: test
-      MAVEN_OPTS: "-Xms512m -Xmx1024m"
-
-      # Security Configuration
-      JWT_SECRET: test_secret_key_for_development_only
-      JWT_EXPIRATION: 86400000
-      JWT_REFRESH_EXPIRATION: 604800000
-      JWT_ISSUER: hiresync-test
-      JWT_AUDIENCE: hiresync-app-test
-    volumes:
-      # Mount source code for hot reloading during development
-      - ../src:/app/src:ro
-      # Mount test results for CI/CD pipeline
-      - ../target:/app/target
-      # Mount Maven local repository for caching dependencies
-      - maven-repo:/root/.m2
-    networks:
-      - test-network
-    command: ["mvn", "verify", "-Dspring.profiles.active=test", "-Dsurefire.failIfNoSpecifiedTests=false"]
-
-  #---------------------------------------------------------------------------
-  # Application Container for Testing
-  #---------------------------------------------------------------------------
-  app-test:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-      target: runtime
-      args:
-        SPRING_PROFILES_ACTIVE: test
-        DEBUG_MODE: "true"
-        SPRINGDOC_ENABLED: "true"
-        SWAGGER_UI_ENABLED: "true"
-    container_name: hiresync_test_app
-    depends_on:
-      test-db:
-        condition: service_healthy
-    environment:
-      # Database Configuration
-      DB_HOST: test-db
-      DB_PORT: 5432
-      DB_NAME: hiresync_test
-      DB_USERNAME: test_user
-      DB_PASSWORD: test_password
-
-      # JPA Configuration
-      JPA_DDL_AUTO: create-drop
-      JPA_SHOW_SQL: "true"
-
-      # Spring Boot Optimization
-      SPRING_MAIN_LAZY_INITIALIZATION: "true"
-      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: "org.hibernate.dialect.PostgreSQLDialect"
-      SPRING_JPA_OPEN_IN_VIEW: "false"
-
-      # Server Configuration
-      SERVER_PORT: 8080
-      SPRING_PROFILES_ACTIVE: test
-
-      # Security Configuration
-      JWT_SECRET: test_secret_key_for_development_only
-      JWT_EXPIRATION: 86400000
-      JWT_REFRESH_EXPIRATION: 604800000
-      JWT_ISSUER: hiresync-test
-      JWT_AUDIENCE: hiresync-app-test
-
-      # JVM Configuration
-      JAVA_OPTS: "-Xms256m -Xmx512m -XX:+UseG1GC -XX:+UseContainerSupport -XX:+AlwaysPreTouch -XX:+DisableExplicitGC -Djava.security.egd=file:/dev/./urandom -Dspring.profiles.active=test"
+  app:
+    image: ${DOCKERHUB_USERNAME}/hiresync:latest
+    container_name: hiresync
     ports:
       - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/testdb
+      - SPRING_DATASOURCE_USERNAME=testuser
+      - SPRING_DATASOURCE_PASSWORD=testpassword
+      - SPRING_PROFILES_ACTIVE=test
     networks:
-      - test-network
-    volumes:
-      # Mount logs directory for test output
-      - ../logs:/app/logs
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 60s
+      - app-network
 
-#---------------------------------------------------------------------------
-# Networks Configuration
-#---------------------------------------------------------------------------
 networks:
-  test-network:
+  app-network:
     driver: bridge
-    name: hiresync_test_network
-
-#---------------------------------------------------------------------------
-# Volumes Configuration
-#---------------------------------------------------------------------------
-volumes:
-  # Database storage
-  postgres_test_data:
-    driver: local
-    name: hiresync_postgres_test_data
-
-  # Maven repository cache
-  maven-repo:
-    driver: local
-    name: hiresync_maven_repo
