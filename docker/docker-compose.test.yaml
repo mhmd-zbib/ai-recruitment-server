@@ -104,7 +104,7 @@ services:
       - maven-repo:/root/.m2
     networks:
       - test-network
-    command: ["mvn", "verify", "-Dspring.profiles.active=test", "-Dtest=*IT"]
+    command: ["mvn", "verify", "-Dspring.profiles.active=test", "-Dsurefire.failIfNoSpecifiedTests=false"]
 
   #---------------------------------------------------------------------------
   # Application Container for Testing
