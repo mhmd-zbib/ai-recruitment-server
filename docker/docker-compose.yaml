@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  #---------------------------------------------------------------------------
+  # PostgreSQL Database for Production
+  #---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres_db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-hiresync}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-hiresync}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - app-network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  #---------------------------------------------------------------------------
+  # Spring Boot Application
+  #---------------------------------------------------------------------------
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+        DEBUG_MODE: ${DEBUG_MODE:-false}
+        SPRINGDOC_ENABLED: ${SPRINGDOC_ENABLED:-true}
+        SWAGGER_UI_ENABLED: ${SWAGGER_UI_ENABLED:-true}
+    container_name: hiresync_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-hiresync}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      
+      # JPA Configuration
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+      JPA_SHOW_SQL: ${JPA_SHOW_SQL:-false}
+      
+      # Server Configuration
+      SERVER_PORT: ${SERVER_PORT:-8080}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      
+      # Security Configuration
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-3600000}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-86400000}
+      JWT_ISSUER: ${JWT_ISSUER:-hiresync}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-hiresync-users}
+      
+      # JVM Configuration
+      JAVA_OPTS: ${JAVA_OPTS:--Xms512m -Xmx1024m}
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    networks:
+      - app-network
+    volumes:
+      - app_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+#---------------------------------------------------------------------------
+# Networks Configuration
+#---------------------------------------------------------------------------
+networks:
+  app-network:
+    driver: bridge
+    name: hiresync_network
+
+#---------------------------------------------------------------------------
+# Volumes Configuration
+#---------------------------------------------------------------------------
+volumes:
+  # Database storage
+  postgres_data:
+    driver: local
+    name: hiresync_postgres_data
+  
+  # Application logs
+  app_logs:
+    driver: local
+    name: hiresync_app_logs

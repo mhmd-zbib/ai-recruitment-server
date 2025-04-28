@@ -4,54 +4,82 @@ This directory contains Docker configuration files for the HireSync application.
 
 ## Files
 
-- `Dockerfile`: Main Dockerfile for production builds
-- `Dockerfile.test`: Specialized Dockerfile for testing
-- `docker-compose.test.yaml`: Docker Compose configuration for running tests
+- `Dockerfile`: Multi-stage Dockerfile for building and running the application
+- `docker-compose.yaml`: Production Docker Compose configuration
+- `docker-compose.test.yaml`: Testing Docker Compose configuration
 
 ## Usage
 
-### Running Tests
+### Development Environment
+
+To run the application in a development environment:
+
+```bash
+# From the project root directory
+docker compose -f docker/docker-compose.yaml up -d
+```
+
+### Testing Environment
 
 To run tests in a containerized environment:
 
 ```bash
-docker compose -f docker-compose.test.yaml build
-docker compose -f docker-compose.test.yaml up --abort-on-container-exit --exit-code-from app-test
+# From the project root directory
+docker compose -f docker/docker-compose.test.yaml build
+docker compose -f docker/docker-compose.test.yaml up --abort-on-container-exit --exit-code-from app-test
 ```
 
-### Building Production Image
+### Production Environment
 
-To build the production Docker image:
+For production deployment, use environment variables to configure the application:
 
 ```bash
-docker build -t hiresync:latest -f Dockerfile ..
+# Create a .env file with your production settings
+cp .env.example .env
+# Edit the .env file with your production values
+nano .env
+
+# Run the application with production settings
+docker compose -f docker/docker-compose.yaml up -d
 ```
 
-## Configuration
+## Environment Variables
 
 The Docker setup uses the following environment variables:
 
 ### Database Configuration
-- `DB_HOST`: Database hostname (default: postgres_db)
+- `DB_HOST`: Database hostname (default: postgres)
 - `DB_PORT`: Database port (default: 5432)
-- `DB_NAME`: Database name
-- `DB_USERNAME`: Database username
-- `DB_PASSWORD`: Database password
+- `DB_NAME`: Database name (default: hiresync)
+- `DB_USERNAME`: Database username (default: postgres)
+- `DB_PASSWORD`: Database password (default: postgres)
+
+### JPA Configuration
+- `JPA_DDL_AUTO`: Hibernate DDL auto setting (default: update)
+- `JPA_SHOW_SQL`: Whether to show SQL in logs (default: false)
 
 ### Application Configuration
 - `SPRING_PROFILES_ACTIVE`: Spring profile (default: prod)
+- `SERVER_PORT`: Server port (default: 8080)
 - `JAVA_OPTS`: JVM options (default: -Xms512m -Xmx1024m)
+
+### Security Configuration
 - `JWT_SECRET`: Secret key for JWT tokens
-- `JWT_ISSUER`: JWT issuer
-- `JWT_AUDIENCE`: JWT audience
+- `JWT_EXPIRATION`: JWT token expiration time in milliseconds (default: 3600000)
+- `JWT_REFRESH_EXPIRATION`: JWT refresh token expiration time in milliseconds (default: 86400000)
+- `JWT_ISSUER`: JWT issuer (default: hiresync)
+- `JWT_AUDIENCE`: JWT audience (default: hiresync-users)
 
 ## Volumes
 
 The Docker Compose setup uses the following named volumes:
 
+- `hiresync_postgres_data`: Persistent storage for the database
+- `hiresync_app_logs`: Persistent storage for application logs
 - `hiresync_postgres_test_data`: Persistent storage for the test database
-- `hiresync_maven_repo`: Maven repository cache for faster builds
+- `maven-repo`: Maven repository cache for faster builds (test only)
 
 ## Networks
 
+- `hiresync_network`: Isolated network for application containers
 - `hiresync_test_network`: Isolated network for test containers

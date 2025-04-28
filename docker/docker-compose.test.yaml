@@ -29,7 +29,14 @@ services:
   # Spring Boot Application for Testing
   #---------------------------------------------------------------------------
   app-test:
-    image: hiresync:test
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SPRING_PROFILES_ACTIVE: test
+        DEBUG_MODE: "true"
+        SPRINGDOC_ENABLED: "true"
+        SWAGGER_UI_ENABLED: "true"
     container_name: hiresync_test_app
     depends_on:
       test-db:
@@ -64,18 +71,10 @@ services:
     networks:
       - test-network
     # Override the default entrypoint to run tests instead
-    entrypoint: ["./mvnw", "test"]
+    entrypoint: ["sh", "-c", "mvn test"]
     volumes:
-      # Mount source code and build artifacts
-      - ../src:/app/src:ro
-      - ../target:/app/target
+      # Mount logs directory for test output
       - ../logs:/app/logs
-
-      # Mount Maven configuration
-      - ../.mvn:/app/.mvn:ro
-      - ../mvnw:/app/mvnw:ro
-      - ../pom.xml:/app/pom.xml:ro
-
       # Mount Maven local repository for caching dependencies
       - maven-repo:/root/.m2
     healthcheck:
