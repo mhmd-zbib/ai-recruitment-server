@@ -50,17 +50,21 @@ services:
       - JWT_REFRESH_EXPIRATION=604800000
       - JWT_ISSUER=hiresync-test
       - JWT_AUDIENCE=hiresync-app-test
+      - JAVA_OPTS=-Xms512m -Xmx1024m -Dspring.profiles.active=test
     ports:
       - "8080:8080"
     networks:
       - test-network
     # Command to run tests instead of starting the application
-    command: ["./mvnw", "test"]
+    entrypoint: ["./mvnw", "test"]
     # This volume is for development to hot-reload changes
     volumes:
       - ../src:/app/src
       - ../target:/app/target
       - ../logs:/app/logs
+      - ../.mvn:/app/.mvn
+      - ../mvnw:/app/mvnw
+      - ../pom.xml:/app/pom.xml
 
 networks:
   test-network:

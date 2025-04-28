@@ -4,9 +4,9 @@ FROM eclipse-temurin:21-jdk AS builder
 WORKDIR /app
 
 # Copy maven wrapper, pom.xml, and mvnw files
-COPY mvnw .
-COPY .mvn .mvn
-COPY pom.xml .
+COPY ./mvnw .
+COPY ./.mvn ./.mvn
+COPY ./pom.xml .
 
 # Make the mvnw script executable
 RUN chmod +x mvnw
@@ -15,7 +15,7 @@ RUN chmod +x mvnw
 RUN ./mvnw dependency:go-offline -B
 
 # Copy the source code
-COPY src src
+COPY ./src ./src
 
 # Build the application
 ARG SPRING_PROFILES_ACTIVE=prod
@@ -42,14 +42,16 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 # Copy the built jar from the builder stage
 COPY --from=builder /app/target/*.jar app.jar
 
-# Set environment variables
+# Set non-sensitive environment variables
 ENV SPRING_PROFILES_ACTIVE=prod
 ENV JAVA_OPTS="-Xms512m -Xmx1024m"
 ENV DB_HOST=postgres_db
 ENV DB_PORT=5432
 ENV DB_NAME=hiresync
 ENV DB_USERNAME=postgres
-ENV DB_PASSWORD=postgres
+
+# These should be passed at runtime, not built into the image
+# We're removing DB_PASSWORD from the Dockerfile for security reasons
 
 # Switch to non-root user
 USER appuser
@@ -58,4 +60,4 @@ USER appuser
 EXPOSE 8080
 
 # Run the application
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "${JAVA_OPTS}", "-jar", "/app/app.jar"]
