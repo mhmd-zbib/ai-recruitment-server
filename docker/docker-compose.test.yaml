@@ -31,7 +31,12 @@ services:
   app-test:
     build:
       context: ..
-      dockerfile: docker/Dockerfile.test
+      dockerfile: docker/Dockerfile
+      args:
+        SPRING_PROFILES_ACTIVE: test
+        DEBUG_MODE: "true"
+        SPRINGDOC_ENABLED: "false"
+        SWAGGER_UI_ENABLED: "false"
     container_name: hiresync_test_app
     depends_on:
       test-db:
@@ -65,6 +70,8 @@ services:
       - "8080:8080"
     networks:
       - test-network
+    # Override the default entrypoint to run tests instead
+    entrypoint: ["./mvnw", "test"]
     volumes:
       # Mount source code and build artifacts
       - ../src:/app/src:ro

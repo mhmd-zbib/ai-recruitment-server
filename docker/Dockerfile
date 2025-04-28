@@ -4,9 +4,9 @@ FROM eclipse-temurin:21-jdk AS builder
 WORKDIR /app
 
 # Copy maven wrapper, pom.xml, and mvnw files
-COPY mvnw .
-COPY .mvn .mvn
-COPY pom.xml .
+COPY ./mvnw .
+COPY ./.mvn ./.mvn
+COPY ./pom.xml .
 
 # Make the mvnw script executable
 RUN chmod +x mvnw
@@ -15,7 +15,7 @@ RUN chmod +x mvnw
 RUN ./mvnw dependency:go-offline -B
 
 # Copy the source code
-COPY src src
+COPY ./src ./src
 
 # Build the application
 ARG SPRING_PROFILES_ACTIVE=prod
@@ -24,6 +24,7 @@ ARG SPRINGDOC_ENABLED=false
 ARG SWAGGER_UI_ENABLED=false
 
 # Pass build-time arguments to Maven
+# Skip tests here as they will be run separately in test environment
 RUN ./mvnw package -DskipTests \
     -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE} \
     -Ddebug.mode=${DEBUG_MODE} \
