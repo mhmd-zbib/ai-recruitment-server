@@ -80,8 +80,11 @@ jobs:
 
       - name: Run Docker Compose Tests
         run: |
-          # Build the test containers
-          docker compose -f docker/docker-compose.test.yaml build --no-cache
+          # Make the build context script executable
+          chmod +x docker/build-context.sh
+
+          # Build the Docker image for testing
+          cd docker && ./build-context.sh && cd ..
 
           # Run the tests and exit when the test container exits
           docker compose -f docker/docker-compose.test.yaml up \

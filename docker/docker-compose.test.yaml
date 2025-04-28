@@ -29,14 +29,7 @@ services:
   # Spring Boot Application for Testing
   #---------------------------------------------------------------------------
   app-test:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-      args:
-        SPRING_PROFILES_ACTIVE: test
-        DEBUG_MODE: "true"
-        SPRINGDOC_ENABLED: "false"
-        SWAGGER_UI_ENABLED: "false"
+    image: hiresync:test
     container_name: hiresync_test_app
     depends_on:
       test-db:
