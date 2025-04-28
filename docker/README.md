@@ -8,6 +8,14 @@ This directory contains Docker configuration files for the HireSync application.
 - `docker-compose.yaml`: Production Docker Compose configuration
 - `docker-compose.test.yaml`: Testing Docker Compose configuration
 
+## Multi-Stage Dockerfile
+
+The Dockerfile uses a multi-stage build approach with three stages:
+
+1. **Builder Stage**: Compiles the Java application and runs tests
+2. **Runtime Stage**: Creates a minimal runtime image for production
+3. **Test Stage**: Extends the builder stage with testing capabilities
+
 ## Usage
 
 ### Development Environment
@@ -21,12 +29,17 @@ docker compose -f docker/docker-compose.yaml up -d
 
 ### Testing Environment
 
-To run tests in a containerized environment:
+To run different types of tests in a containerized environment:
 
 ```bash
-# From the project root directory
-docker compose -f docker/docker-compose.test.yaml build
-docker compose -f docker/docker-compose.test.yaml up --abort-on-container-exit --exit-code-from app-test
+# Run unit tests
+docker compose -f docker/docker-compose.test.yaml up --abort-on-container-exit --exit-code-from unit-tests unit-tests
+
+# Run integration tests (requires database)
+docker compose -f docker/docker-compose.test.yaml up --abort-on-container-exit --exit-code-from integration-tests integration-tests test-db
+
+# Run the application for end-to-end testing
+docker compose -f docker/docker-compose.test.yaml up -d app-test test-db
 ```
 
 ### Production Environment

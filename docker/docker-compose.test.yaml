@@ -26,12 +26,94 @@ services:
     restart: unless-stopped
 
   #---------------------------------------------------------------------------
-  # Spring Boot Application for Testing
+  # Unit Tests Container
+  #---------------------------------------------------------------------------
+  unit-tests:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: test
+      args:
+        SPRING_PROFILES_ACTIVE: test
+        DEBUG_MODE: "true"
+        SPRINGDOC_ENABLED: "true"
+        SWAGGER_UI_ENABLED: "true"
+        SKIP_TESTS: "false"
+    container_name: hiresync_unit_tests
+    environment:
+      # Test Configuration
+      SPRING_PROFILES_ACTIVE: test
+      MAVEN_OPTS: "-Xms512m -Xmx1024m"
+    volumes:
+      # Mount source code for hot reloading during development
+      - ../src:/app/src:ro
+      # Mount test results for CI/CD pipeline
+      - ../target:/app/target
+      # Mount Maven local repository for caching dependencies
+      - maven-repo:/root/.m2
+    networks:
+      - test-network
+    command: ["./mvnw", "test", "-Dspring.profiles.active=test", "-Dtest=*Test"]
+
+  #---------------------------------------------------------------------------
+  # Integration Tests Container
+  #---------------------------------------------------------------------------
+  integration-tests:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: test
+      args:
+        SPRING_PROFILES_ACTIVE: test
+        DEBUG_MODE: "true"
+        SPRINGDOC_ENABLED: "true"
+        SWAGGER_UI_ENABLED: "true"
+        SKIP_TESTS: "false"
+    container_name: hiresync_integration_tests
+    depends_on:
+      test-db:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      DB_HOST: test-db
+      DB_PORT: 5432
+      DB_NAME: hiresync_test
+      DB_USERNAME: test_user
+      DB_PASSWORD: test_password
+
+      # JPA Configuration
+      JPA_DDL_AUTO: create-drop
+      JPA_SHOW_SQL: "true"
+
+      # Test Configuration
+      SPRING_PROFILES_ACTIVE: test
+      MAVEN_OPTS: "-Xms512m -Xmx1024m"
+
+      # Security Configuration
+      JWT_SECRET: test_secret_key_for_development_only
+      JWT_EXPIRATION: 86400000
+      JWT_REFRESH_EXPIRATION: 604800000
+      JWT_ISSUER: hiresync-test
+      JWT_AUDIENCE: hiresync-app-test
+    volumes:
+      # Mount source code for hot reloading during development
+      - ../src:/app/src:ro
+      # Mount test results for CI/CD pipeline
+      - ../target:/app/target
+      # Mount Maven local repository for caching dependencies
+      - maven-repo:/root/.m2
+    networks:
+      - test-network
+    command: ["./mvnw", "verify", "-Dspring.profiles.active=test", "-Dtest=*IT"]
+
+  #---------------------------------------------------------------------------
+  # Application Container for Testing
   #---------------------------------------------------------------------------
   app-test:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      target: runtime
       args:
         SPRING_PROFILES_ACTIVE: test
         DEBUG_MODE: "true"
@@ -65,18 +147,14 @@ services:
       JWT_AUDIENCE: hiresync-app-test
 
       # JVM Configuration
-      JAVA_OPTS: -Xms512m -Xmx1024m -Dspring.profiles.active=test
+      JAVA_OPTS: "-Xms512m -Xmx1024m -XX:+UseG1GC -XX:+UseContainerSupport -Dspring.profiles.active=test"
     ports:
       - "8080:8080"
     networks:
       - test-network
-    # Override the default entrypoint to run tests instead
-    entrypoint: ["sh", "-c", "mvn test"]
     volumes:
       # Mount logs directory for test output
       - ../logs:/app/logs
-      # Mount Maven local repository for caching dependencies
-      - maven-repo:/root/.m2
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
