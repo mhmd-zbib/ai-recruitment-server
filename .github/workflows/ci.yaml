@@ -2,13 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches:
-      - master
-      - dev
+    branches: [master, dev]
   pull_request:
-    branches:
-      - master
-      - dev
+    branches: [master, dev]
 
 jobs:
   ci-pipeline:
@@ -27,8 +23,8 @@ jobs:
       - name: Cache Maven Dependencies
         uses: actions/cache@v4
         with:
-          path: ~/.m2hashFiles
-          key: ${{ runner.os }}-maven-${{ ('**/pom.xml') }}
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
 
@@ -45,16 +41,13 @@ jobs:
         run: ./mvnw test
 
       - name: Build Docker Image
-        run: docker build -t ${{secrets.DOCKERHUB_USERNAME}}/hiresync:latest .
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/hiresync:latest ./docker
 
       - name: Run Docker Compose
         run: |
+          cd docker
           docker-compose -f docker-compose.test.yaml up -d
           docker-compose -f docker-compose.test.yaml exec -T app bash -c "while ! nc -z db 5432; do sleep 1; done; ./mvnw verify -P ci -DskipUnitTests=true"
 
-      - name: Run Integration Tests
-        run: | 
-          docker-compose -f docker-compose.test.yaml exec -T app ./mvnw verify -P ci -DskipUnitTests=true
-
       - name: Shutdown Docker Compose
-        run: docker-compose -f docker-compose.test.yaml down
+        run: cd docker && docker-compose -f docker-compose.test.yaml down
