@@ -1,4 +1,4 @@
-FROM openjdk:21-jre-slim as runtime
+FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
