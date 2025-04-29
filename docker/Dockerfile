@@ -2,8 +2,8 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
-COPY hiresync-1.0.0.jar /app/hiresync-1.0.0.jar
+COPY target/hiresync-1.0.0.jar /app/app.jar
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "/app/hiresync-1.0.0.jar"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

@@ -40,9 +40,6 @@ jobs:
       - name: Run Unit Tests
         run: ./mvnw test
 
-      - name: Copy JAR to Docker Directory
-        run: cp target/hiresync-1.0.0.jar docker/
-
       - name: Build Docker Image
         run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/hiresync:latest -f docker/Dockerfile .
 
