@@ -38,6 +38,7 @@ jobs:
         run: ./mvnw clean package -DskipTests=true
 
       - name: Run Unit Tests
+      - name: Run Unit Tests
         run: ./mvnw test
 
       - name: Build Docker Image
@@ -47,9 +48,8 @@ jobs:
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
-          cd docker
-          docker compose -f docker-compose.test.yaml up -d
-          docker compose -f docker-compose.test.yaml exec -T app bash -c "while ! nc -z postgres 5432; do sleep 1; done; ./mvnw verify -P ci -DskipUnitTests=true"
+          docker compose -f docker/docker-compose.test.yaml up -d
+          docker compose -f docker/docker-compose.test.yaml exec -T app bash -c "while ! nc -z postgres 5432; do sleep 1; done; ./mvnw verify -P ci -DskipUnitTests=true"
 
       - name: Shutdown Docker Compose
         run: cd docker && docker compose -f docker-compose.test.yaml down
