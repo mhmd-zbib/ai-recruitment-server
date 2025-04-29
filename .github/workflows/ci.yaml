@@ -38,7 +38,6 @@ jobs:
         run: ./mvnw clean package -DskipTests=true
 
       - name: Run Unit Tests
-      - name: Run Unit Tests
         run: ./mvnw test
 
       - name: Build Docker Image
