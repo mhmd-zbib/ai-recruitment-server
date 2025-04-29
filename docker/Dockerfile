@@ -2,7 +2,7 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
-COPY /target/hiresync-1.0.0.jar /app/hiresync-1.0.0.jar
+COPY hiresync-1.0.0.jar /app/hiresync-1.0.0.jar
 
 EXPOSE 8080
 
