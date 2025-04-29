@@ -18,14 +18,7 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-
-      - name: Cache Maven Dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+          cache: 'maven'  # This enables built-in Maven dependency caching
 
       - name: Make Maven Wrapper Executable
         run: chmod +x ./mvnw
@@ -40,6 +33,7 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+          cache: 'maven'
 
       - name: Lint Code
         run: ./mvnw checkstyle:check
@@ -54,9 +48,18 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+          cache: 'maven'
 
       - name: Build JAR
         run: ./mvnw clean package -DskipTests=true
+
+      # Upload the JAR file as an artifact
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: application-jar
+          path: target/hiresync-1.0.0.jar
+          retention-days: 1
 
   test:
     runs-on: ubuntu-22.04
@@ -68,24 +71,63 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+          cache: 'maven'
 
       - name: Run Unit Tests
         run: ./mvnw test
 
-  docker:
+      # Upload test reports as artifacts (optional)
+      - name: Upload Test Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: target/surefire-reports/
+          retention-days: 1
+        if: always()  # Always upload test reports, even on failure
+
+  docker-build:
     runs-on: ubuntu-22.04
     needs: test
     steps:
       - uses: actions/checkout@v4
 
+      # Download the JAR file from the previous job
+      - name: Download JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: application-jar
+          path: target/
+
+      # Set up Docker Buildx for better performance
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build Docker Image (don't push yet)
       - name: Build Docker Image
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/hiresync:latest -f docker/Dockerfile .
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: false
+          load: true
+          tags: hiresync:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Save the Docker image as an artifact for later use
+      - name: Export Docker Image
+        run: docker save -o hiresync-image.tar hiresync:test
+
+      - name: Upload Docker Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: hiresync-image.tar
+          retention-days: 1
 
   integration-test:
     runs-on: ubuntu-22.04
-    needs: docker
-    env:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+    needs: docker-build
     steps:
       - uses: actions/checkout@v4
 
@@ -93,11 +135,30 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
+          cache: 'maven'
 
-      - name: Run Docker Compose
+      # Download the saved Docker image
+      - name: Download Docker Image
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: ./
+
+      # Load the Docker image
+      - name: Load Docker Image
+        run: docker load -i hiresync-image.tar
+
+      # Tag the image to match the name expected in docker-compose
+      - name: Tag Docker Image for Integration Tests
+        run: |
+          docker tag hiresync:test hiresync:latest
+
+      # Run integration tests with the Docker container
+      - name: Run Integration Tests
         run: |
           docker compose -f docker/docker-compose.test.yaml up -d
           ./mvnw verify -P ci -DskipUnitTests=true
 
       - name: Shutdown Docker Compose
-        run: cd docker && docker compose -f docker-compose.test.yaml down
+        run: docker compose -f docker/docker-compose.test.yaml down
+        if: always()  # Always try to clean up, even on failure

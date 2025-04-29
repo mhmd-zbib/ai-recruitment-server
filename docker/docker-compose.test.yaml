@@ -1,48 +1,46 @@
-  services:
-    postgres:
-      image: postgres:16-alpine
-      container_name: test-db
-      environment:
-        POSTGRES_USER: test
-        POSTGRES_PASSWORD: test
-        POSTGRES_DB: testdb
-      ports:
-        - "5432:5432"
-      healthcheck:
-        test: ["CMD-SHELL", "pg_isready -U test -d testdb"]
-        interval: 10s
-        timeout: 5s
-        retries: 5
-        start_period: 10s
-      networks:
-        - app-network
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: test-db
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: testdb
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d testdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - app-network
 
-    app:
-      build:
-        context: ..
-        dockerfile: docker/Dockerfile
-      container_name: hiresync
-      ports:
-        - "8080:8080"
-      depends_on:
-        postgres:
-          condition: service_healthy
-      environment:
-        - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/testdb
-        - SPRING_DATASOURCE_USERNAME=test
-        - SPRING_DATASOURCE_PASSWORD=test
-        - SPRING_PROFILES_ACTIVE=test
-        - JWT_SECRET=b82473bb7f458f567706da7d3a963506fdd6e2a8b2d8bf28de231afdf0f1f404db9539b5021ee35976ca4c5acb0455148692d5f698553186b7ed2fde8fdd0248bf19ebca84cfab1eb8e12ffddfc103d6bcdced4738e29a4cbbc6ef802b6844466766865744fac3ac36cc0b065e538f3ca152de3a22482928377ee96cbbf820efcea20a96a81f0fc6820b5e909b355e64b81c08ead548cb851fb44ee34d32a8ab797e90f847ad4188c972776d416cd61c0e8a1ff66b9a1b3564a7bde82e4aee566c9d12822ba923872368c28583cdf01c74f005dc03378a47fde9997dc2ae3a6b05bf106f6dfe0528b795174f8433677896d5eeab2fce0e500b5c82b5eeb273acdc9df14251499744b7572f157d498269d0b37d7dd4be9ef0935c1ab60c7c703e
-        - JWT_EXPIRATION=3600000
-        - JWT_ISSUER=myapp
-        - JWT_AUDIENCE=myappusers
-        - JWT_REFRESH_EXPIRATION=86400000
-        - JPA_DDL_AUTO=create-drop
-        - JPA_SHOW_SQL=false
-        - SERVER_PORT=8080
-      networks:
-        - app-network
+  app:
+    image: hiresync:latest
+    container_name: hiresync
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/testdb
+      - SPRING_DATASOURCE_USERNAME=test
+      - SPRING_DATASOURCE_PASSWORD=test
+      - SPRING_PROFILES_ACTIVE=test
+      - JWT_SECRET=b82473bb7f458f567706da7d3a963506fdd6e2a8b2d8bf28de231afdf0f1f404db9539b5021ee35976ca4c5acb0455148692d5f698553186b7ed2fde8fdd0248bf19ebca84cfab1eb8e12ffddfc103d6bcdced4738e29a4cbbc6ef802b6844466766865744fac3ac36cc0b065e538f3ca152de3a22482928377ee96cbbf820efcea20a96a81f0fc6820b5e909b355e64b81c08ead548cb851fb44ee34d32a8ab797e90f847ad4188c972776d416cd61c0e8a1ff66b9a1b3564a7bde82e4aee566c9d12822ba923872368c28583cdf01c74f005dc03378a47fde9997dc2ae3a6b05bf106f6dfe0528b795174f8433677896d5eeab2fce0e500b5c82b5eeb273acdc9df14251499744b7572f157d498269d0b37d7dd4be9ef0935c1ab60c7c703e
+      - JWT_EXPIRATION=3600000
+      - JWT_ISSUER=myapp
+      - JWT_AUDIENCE=myappusers
+      - JWT_REFRESH_EXPIRATION=86400000
+      - JPA_DDL_AUTO=create-drop
+      - JPA_SHOW_SQL=false
+      - SERVER_PORT=8080
+    networks:
+      - app-network
 
-  networks:
-    app-network:
-      driver: bridge
+networks:
+  app-network:
+    driver: bridge
