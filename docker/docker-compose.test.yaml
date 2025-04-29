@@ -19,7 +19,7 @@ services:
 
   app:
     build:
-      context: .
+      context: ./docker
       dockerfile: Dockerfile
     container_name: hiresync
     ports:
