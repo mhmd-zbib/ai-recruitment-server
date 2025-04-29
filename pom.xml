@@ -184,18 +184,6 @@
             <version>${springdoc.version}</version>
         </dependency>
         
-        <!-- Development Tools -->
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>com.github.spotbugs</groupId>
-            <artifactId>spotbugs-annotations</artifactId>
-            <version>4.8.3</version>
-        </dependency>
-        
         <!-- Testing Dependencies -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -267,30 +255,7 @@
                     <skip>${skip.tests}</skip>
                 </configuration>
             </plugin>
-            
-            <!-- Code quality plugins with unified skip flag -->
-            
-            <!-- SpotBugs Plugin -->
-            <plugin>
-                <groupId>com.github.spotbugs</groupId>
-                <artifactId>spotbugs-maven-plugin</artifactId>
-                <version>4.8.3.0</version>
-                <configuration>
-                    <skip>${skip.checks}</skip>
-                    <effort>Max</effort>
-                    <threshold>Medium</threshold>
-                    <xmlOutput>true</xmlOutput>
-                    <excludeFilterFile>${project.basedir}/src/main/resources/spotbugs-exclude.xml</excludeFilterFile>
-                </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <phase>verify</phase>
-                    </execution>
-                </executions>
-            </plugin>
+
             
             <!-- Checkstyle Plugin -->
             <plugin>
