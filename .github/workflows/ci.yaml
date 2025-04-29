@@ -7,9 +7,8 @@ on:
     branches: [master, dev]
 
 jobs:
-  ci-pipeline:
+  setup:
     runs-on: ubuntu-22.04
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -28,24 +27,74 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Make Maven Executable
+      - name: Make Maven Wrapper Executable
         run: chmod +x ./mvnw
+
+  lint:
+    runs-on: ubuntu-22.04
+    needs: setup
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
 
       - name: Lint Code
         run: ./mvnw checkstyle:check
 
+  build:
+    runs-on: ubuntu-22.04
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
       - name: Build JAR
         run: ./mvnw clean package -DskipTests=true
+
+  test:
+    runs-on: ubuntu-22.04
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
 
       - name: Run Unit Tests
         run: ./mvnw test
 
+  docker:
+    runs-on: ubuntu-22.04
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Build Docker Image
         run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/hiresync:latest -f docker/Dockerfile .
 
+  integration-test:
+    runs-on: ubuntu-22.04
+    needs: docker
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
       - name: Run Docker Compose
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
           docker compose -f docker/docker-compose.test.yaml up -d
           ./mvnw verify -P ci -DskipUnitTests=true
