@@ -48,7 +48,7 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
           docker compose -f docker/docker-compose.test.yaml up -d
-         ./mvnw verify -P ci -DskipUnitTests=true
+          ./mvnw verify -P ci -DskipUnitTests=true
 
       - name: Shutdown Docker Compose
         run: cd docker && docker compose -f docker-compose.test.yaml down
