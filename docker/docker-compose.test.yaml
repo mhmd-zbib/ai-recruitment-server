@@ -18,7 +18,9 @@ services:
       - app-network
 
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
     container_name: hiresync
     ports:
       - "8080:8080"
