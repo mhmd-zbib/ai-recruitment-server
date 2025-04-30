@@ -14,14 +14,17 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: List Directory Contents
+        run: ls -R
+
       - name: Download Docker Image Artifact
         uses: actions/download-artifact@v4
         with:
           name: docker-image
           path: ./
 
-      - name: List Directory Contents
-        run: ls -R
+      - name: Wait for Artifact (Optional)
+        run: sleep 10 # Add a delay to ensure artifact availability
 
       - name: Load Docker Image
         run: docker load -i hiresync-image.tar

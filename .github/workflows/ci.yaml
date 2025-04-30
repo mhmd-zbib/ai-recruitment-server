@@ -59,7 +59,7 @@ jobs:
         with:
           name: application-jar
           path: target/hiresync-1.0.0.jar
-          retention-days: 1
+          retention-days: 7 # Increased retention
 
   test:
     runs-on: ubuntu-22.04
@@ -82,7 +82,7 @@ jobs:
         with:
           name: test-reports
           path: target/surefire-reports/
-          retention-days: 1
+          retention-days: 7 # Increased retention
         if: always()  # Always upload test reports, even on failure
 
   docker-build:
@@ -123,6 +123,7 @@ jobs:
         with:
           name: docker-image
           path: hiresync-image.tar
+          retention-days: 7 # Increased retention
 
   integration-test:
     runs-on: ubuntu-22.04
