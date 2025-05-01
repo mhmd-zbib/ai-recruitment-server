@@ -196,4 +196,4 @@ jobs:
           docker tag hiresync:test ${{ secrets.DOCKERHUB_USERNAME }}/hiresync:latest
           docker tag hiresync:test ${{ secrets.DOCKERHUB_USERNAME }}/hiresync:${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/hiresync:latest
-          docker push ${{ se
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/hiresync:${{ github.sha }}
