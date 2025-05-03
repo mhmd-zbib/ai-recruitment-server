@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
@@ -74,17 +75,17 @@ class ApplicationServiceIntegrationTest {
         request.setResumeUrl("https://resume.example.com/123");
 
         ApplicationResponse createdApplication = applicationService.createApplication(request);
-        
+
         // Verify created application
         assertNotNull(createdApplication.getId());
         assertEquals(request.getApplicantEmail(), createdApplication.getApplicantEmail());
         assertEquals(request.getApplicantName(), createdApplication.getApplicantName());
         assertEquals(ApplicationStatus.SUBMITTED, createdApplication.getStatus());
-        
+
         // Retrieve and verify by ID
         ApplicationResponse retrievedApplication = applicationService.getApplicationById(
                 createdApplication.getId(), email);
-        
+
         assertEquals(createdApplication.getId(), retrievedApplication.getId());
         assertEquals(request.getApplicantEmail(), retrievedApplication.getApplicantEmail());
     }
@@ -94,19 +95,19 @@ class ApplicationServiceIntegrationTest {
         // Create application
         Application application = createTestApplication(testJob);
         applicationRepository.save(application);
-        
+
         // Update status
         UpdateApplicationStatusRequest request = new UpdateApplicationStatusRequest();
         request.setStatus(ApplicationStatus.UNDER_REVIEW);
         request.setNotes("This candidate looks promising");
-        
+
         ApplicationResponse updatedApplication = applicationService.updateApplicationStatus(
                 application.getId(), request, email);
-        
+
         // Verify update
         assertEquals(ApplicationStatus.UNDER_REVIEW, updatedApplication.getStatus());
         assertEquals(request.getNotes(), updatedApplication.getNotes());
-        
+
         // Verify in database
         Application dbApplication = applicationRepository.findById(application.getId()).orElseThrow();
         assertEquals(ApplicationStatus.UNDER_REVIEW, dbApplication.getStatus());
@@ -120,12 +121,12 @@ class ApplicationServiceIntegrationTest {
         Application app2 = createTestApplication(testJob);
         applicationRepository.save(app1);
         applicationRepository.save(app2);
-        
+
         // Get all applications
         ApplicationFilter filter = new ApplicationFilter();
         Page<ApplicationResponse> applications = applicationService.getAllApplications(
                 filter, PageRequest.of(0, 10), email);
-        
+
         // Verify applications
         assertEquals(2, applications.getTotalElements());
     }
@@ -135,17 +136,17 @@ class ApplicationServiceIntegrationTest {
         // Create applications with different statuses
         Application app1 = createTestApplication(testJob);
         app1.setStatus(ApplicationStatus.SUBMITTED);
-        
+
         Application app2 = createTestApplication(testJob);
         app2.setStatus(ApplicationStatus.UNDER_REVIEW);
-        
+
         applicationRepository.save(app1);
         applicationRepository.save(app2);
-        
+
         // Get applications by status
         Page<ApplicationResponse> submittedApplications = applicationService.getApplicationsByStatus(
                 ApplicationStatus.SUBMITTED, PageRequest.of(0, 10), email);
-        
+
         // Verify applications
         assertEquals(1, submittedApplications.getTotalElements());
         assertEquals(ApplicationStatus.SUBMITTED, submittedApplications.getContent().get(0).getStatus());
@@ -156,16 +157,16 @@ class ApplicationServiceIntegrationTest {
         // Create applications with different statuses
         Application app1 = createTestApplication(testJob);
         app1.setStatus(ApplicationStatus.SUBMITTED);
-        
+
         Application app2 = createTestApplication(testJob);
         app2.setStatus(ApplicationStatus.UNDER_REVIEW);
-        
+
         applicationRepository.save(app1);
         applicationRepository.save(app2);
-        
+
         // Get stats
         ApplicationStatsResponse stats = applicationService.getApplicationStats(email);
-        
+
         // Verify stats
         assertEquals(2, stats.getTotalApplications());
         assertEquals(1, stats.getApplicationsByStatus().get(ApplicationStatus.SUBMITTED));
@@ -178,10 +179,10 @@ class ApplicationServiceIntegrationTest {
         // Create application
         Application application = createTestApplication(testJob);
         applicationRepository.save(application);
-        
+
         // Delete application
         applicationService.deleteApplication(application.getId(), email);
-        
+
         // Verify deletion
         assertTrue(applicationRepository.findById(application.getId()).isEmpty());
     }
@@ -228,4 +229,4 @@ class ApplicationServiceIntegrationTest {
         application.setStatus(ApplicationStatus.SUBMITTED);
         return application;
     }
-} 
+}

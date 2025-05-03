@@ -7,4 +7,4 @@ cd "$(dirname "$0")/.."
 export $(grep -v '^#' .env | xargs)
 
 # Run Maven tests
-./mvnw test -Dtest=com.zbib.hiresync.unit.*Test
+./mvnw test -Dtest=com.zbib.hiresync.integration.*Test

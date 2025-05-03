@@ -21,6 +21,8 @@ logging:
   level:
     root: INFO
     com.zbib.hiresync: INFO
+    com.zbib.hiresync.logging: ERROR
+    com.zbib.hiresync.service: WARN
     org.springframework: WARN
     org.hibernate: WARN
     org.springframework.orm.jpa: ERROR

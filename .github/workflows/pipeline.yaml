@@ -74,7 +74,7 @@ jobs:
           cache: 'maven'
 
       - name: Run Unit Tests
-        run: ./mvnw test -Dtest=com.zbib.hiresync.unit.*Test
+        run: ./mvnw test -Dtest="com.zbib.hiresync.unit.**.*Test"
 
       # Upload test reports as artifacts (optional)
       - name: Upload Test Reports
@@ -151,13 +151,28 @@ jobs:
       # Tag the image to match the name expected in docker-compose
       - name: Tag Docker Image for Integration Tests
         run: |
-          docker tag hiresync:test hiresync:latest
+          docker tag hiresync:test local/hiresync:latest
 
       # Run integration tests with the Docker container
       - name: Run Integration Tests
+        env:
+          SPRING_PROFILES_ACTIVE: test
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/testdb
+          SPRING_DATASOURCE_USERNAME: test
+          SPRING_DATASOURCE_PASSWORD: test
         run: |
           docker compose -f docker/docker-compose.test.yaml up -d
-          ./mvnw test -Dtest=com.zbib.hiresync.unit.*Test
+          # Wait for services to be ready
+          echo "Waiting for services to be ready..."
+          sleep 15
+
+          # Check container status
+          echo "Checking container status:"
+          docker ps
+          docker logs test-db
+
+          # Run only integration tests
+          ./mvnw test -Dtest="com.zbib.hiresync.integration.**.*Test"
 
       - name: Shutdown Docker Compose
         run: docker compose -f docker/docker-compose.test.yaml down

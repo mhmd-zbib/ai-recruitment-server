@@ -18,7 +18,7 @@ services:
       - app-network
 
   app:
-    image: ${DOCKERHUB_USERNAME}/hiresync:latest
+    image: local/hiresync:latest
     container_name: hiresync
     ports:
       - "8080:8080"
