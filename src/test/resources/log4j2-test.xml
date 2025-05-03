@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN" monitorInterval="30">
+    <Properties>
+        <!-- Simple pattern for test output -->
+        <Property name="TEST_PATTERN">%d{HH:mm:ss.SSS} %highlight{%-5p}{FATAL=bright_red, ERROR=red, WARN=yellow, INFO=blue, DEBUG=green, TRACE=white} %m%n</Property>
+    </Properties>
+
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${TEST_PATTERN}"/>
+            <!-- Filter out expected exceptions from tests -->
+            <RegexFilter regex=".*(JobNotFoundException|UnauthorizedException|Cannot delete job post with active applications|You are not authorized to modify this job post|Job not found).*" onMatch="DENY" onMismatch="ACCEPT"/>
+        </Console>
+    </Appenders>
+
+    <Loggers>
+        <!-- Default logger configuration -->
+        <Root level="INFO">
+            <AppenderRef ref="Console" />
+        </Root>
+
+        <!-- Framework loggers -->
+        <Logger name="org.springframework" level="WARN" additivity="false">
+            <AppenderRef ref="Console" />
+        </Logger>
+
+        <Logger name="org.hibernate" level="WARN" additivity="false">
+            <AppenderRef ref="Console" />
+        </Logger>
+        
+        <!-- Application loggers -->
+        <Logger name="com.zbib.hiresync" level="INFO">
+            <AppenderRef ref="Console" />
+        </Logger>
+        
+        <!-- Disable open-in-view warning -->
+        <Logger name="org.springframework.orm.jpa.JpaTransactionManager" level="ERROR">
+            <AppenderRef ref="Console" />
+        </Logger>
+        
+        <Logger name="org.springframework.orm.jpa" level="ERROR">
+            <AppenderRef ref="Console" />
+        </Logger>
+    </Loggers>
+</Configuration>

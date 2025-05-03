@@ -1,49 +1,9 @@
-# Test environment configuration
 spring:
-  datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password: 
-    driver-class-name: org.h2.Driver
   jpa:
     hibernate:
-      ddl-auto: create-drop
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
-        format_sql: true
-    show-sql: true
-  h2:
-    console:
-      enabled: true
-  jackson:
-    serialization:
-      indent-output: true
-    deserialization:
-      fail-on-unknown-properties: false
+      ddl-auto: update  # Ensures the schema is updated during tests
 
-# Test-specific JWT configuration
-jwt:
-  secret: ${JWT_SECRET:test-secret-key-that-is-at-least-32-characters-long}
-  expiration: ${JWT_EXPIRATION:3600000}
-  refresh-expiration: ${JWT_REFRESH_EXPIRATION:86400000}
-  issuer: ${JWT_ISSUER:hiresync-test}
-  audience: ${JWT_AUDIENCE:hiresync-app-test}
-
-# Test logging configuration
 logging:
   level:
-    root: WARN
-    com.zbib.hiresync: DEBUG
-    org.hibernate.SQL: DEBUG
-
-# Test environment features
-hiresync:
-  features:
-    debug-mode: ${DEBUG_MODE:true}
-    enable-email-notifications: ${ENABLE_EMAIL:false}
-    enable-file-upload: ${ENABLE_FILE_UPLOAD:true}
-  rate-limiting:
-    enabled: false
-    default-limit: 1000
-    default-duration: 60
+    org.springframework: WARN
+    com.zbib.hiresync: WARN

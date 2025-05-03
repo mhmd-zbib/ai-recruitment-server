@@ -18,7 +18,7 @@ services:
       - app-network
 
   app:
-    image: hiresync:latest
+    image: ${DOCKERHUB_USERNAME}/hiresync:latest
     container_name: hiresync
     ports:
       - "8080:8080"
@@ -35,9 +35,13 @@ services:
       - JWT_ISSUER=myapp
       - JWT_AUDIENCE=myappusers
       - JWT_REFRESH_EXPIRATION=86400000
-      - JPA_DDL_AUTO=create-drop
-      - JPA_SHOW_SQL=false
       - SERVER_PORT=8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - app-network
 

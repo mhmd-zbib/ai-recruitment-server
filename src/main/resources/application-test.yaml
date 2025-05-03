@@ -6,12 +6,22 @@ spring:
     properties:
       hibernate:
         format_sql: true
+    open-in-view: false
 
 server:
   error:
     include-stacktrace: never
 
+hiresync:
+  logging:
+    method-logging-enabled: false
+    request-logging-enabled: false
+
 logging:
   level:
     root: INFO
-    com.zbib.hiresync: DEBUG
+    com.zbib.hiresync: INFO
+    org.springframework: WARN
+    org.hibernate: WARN
+    org.springframework.orm.jpa: ERROR
+  config: classpath:log4j2-test.xml

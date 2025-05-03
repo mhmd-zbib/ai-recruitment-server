@@ -46,13 +46,13 @@ class JobServiceIntegrationTest {
 
     @Autowired
     private JobService jobService;
-    
+
     @Autowired
     private JobRepository jobRepository;
-    
+
     @Autowired
     private UserRepository userRepository;
-    
+
     @Autowired
     private ApplicationRepository applicationRepository;
 
@@ -74,7 +74,7 @@ class JobServiceIntegrationTest {
         testUser.setEnabled(true);
         testUser.setLocked(false);
         testUser = userRepository.save(testUser);
-        
+
         // Create a test job
         testJob = new Job();
         testJob.setTitle("Test Job");
@@ -97,52 +97,55 @@ class JobServiceIntegrationTest {
         // Arrange
         Pageable pageable = PageRequest.of(0, 10);
         JobFilter filter = new JobFilter();
-        
+
         // Act
         Page<JobSummaryResponse> result = jobService.getJobs(filter, pageable, username);
-        
+
         // Assert
         assertNotNull(result);
         assertTrue(result.getTotalElements() > 0);
         assertEquals(testJob.getId(), result.getContent().get(0).getId());
     }
-    
+
     @Test
     void getJobsFeed_ShouldReturnActiveJobs() {
         // Arrange
         Pageable pageable = PageRequest.of(0, 10);
         JobFilter filter = new JobFilter();
-        
+
         // Act
         Page<JobSummaryResponse> result = jobService.getJobsFeed(filter, pageable);
-        
+
         // Assert
         assertNotNull(result);
         assertTrue(result.getTotalElements() > 0);
     }
-    
+
     @Test
     void getJobById_WhenJobExists_ShouldReturnJob() {
         // Act
         JobResponse result = jobService.getJobById(jobId, username);
-        
+
         // Assert
         assertNotNull(result);
         assertEquals(jobId, result.getId());
         assertEquals(testJob.getTitle(), result.getTitle());
     }
-    
+
     @Test
     void getJobById_WhenJobDoesNotExist_ShouldThrowException() {
         // Arrange
         UUID nonExistentId = UUID.randomUUID();
-        
+
         // Act & Assert
-        assertThrows(JobNotFoundException.class, () -> 
+        Exception exception = assertThrows(JobNotFoundException.class, () ->
             jobService.getJobById(nonExistentId, username)
         );
+
+        // Verify exception message without logging
+        assertNotNull(exception.getMessage());
     }
-    
+
     @Test
     void createJob_ShouldCreateAndReturnJob() {
         // Arrange
@@ -159,38 +162,38 @@ class JobServiceIntegrationTest {
         request.setVisibleUntil(LocalDateTime.now().plusDays(30));
         request.setWorkplaceType(WorkplaceType.REMOTE);
         request.setEmploymentType(EmploymentType.CONTRACT);
-        
+
         // Act
         JobResponse result = jobService.createJob(request, username);
-        
+
         // Assert
         assertNotNull(result);
         assertNotNull(result.getId());
         assertEquals(request.getTitle(), result.getTitle());
-        
+
         // Verify job was persisted
         assertTrue(jobRepository.findById(result.getId()).isPresent());
     }
-    
+
     @Test
     void updateJob_WhenAuthorized_ShouldUpdateJob() {
         // Arrange
         String updatedTitle = "Updated Job Title";
         UpdateJobRequest request = new UpdateJobRequest();
         request.setTitle(updatedTitle);
-        
+
         // Act
         JobResponse result = jobService.updateJob(jobId, request, username);
-        
+
         // Assert
         assertNotNull(result);
         assertEquals(updatedTitle, result.getTitle());
-        
+
         // Verify changes were persisted
         Job updatedJob = jobRepository.findById(jobId).orElseThrow();
         assertEquals(updatedTitle, updatedJob.getTitle());
     }
-    
+
     @Test
     void updateJob_WhenUnauthorized_ShouldThrowException() {
         // Arrange
@@ -204,25 +207,32 @@ class JobServiceIntegrationTest {
         otherUser.setEnabled(true);
         otherUser.setLocked(false);
         userRepository.save(otherUser);
-        
+
         UpdateJobRequest request = new UpdateJobRequest();
         request.setTitle("Should Not Update");
-        
+
         // Act & Assert
-        assertThrows(UnauthorizedException.class, () -> 
+        Exception exception = assertThrows(UnauthorizedException.class, () ->
             jobService.updateJob(jobId, request, otherUsername)
         );
+
+        // Verify exception message without logging
+        assertEquals("You are not authorized to modify this job post", exception.getMessage());
+
+        // Verify job was not updated
+        Job job = jobRepository.findById(jobId).orElseThrow();
+        assertNotEquals("Should Not Update", job.getTitle());
     }
-    
+
     @Test
     void deleteJob_WhenAuthorizedAndNoApplications_ShouldDeleteJob() {
         // Act
         jobService.deleteJob(jobId, username);
-        
+
         // Assert
         assertFalse(jobRepository.findById(jobId).isPresent());
     }
-    
+
     @Test
     void deleteJob_WhenJobHasApplications_ShouldThrowException() {
         // Arrange - Create an application for the job
@@ -232,51 +242,59 @@ class JobServiceIntegrationTest {
         application.setApplicantEmail("test@example.com");
         application.setStatus(ApplicationStatus.SUBMITTED);
         applicationRepository.save(application);
-        
+
         List<Application> applications = new ArrayList<>();
         applications.add(application);
         testJob.setApplications(applications);
         testJob.incrementApplicationCount();
         jobRepository.save(testJob);
-        
+
         // Act & Assert
-        assertThrows(UnauthorizedException.class, () -> 
-            jobService.deleteJob(jobId, username)
-        );
-        
+        Exception exception = assertThrows(UnauthorizedException.class, () -> {
+            // Use try-catch to prevent logging during test
+            try {
+                jobService.deleteJob(jobId, username);
+            } catch (UnauthorizedException e) {
+                throw e;
+            }
+        });
+
+        // Verify exception message without logging
+        assertEquals("Cannot delete job post with active applications", exception.getMessage());
+
         // Verify job still exists
         assertTrue(jobRepository.findById(jobId).isPresent());
     }
-    
+
     @Test
     void toggleJobActiveStatus_ShouldToggleStatus() {
         // Arrange
         boolean initialStatus = testJob.isActive();
-        
+
         // Act
         JobResponse result = jobService.toggleJobActiveStatus(jobId, username);
-        
+
         // Assert
         assertNotNull(result);
         assertNotEquals(initialStatus, result.isActive());
-        
+
         // Verify changes were persisted
         Job updatedJob = jobRepository.findById(jobId).orElseThrow();
         assertNotEquals(initialStatus, updatedJob.isActive());
     }
-    
+
     @Test
     void extendJobVisibility_ShouldExtendVisibility() {
         // Arrange
         LocalDateTime initialVisibility = testJob.getVisibleUntil();
         int daysToExtend = 30;
-        
+
         // Act
         JobResponse result = jobService.extendJobVisibility(jobId, username, daysToExtend);
-        
+
         // Assert
         assertNotNull(result);
-        
+
         // Verify changes were persisted
         Job updatedJob = jobRepository.findById(jobId).orElseThrow();
         assertTrue(updatedJob.getVisibleUntil().isAfter(initialVisibility));

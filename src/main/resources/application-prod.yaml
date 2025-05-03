@@ -1,14 +1,15 @@
 spring:
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
-  devtools:
-    restart:
-      enabled: true
-    livereload:
-      enabled: true
+      ddl-auto: validate
+    show-sql: false
+
+server:
+  error:
+    include-stacktrace: never
+    whitelabel:
+      enabled: false
+
 logging:
   level:
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql: TRACE
+    root: INFO
