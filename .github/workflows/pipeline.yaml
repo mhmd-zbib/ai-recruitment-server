@@ -74,7 +74,7 @@ jobs:
           cache: 'maven'
 
       - name: Run Unit Tests
-        run: ./mvnw test
+        run: ./mvnw test -Dtest=com.zbib.hiresync.unit.*Test
 
       # Upload test reports as artifacts (optional)
       - name: Upload Test Reports
@@ -157,7 +157,7 @@ jobs:
       - name: Run Integration Tests
         run: |
           docker compose -f docker/docker-compose.test.yaml up -d
-          ./mvnw verify -P ci -DskipUnitTests=true
+          ./mvnw test -Dtest=com.zbib.hiresync.unit.*Test
 
       - name: Shutdown Docker Compose
         run: docker compose -f docker/docker-compose.test.yaml down

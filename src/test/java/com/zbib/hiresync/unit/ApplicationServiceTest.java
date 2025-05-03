@@ -1,4 +1,4 @@
-package com.zbib.hiresync.service;
+package com.zbib.hiresync.unit;
 
 import com.zbib.hiresync.dto.JobCountDTO;
 import com.zbib.hiresync.dto.StatusCountDTO;
@@ -16,6 +16,8 @@ import com.zbib.hiresync.exception.application.ApplicationAlreadyExistException;
 import com.zbib.hiresync.exception.security.UnauthorizedException;
 import com.zbib.hiresync.repository.ApplicationRepository;
 import com.zbib.hiresync.repository.JobRepository;
+import com.zbib.hiresync.service.ApplicationService;
+import com.zbib.hiresync.service.UserService;
 import com.zbib.hiresync.specification.ApplicationSpecification;
 import com.zbib.hiresync.validation.ApplicationValidator;
 import org.junit.jupiter.api.BeforeEach;

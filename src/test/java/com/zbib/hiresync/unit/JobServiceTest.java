@@ -1,19 +1,21 @@
-package com.zbib.hiresync.service;
+package com.zbib.hiresync.unit;
 
 import com.zbib.hiresync.dto.builder.JobBuilder;
 import com.zbib.hiresync.dto.filter.JobFilter;
 import com.zbib.hiresync.dto.request.CreateJobRequest;
 import com.zbib.hiresync.dto.request.UpdateJobRequest;
 import com.zbib.hiresync.dto.response.JobResponse;
-import com.zbib.hiresync.dto.response.JobStatsResponse;
 import com.zbib.hiresync.dto.response.JobSummaryResponse;
 import com.zbib.hiresync.entity.Application;
 import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.entity.User;
-import com.zbib.hiresync.enums.ApplicationStatus;
 import com.zbib.hiresync.exception.job.JobNotFoundException;
 import com.zbib.hiresync.exception.security.UnauthorizedException;
 import com.zbib.hiresync.repository.JobRepository;
+import com.zbib.hiresync.service.JobService;
+import com.zbib.hiresync.service.SkillService;
+import com.zbib.hiresync.service.TagService;
+import com.zbib.hiresync.service.UserService;
 import com.zbib.hiresync.specification.JobSpecification;
 import com.zbib.hiresync.validation.JobValidator;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,12 +33,10 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)

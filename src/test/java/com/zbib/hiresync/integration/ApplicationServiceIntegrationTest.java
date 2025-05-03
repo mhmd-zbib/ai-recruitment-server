@@ -1,4 +1,4 @@
-package com.zbib.hiresync.service;
+package com.zbib.hiresync.integration;
 
 import com.zbib.hiresync.dto.filter.ApplicationFilter;
 import com.zbib.hiresync.dto.request.CreateApplicationRequest;
@@ -14,6 +14,7 @@ import com.zbib.hiresync.enums.WorkplaceType;
 import com.zbib.hiresync.repository.ApplicationRepository;
 import com.zbib.hiresync.repository.JobRepository;
 import com.zbib.hiresync.repository.UserRepository;
+import com.zbib.hiresync.service.ApplicationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
