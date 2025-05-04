@@ -125,59 +125,6 @@ jobs:
           path: hiresync-image.tar
           retention-days: 7 # Increased retention
 
-  integration-test:
-    runs-on: ubuntu-22.04
-    needs: docker-build
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      # Download the saved Docker image
-      - name: Download Docker Image
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-image
-          path: ./
-
-      # Load the Docker image
-      - name: Load Docker Image
-        run: docker load -i hiresync-image.tar
-
-      # Tag the image to match the name expected in docker-compose
-      - name: Tag Docker Image for Integration Tests
-        run: |
-          docker tag hiresync:test local/hiresync:latest
-
-      # Run integration tests with the Docker container
-      - name: Run Integration Tests
-        env:
-          SPRING_PROFILES_ACTIVE: test
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/testdb
-          SPRING_DATASOURCE_USERNAME: test
-          SPRING_DATASOURCE_PASSWORD: test
-        run: |
-          docker compose -f docker/docker-compose.test.yaml up -d
-          # Wait for services to be ready
-          echo "Waiting for services to be ready..."
-          sleep 15
-
-          # Check container status
-          echo "Checking container status:"
-          docker ps
-          docker logs test-db
-
-          # Run only integration tests
-          ./mvnw test -Dtest="com.zbib.hiresync.integration.**.*Test"
-
-      - name: Shutdown Docker Compose
-        run: docker compose -f docker/docker-compose.test.yaml down
-        if: always()  # Always try to clean up, even on failure
-
   deploy:
     runs-on: ubuntu-22.04
     needs: integration-test
