@@ -12,7 +12,7 @@ spring:
     username: ${DB_USERNAME:hiresync}
     password: ${DB_PASSWORD:hiresync}
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:local}
+    active: ${PROFILE:local}
 
   jpa:
     hibernate:
