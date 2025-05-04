@@ -71,8 +71,15 @@ public class SecurityConfig {
                 // Public job feed endpoints
                 .requestMatchers(HttpMethod.GET, "/v1/feed/**").permitAll()
                 
-                // Swagger and docs
-                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                // Swagger and docs - using expanded patterns to account for context path issues
+                .requestMatchers(
+                    "/swagger-ui.html",
+                    "/swagger-ui/**", 
+                    "/v3/api-docs/**", 
+                    "/api-docs/**",
+                    "/swagger-resources/**",
+                    "/webjars/**"
+                ).permitAll()
                 
                 // Monitoring
                 .requestMatchers("/actuator/**").permitAll()
@@ -102,4 +109,4 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-} 
+}

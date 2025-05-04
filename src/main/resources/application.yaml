@@ -26,6 +26,23 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+# OpenAPI/Swagger configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    display-request-duration: true
+    disable-swagger-default-url: true
+    urls:
+      - url: /v3/api-docs
+        name: HireSync API
+  paths-to-match: /v1/**
+  packages-to-scan: com.zbib.hiresync.controller
+  show-actuator: true
+
 jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:86400000}
