@@ -1,14 +1,9 @@
 package com.zbib.hiresync.repository;
 
-import com.zbib.hiresync.dto.SkillCountDTO;
-import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.entity.Skill;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 

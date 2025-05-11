@@ -3,20 +3,15 @@ package com.zbib.hiresync.service;
 import com.zbib.hiresync.dto.builder.AuthResponseBuilder;
 import com.zbib.hiresync.dto.builder.UserBuilder;
 import com.zbib.hiresync.dto.request.AuthRequest;
-import com.zbib.hiresync.dto.request.RefreshTokenRequest;
 import com.zbib.hiresync.dto.request.SignupRequest;
-import com.zbib.hiresync.dto.request.LogoutRequest;
 import com.zbib.hiresync.dto.response.AuthResponse;
-import com.zbib.hiresync.dto.response.MessageResponse;
 import com.zbib.hiresync.entity.User;
-import com.zbib.hiresync.entity.UserSession;
-import com.zbib.hiresync.exception.ResourceNotFoundException;
 import com.zbib.hiresync.exception.auth.*;
+import com.zbib.hiresync.logging.LoggableService;
 import com.zbib.hiresync.repository.UserRepository;
-import com.zbib.hiresync.repository.UserSessionRepository;
 import com.zbib.hiresync.security.JwtTokenProvider;
 
-import jakarta.servlet.http.HttpServletRequest;
+
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
@@ -29,9 +24,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
 import java.util.Collections;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
@@ -46,36 +38,37 @@ public class AuthService {
 
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
-    private final UserSessionRepository userSessionRepository;
     private final UserBuilder userBuilder;
     private final AuthResponseBuilder authResponseBuilder;
     private final JwtTokenProvider tokenProvider;
-    private final HttpServletRequest request;
 
 
+    @LoggableService(message = "User logging in with email: ${request.email}")
     public AuthResponse login(AuthRequest request) {
         try {
+            User user = userRepository.findByEmail(request.getEmail())
+                    .orElseThrow(() -> new UserNotFoundException("User not found with email: " + request.getEmail()));
+
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            User user = userRepository.findByEmail(request.getEmail())
-                    .orElseThrow(
-                            () -> new UserNotFoundException("User not found with email: " + request.getEmail()));
-
-            String deviceInfo = extractDeviceInfo();
-            String ipAddress = extractIpAddress();
-
-            UserSession session = createUserSession(user, deviceInfo, ipAddress);
-
-            return authResponseBuilder.buildLoginResponse(user, authentication, session.getSessionId());
+            return authResponseBuilder.buildLoginResponse(user, authentication);
 
         } catch (BadCredentialsException e) {
+            logger.warn("Invalid credentials for user: {}", request.getEmail());
             throw new InvalidCredentialsException();
+        } catch (UserNotFoundException e) {
+            logger.warn("Login attempt for non-existent user: {}", request.getEmail());
+            throw new InvalidCredentialsException(); // Don't reveal that the user doesn't exist
+        } catch (Exception e) {
+            logger.error("Error during login for user: {}, error: {}", request.getEmail(), e.getMessage(), e);
+            throw new UserAuthenticationException("Authentication failed: " + e.getMessage());
         }
     }
 
+    @LoggableService(message = "User signing up with email: ${request.email}")
     @Transactional
     public AuthResponse signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -95,146 +88,45 @@ public class AuthService {
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        String deviceInfo = extractDeviceInfo();
-        String ipAddress = extractIpAddress();
-
-        // Create and store session
-        UserSession session = createUserSession(savedUser, deviceInfo, ipAddress);
-
-        return authResponseBuilder.buildSignupResponse(savedUser, authentication, session.getSessionId());
+        return authResponseBuilder.buildSignupResponse(savedUser, authentication);
     }
 
     @Transactional
-    public AuthResponse refreshToken(RefreshTokenRequest refreshRequest) {
-        String refreshToken = refreshRequest.getRefreshToken();
-
+    public AuthResponse refreshToken(String refreshToken) {
         if (!tokenProvider.validateToken(refreshToken)) {
             throw new InvalidTokenException("Invalid refresh token");
         }
 
         String email = tokenProvider.getEmailFromToken(refreshToken);
-        String sessionId = refreshRequest.getSessionId();
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UserNotFoundException("User not found for token"));
 
-        UserSession session = userSessionRepository.findBySessionIdAndUser(sessionId, user)
-                .orElseThrow(() -> new SessionNotFoundException("Invalid session"));
-
-        // Check if session is revoked
-        if (session.isRevoked()) {
-            revokeAllUserSessions(user);
-            throw new InvalidTokenException("Session has been revoked");
-        }
-
-        // Validate token hash if available
-        if (session.getTokenHash() != null && !session.getTokenHash().isEmpty()) {
-            boolean validHash = tokenProvider.verifyTokenHash(refreshToken, session.getTokenHash());
-            if (!validHash) {
-                session.setRevoked(true);
-                userSessionRepository.save(session);
-                throw new InvalidTokenException("Invalid token hash");
-            }
-        }
-
-        // Update session last used time
-        session.setLastUsedAt(Instant.now());
-        userSessionRepository.save(session);
-
         Authentication authentication = new UsernamePasswordAuthenticationToken(user.getEmail(), null,
                 tokenProvider.getAuthorities(refreshToken));
 
-        return authResponseBuilder.buildRefreshResponse(user, authentication, sessionId);
+        return authResponseBuilder.buildRefreshResponse(user, authentication);
+    }
+    
+    /**
+     * Logout a user by clearing the security context.
+     * 
+     * In a stateless JWT system, we can't invalidate tokens on the server side.
+     * The client is responsible for discarding the token.
+     * 
+     * @param token the JWT token (not used in stateless implementation)
+     */
+    @LoggableService(message = "User logging out")
+    public void logout(String token) {
+        // Get current user for logging purposes
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String username = auth != null ? auth.getName() : "unknown";
+        logger.info("User logging out: {}", username);
+        
+        // In a stateless JWT system, we only clear the security context
+        // The client is responsible for discarding the token
+        SecurityContextHolder.clearContext();
     }
 
-    @Transactional
-    public MessageResponse logout(LogoutRequest logoutRequest) {
-        String sessionId = logoutRequest.getSessionId();
 
-        UserSession session = userSessionRepository.findBySessionId(sessionId)
-                .orElseThrow(() -> new SessionNotFoundException("Session not found"));
-
-        session.setRevoked(true);
-        userSessionRepository.save(session);
-
-        return new MessageResponse("Logged out successfully");
-    }
-
-    @Transactional
-    public MessageResponse logoutAllDevices() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
-
-        revokeAllUserSessions(user);
-
-        return new MessageResponse("Logged out from all devices successfully");
-    }
-
-    public List<UserSession> getUserSessions() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
-
-        return userSessionRepository.findByUserAndRevokedFalse(user);
-    }
-
-    @Transactional
-    public MessageResponse revokeSession(String sessionId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
-
-        UserSession session = userSessionRepository.findBySessionIdAndUser(sessionId, user)
-                .orElseThrow(() -> new SessionNotFoundException("Session not found"));
-
-        session.setRevoked(true);
-        userSessionRepository.save(session);
-
-        return new MessageResponse("Session revoked successfully");
-    }
-
-    private UserSession createUserSession(User user, String deviceInfo, String ipAddress) {
-        String sessionId = UUID.randomUUID().toString();
-
-        UserSession session = new UserSession();
-        session.setSessionId(sessionId);
-        session.setUser(user);
-        session.setDeviceInfo(deviceInfo);
-        session.setIpAddress(ipAddress);
-        session.setCreatedAt(Instant.now());
-        session.setLastUsedAt(Instant.now());
-        session.setRevoked(false);
-
-        // Store token hash for stateless validation
-        String tokenData = sessionId + user.getId() + user.getEmail() + System.currentTimeMillis();
-        session.setTokenHash(tokenProvider.calculateTokenHash(tokenData));
-
-        return userSessionRepository.save(session);
-    }
-
-    private void revokeAllUserSessions(User user) {
-        List<UserSession> sessions = userSessionRepository.findByUserAndRevokedFalse(user);
-        sessions.forEach(session -> session.setRevoked(true));
-        userSessionRepository.saveAll(sessions);
-    }
-
-    private String extractDeviceInfo() {
-        String userAgent = request.getHeader("User-Agent");
-        return userAgent != null ? userAgent : "Unknown Device";
-    }
-
-    private String extractIpAddress() {
-        String ipAddress = request.getHeader("X-Forwarded-For");
-        if (ipAddress == null) {
-            ipAddress = request.getRemoteAddr();
-        }
-        return ipAddress;
-    }
 }

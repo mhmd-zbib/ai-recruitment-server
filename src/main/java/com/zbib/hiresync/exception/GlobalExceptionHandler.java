@@ -1,13 +1,16 @@
 package com.zbib.hiresync.exception;
 
+import com.zbib.hiresync.dto.response.ErrorResponse;
+import com.zbib.hiresync.dto.response.ValidationErrorResponse;
 import com.zbib.hiresync.exception.auth.AuthException;
 import com.zbib.hiresync.exception.application.ApplicationException;
 import com.zbib.hiresync.exception.jobpost.JobPostException;
-import lombok.AllArgsConstructor;
-import lombok.Data;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.InternalAuthenticationServiceException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -31,66 +34,54 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(BaseException.class)
     public ResponseEntity<ErrorResponse> handleBaseException(BaseException ex, WebRequest request) {
-        Map<String, String> errors = new HashMap<>();
-        errors.put("error", ex.getMessage());
-        
-        ErrorResponse errorResponse = new ErrorResponse(
-                ex.getStatus().value(),
-                ex.getMessage(),
-                errors,
-                LocalDateTime.now());
-        
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .status(ex.getStatus().value())
+                .message(ex.getMessage())
+                .timestamp(LocalDateTime.now())
+                .build();
+
         return ResponseEntity.status(ex.getStatus()).body(errorResponse);
     }
-    
+
     /**
      * Handles auth exceptions
      */
     @ExceptionHandler(AuthException.class)
     public ResponseEntity<ErrorResponse> handleAuthException(AuthException ex, WebRequest request) {
-        Map<String, String> errors = new HashMap<>();
-        errors.put("authentication", ex.getMessage());
-        
-        ErrorResponse errorResponse = new ErrorResponse(
-                ex.getStatus().value(),
-                ex.getMessage(),
-                errors,
-                LocalDateTime.now());
-        
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .status(ex.getStatus().value())
+                .message(ex.getMessage())
+                .timestamp(LocalDateTime.now())
+                .build();
+
         return ResponseEntity.status(ex.getStatus()).body(errorResponse);
     }
-    
+
     /**
      * Handles job post exceptions
      */
     @ExceptionHandler(JobPostException.class)
     public ResponseEntity<ErrorResponse> handleJobPostException(JobPostException ex, WebRequest request) {
-        Map<String, String> errors = new HashMap<>();
-        errors.put("jobPost", ex.getMessage());
-        
-        ErrorResponse errorResponse = new ErrorResponse(
-                HttpStatus.BAD_REQUEST.value(),
-                ex.getMessage(),
-                errors,
-                LocalDateTime.now());
-        
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .status(HttpStatus.BAD_REQUEST.value())
+                .message(ex.getMessage())
+                .timestamp(LocalDateTime.now())
+                .build();
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
-    
+
     /**
      * Handles application exceptions
      */
     @ExceptionHandler(ApplicationException.class)
     public ResponseEntity<ErrorResponse> handleApplicationException(ApplicationException ex, WebRequest request) {
-        Map<String, String> errors = new HashMap<>();
-        errors.put("application", ex.getMessage());
-        
-        ErrorResponse errorResponse = new ErrorResponse(
-                ex.getStatus().value(),
-                ex.getMessage(),
-                errors,
-                LocalDateTime.now());
-        
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .status(ex.getStatus().value())
+                .message(ex.getMessage())
+                .timestamp(LocalDateTime.now())
+                .build();
+
         return ResponseEntity.status(ex.getStatus()).body(errorResponse);
     }
 
@@ -110,30 +101,46 @@ public class GlobalExceptionHandler {
             errors.add(errorMap);
         });
 
-        ValidationErrorResponse errorResponse = new ValidationErrorResponse(
-                HttpStatus.BAD_REQUEST.value(),
-                "Validation failed",
-                errors,
-                LocalDateTime.now());
+        ValidationErrorResponse errorResponse = ValidationErrorResponse.builder()
+                .status(HttpStatus.BAD_REQUEST.value())
+                .message("Validation failed")
+                .details(errors)
+                .timestamp(LocalDateTime.now())
+                .build();
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
     /**
-     * Handles bad credentials exception
+     * Handles all authentication exceptions
      */
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleBadCredentialsException(BadCredentialsException ex) {
-        Map<String, String> errors = new HashMap<>();
-        errors.put("credentials", "Invalid username or password");
-
-        ErrorResponse errorResponse = new ErrorResponse(
-                HttpStatus.UNAUTHORIZED.value(),
-                "Invalid credentials",
-                errors,
-                LocalDateTime.now());
+    @ExceptionHandler({
+        BadCredentialsException.class,
+        InternalAuthenticationServiceException.class,
+        AuthenticationException.class
+    })
+    public ResponseEntity<ErrorResponse> handleAuthenticationException(Exception ex) {
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .status(HttpStatus.UNAUTHORIZED.value())
+                .message("Authentication failed")
+                .timestamp(LocalDateTime.now())
+                .build();
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+    }
+
+    /**
+     * Handles access denied exceptions
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException ex) {
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .status(HttpStatus.FORBIDDEN.value())
+                .message("Access denied")
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
     }
 
     /**
@@ -141,39 +148,17 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleAllUncaughtException(Exception ex) {
-        Map<String, String> errors = new HashMap<>();
-        errors.put("error", "An unexpected error occurred");
+        // Log the exception but don't expose details to the client
+        ex.printStackTrace();
 
-        ErrorResponse errorResponse = new ErrorResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "Internal server error",
-                errors,
-                LocalDateTime.now());
+        ErrorResponse errorResponse = ErrorResponse.builder()
+                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                .message("Internal server error")
+                .timestamp(LocalDateTime.now())
+                .build();
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
 
-    /**
-     * Standard error response format for the application.
-     */
-    @Data
-    @AllArgsConstructor
-    static class ErrorResponse {
-        private int status;
-        private String message;
-        private Map<String, String> errors;
-        private LocalDateTime timestamp;
-    }
-    
-    /**
-     * Validation error response format with errors as a list.
-     */
-    @Data
-    @AllArgsConstructor
-    static class ValidationErrorResponse {
-        private int status;
-        private String message;
-        private List<Map<String, String>> errors;
-        private LocalDateTime timestamp;
-    }
+
 }

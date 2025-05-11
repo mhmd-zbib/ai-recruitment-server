@@ -1,6 +1,6 @@
 package com.zbib.hiresync.logging;
 
-import lombok.RequiredArgsConstructor;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
@@ -9,235 +9,259 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.core.annotation.Order;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StopWatch;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.util.Arrays;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.UUID;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
-/**
- * Aspect for logging method execution with detailed information.
- */
 @Aspect
 @Component
-@RequiredArgsConstructor
-@Order(1) // Ensure this aspect runs first
-@ConditionalOnProperty(name = "hiresync.logging.method-logging-enabled", havingValue = "true", matchIfMissing = true)
 public class LoggingAspect {
-    private static final Logger logger = LogManager.getLogger(LoggingAspect.class);
-    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
-    
-    // Track method calls within a single thread to avoid duplicate logging
-    private static final ThreadLocal<Set<String>> LOGGED_METHODS = ThreadLocal.withInitial(ConcurrentHashMap::newKeySet);
-    
-    /**
-     * Define a pointcut for methods annotated with LoggableService
-     */
+
+    private static final Logger log = LogManager.getLogger(LoggingAspect.class);
+    private static final String CORRELATION_ID = "correlationId";
+    private static final String USER_ID = "userId";
+
     @Pointcut("@annotation(com.zbib.hiresync.logging.LoggableService)")
-    public void loggableMethods() {}
-    
-    /**
-     * Main logging pointcut that avoids duplicate logging of the same logical operation
-     */
-    @Around("loggableMethods()")
-    public Object logMethodExecution(ProceedingJoinPoint joinPoint) throws Throwable {
+    public void loggableMethod() {
+    }
+
+    @Around("loggableMethod()")
+    public Object logMethod(ProceedingJoinPoint joinPoint) throws Throwable {
+        setupLoggingContext();
+        
+        // Get method information
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
+        Method method = signature.getMethod();
+        String methodName = signature.getName();
+        String className = signature.getDeclaringType().getSimpleName();
         
-        // Generate a unique ID for this method call including class/method and parameters hash
-        String methodId = signature.getDeclaringTypeName() + "." + signature.getName() + 
-                          "#" + joinPoint.getArgs().length;
+        // Get annotation information
+        LoggableService loggableService = method.getAnnotation(LoggableService.class);
+        String messageTemplate = loggableService.message().isEmpty() ? 
+                "Executing method" : loggableService.message();
         
-        // Skip if we're already logging this method or one of its callers
-        if (!LOGGED_METHODS.get().add(methodId)) {
-            // Just proceed without logging to avoid duplication
-            return joinPoint.proceed();
-        }
+        // Process dynamic placeholders in the message
+        String message = processDynamicMessage(messageTemplate, method, joinPoint.getArgs());
         
-        try {
-            return doLogMethodExecution(joinPoint, signature);
-        } finally {
-            // Clean up after method execution
-            LOGGED_METHODS.get().remove(methodId);
-            if (LOGGED_METHODS.get().isEmpty()) {
-                LOGGED_METHODS.remove();
-            }
-        }
-    }
-    
-    /**
-     * Actual logging implementation
-     */
-    private Object doLogMethodExecution(ProceedingJoinPoint joinPoint, MethodSignature signature) throws Throwable {
-        LoggableService annotation = signature.getMethod().getAnnotation(LoggableService.class);
+        // Get user and correlation IDs
+        String userId = ThreadContext.get(USER_ID);
+        String correlationId = ThreadContext.get(CORRELATION_ID);
         
-        // Create log message template
-        String methodName = signature.getDeclaringTypeName() + "." + signature.getName();
-        String messageTemplate = annotation.message().isEmpty() ? "Executing " + methodName : annotation.message();
-        
-        // Add context for structured logging
-        ThreadContext.put(ContextKeys.CLASS, signature.getDeclaringTypeName());
-        ThreadContext.put(ContextKeys.METHOD, signature.getName());
-        
-        // Extract arguments map for placeholder substitution
-        Map<String, Object> argsMap = extractArgsMap(joinPoint, signature);
-        
-        // Process placeholders in the message
-        String processedMessage = processPlaceholders(messageTemplate, argsMap);
-        
-        // Execute method and time it
-        StopWatch stopWatch = new StopWatch();
-        stopWatch.start();
+        // Start timing
+        long startTime = System.currentTimeMillis();
         
         try {
-            // Execute the method without logging the start
+            // Execute the method
             Object result = joinPoint.proceed();
+            long executionTime = System.currentTimeMillis() - startTime;
             
-            // Log method success only once at completion
-            stopWatch.stop();
-            long executionTime = stopWatch.getTotalTimeMillis();
-            ThreadContext.put(ContextKeys.EXECUTION_TIME, String.valueOf(executionTime));
-            
-            // Log concise message with execution time
-            log(annotation.level(), "{} ({}ms)", processedMessage, executionTime);
-            
+            // Log only with user ID and correlation ID
+            log.info("{} - {}.{}() - completed in {}ms - userId: {} - correlationId: {}",
+                    message, className, methodName, executionTime, userId, correlationId);
+                    
             return result;
-        } catch (Throwable ex) {
-            // Log method failure
-            if (stopWatch.isRunning()) {
-                stopWatch.stop();
-            }
-            
-            // Add error context
-            long executionTime = stopWatch.getTotalTimeMillis();
-            ThreadContext.put(ContextKeys.EXCEPTION, ex.getClass().getName());
-            ThreadContext.put(ContextKeys.ERROR_MESSAGE, ex.getMessage());
-            ThreadContext.put(ContextKeys.EXECUTION_TIME, String.valueOf(executionTime));
-            
-            log(LogLevel.ERROR, "{} failed after {}ms: {}", processedMessage, executionTime, ex.getMessage());
-            throw ex;
-        } finally {
-            // Clean up context
-            ThreadContext.remove(ContextKeys.CLASS);
-            ThreadContext.remove(ContextKeys.METHOD);
-            ThreadContext.remove(ContextKeys.EXECUTION_TIME);
-            ThreadContext.remove(ContextKeys.EXCEPTION);
-            ThreadContext.remove(ContextKeys.ERROR_MESSAGE);
-        }
-    }
-    
-    /**
-     * Processes placeholders in the message template using the argument values
-     */
-    private String processPlaceholders(String template, Map<String, Object> args) {
-        if (args.isEmpty() || !template.contains("${")) {
-            return template;
-        }
-        
-        Matcher matcher = PLACEHOLDER_PATTERN.matcher(template);
-        StringBuffer result = new StringBuffer();
-        
-        while (matcher.find()) {
-            String placeholder = matcher.group(1);
-            String[] parts = placeholder.split("\\.");
-            
-            // Handle simple parameter references like ${email}
-            if (parts.length == 1 && args.containsKey(parts[0])) {
-                Object value = args.get(parts[0]);
-                String replacement = maskIfSensitive(parts[0], value);
-                // Escape special regex chars in the replacement
-                replacement = Matcher.quoteReplacement(replacement);
-                matcher.appendReplacement(result, replacement);
-            } 
-            // Handle nested properties like ${request.email}
-            else if (parts.length > 1 && args.containsKey(parts[0])) {
-                try {
-                    Object value = getNestedProperty(args.get(parts[0]), parts, 1);
-                    if (value != null) {
-                        String replacement = maskIfSensitive(parts[parts.length-1], value);
-                        // Escape special regex chars in the replacement
-                        replacement = Matcher.quoteReplacement(replacement);
-                        matcher.appendReplacement(result, replacement);
-                        continue;
-                    }
-                } catch (Exception e) {
-                    // If we can't resolve the property, leave placeholder as is
-                }
-            }
-            
-            // If we get here, keep the original placeholder but convert to a more readable form
-            matcher.appendReplacement(result, Matcher.quoteReplacement("[" + placeholder + "]"));
-        }
-        
-        matcher.appendTail(result);
-        return result.toString();
-    }
-    
-    /**
-     * Gets a nested property value using reflection
-     */
-    private Object getNestedProperty(Object obj, String[] parts, int index) {
-        if (obj == null || index >= parts.length) {
-            return obj;
-        }
-        
-        try {
-            String fieldName = parts[index];
-            java.lang.reflect.Field field = obj.getClass().getDeclaredField(fieldName);
-            field.setAccessible(true);
-            return getNestedProperty(field.get(obj), parts, index + 1);
         } catch (Exception e) {
+            // Log error
+            log.error("{} - {}.{}() - FAILED - error: {} - userId: {} - correlationId: {}",
+                    message, className, methodName, e.getMessage(), userId, correlationId, e);
+            throw e;
+        } finally {
+            clearLoggingContext();
+        }
+    }
+    
+    private void setupLoggingContext() {
+        // Only set up context if not already done
+        if (ThreadContext.get(CORRELATION_ID) == null) {
+            HttpServletRequest request = getRequest();
+            String correlationId = null;
+            
+            // Check if correlation ID is in the request header
+            if (request != null) {
+                correlationId = request.getHeader("X-Correlation-ID");
+            }
+            
+            // If not found in header, generate a new one
+            if (correlationId == null || correlationId.isEmpty()) {
+                correlationId = UUID.randomUUID().toString();
+            }
+            
+            ThreadContext.put(CORRELATION_ID, correlationId);
+        }
+        
+        // Set user ID from security context if authenticated
+        if (ThreadContext.get(USER_ID) == null) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated() && 
+                    !"anonymousUser".equals(authentication.getPrincipal().toString())) {
+                ThreadContext.put(USER_ID, authentication.getName());
+            } else {
+                ThreadContext.put(USER_ID, "anonymous");
+            }
+        }
+    }
+    
+    private void clearLoggingContext() {
+        ThreadContext.remove(CORRELATION_ID);
+        ThreadContext.remove(USER_ID);
+    }
+    
+    private HttpServletRequest getRequest() {
+        try {
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            return attributes != null ? attributes.getRequest() : null;
+        } catch (Exception e) {
+            log.debug("Could not get HttpServletRequest: {}", e.getMessage());
             return null;
         }
     }
     
     /**
-     * Masks sensitive values
+     * Process dynamic placeholders in the message template.
+     * Supports placeholders in the format ${paramName} where paramName is the name of a method parameter.
+     *
+     * @param messageTemplate the message template with placeholders
+     * @param method the method being logged
+     * @param args the method arguments
+     * @return the processed message with placeholders replaced by actual values
      */
-    private String maskIfSensitive(String name, Object value) {
-        String valueStr = String.valueOf(value);
-        
-        // Add any additional sensitive fields here
-        if (name.toLowerCase().contains("password") || 
-            name.toLowerCase().contains("token") ||
-            name.toLowerCase().contains("secret") ||
-            name.toLowerCase().contains("key")) {
-            return "********";
+    private String processDynamicMessage(String messageTemplate, Method method, Object[] args) {
+        if (!messageTemplate.contains("${")){
+            return messageTemplate;
         }
         
-        return valueStr;
-    }
-    
-    private Map<String, Object> extractArgsMap(ProceedingJoinPoint joinPoint, MethodSignature signature) {
-        String[] paramNames = signature.getParameterNames();
-        Object[] args = joinPoint.getArgs();
+        String result = messageTemplate;
+        Parameter[] parameters = method.getParameters();
         
-        if (paramNames.length == 0 || args.length == 0) {
-            return Map.of();
+        for (int i = 0; i < parameters.length && i < args.length; i++) {
+            Parameter param = parameters[i];
+            Object arg = args[i];
+            String paramName = param.getName();
+            String placeholder = "${" + paramName + "}";
+            
+            if (result.contains(placeholder)) {
+                String value = arg != null ? arg.toString() : "null";
+                
+                // For security, mask sensitive data like passwords
+                if (paramName.toLowerCase().contains("password") || 
+                    paramName.toLowerCase().contains("secret") || 
+                    paramName.toLowerCase().contains("token")) {
+                    value = "*****";
+                }
+                
+                result = result.replace(placeholder, value);
+            }
+            
+            // Handle nested properties for objects (e.g., ${request.email})
+            if (arg != null) {
+                result = processNestedProperties(result, paramName, arg);
+            }
         }
         
-        return IntStream.range(0, Math.min(paramNames.length, args.length))
-                .boxed()
-                .filter(i -> args[i] != null)
-                .collect(Collectors.toMap(
-                        i -> paramNames[i],
-                        i -> args[i],
-                        (k1, k2) -> k2
-                ));
+        return result;
     }
     
-    private void log(LogLevel level, String format, Object... args) {
-        switch (level) {
-            case DEBUG -> logger.debug(format, args);
-            case INFO -> logger.info(format, args);
-            case WARN -> logger.warn(format, args);
-            case ERROR -> logger.error(format, args);
+    /**
+     * Process nested properties in objects for dynamic placeholders.
+     * Supports placeholders like ${request.email} for request objects.
+     *
+     * @param messageTemplate the message template with placeholders
+     * @param paramName the parameter name
+     * @param arg the parameter value
+     * @return the processed message with nested placeholders replaced
+     */
+    private String processNestedProperties(String messageTemplate, String paramName, Object arg) {
+        String result = messageTemplate;
+        
+        // Look for patterns like ${paramName.property}
+        int startIdx = 0;
+        String searchPattern = "${" + paramName + ".";
+        while ((startIdx = result.indexOf(searchPattern, startIdx)) != -1) {
+            int endIdx = result.indexOf("}", startIdx);
+            if (endIdx == -1) break;
+            
+            String placeholder = result.substring(startIdx, endIdx + 1);
+            String propertyPath = placeholder.substring(searchPattern.length(), placeholder.length() - 1);
+            
+            // Get the property value using reflection
+            try {
+                String value = getPropertyValue(arg, propertyPath);
+                result = result.replace(placeholder, value);
+            } catch (Exception e) {
+                // If property access fails, leave the placeholder unchanged
+                log.debug("Failed to access property: {} on object: {}", propertyPath, arg.getClass().getSimpleName());
+            }
+            
+            startIdx = endIdx + 1;
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Get a property value from an object using reflection.
+     *
+     * @param obj the object to get the property from
+     * @param propertyPath the path to the property (can be nested, e.g., "user.address.city")
+     * @return the property value as a string
+     */
+    private String getPropertyValue(Object obj, String propertyPath) {
+        try {
+            String[] properties = propertyPath.split("\\.", -1);
+            Object current = obj;
+            
+            for (String property : properties) {
+                if (current == null) return "null";
+                
+                // Handle special case for common request types
+                if (current instanceof HttpServletRequest && property.equals("email")) {
+                    current = ((HttpServletRequest) current).getParameter("email");
+                    continue;
+                }
+                
+                // Try to find a getter method first
+                String getterName = "get" + property.substring(0, 1).toUpperCase() + property.substring(1);
+                try {
+                    Method getter = current.getClass().getMethod(getterName);
+                    current = getter.invoke(current);
+                } catch (NoSuchMethodException e) {
+                    // If no getter, try direct field access
+                    try {
+                        Field field = current.getClass().getDeclaredField(property);
+                        field.setAccessible(true);
+                        current = field.get(current);
+                    } catch (NoSuchFieldException ex) {
+                        // If field doesn't exist, check if it's a map
+                        if (current instanceof Map) {
+                            current = ((Map<?, ?>) current).get(property);
+                        } else {
+                            return "[unknown property: " + property + "]";
+                        }
+                    }
+                }
+            }
+            
+            // Mask sensitive data
+            if (propertyPath.toLowerCase().contains("password") || 
+                propertyPath.toLowerCase().contains("secret") || 
+                propertyPath.toLowerCase().contains("token")) {
+                return "*****";
+            }
+            
+            return current != null ? current.toString() : "null";
+        } catch (Exception e) {
+            log.debug("Error accessing property: {}", propertyPath, e);
+            return "[error]";
         }
     }
 }

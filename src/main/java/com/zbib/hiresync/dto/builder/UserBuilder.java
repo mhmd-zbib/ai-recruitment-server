@@ -2,7 +2,7 @@ package com.zbib.hiresync.dto.builder;
 
 import com.zbib.hiresync.dto.request.SignupRequest;
 import com.zbib.hiresync.entity.User;
-import com.zbib.hiresync.entity.enums.Role;
+import com.zbib.hiresync.enums.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;

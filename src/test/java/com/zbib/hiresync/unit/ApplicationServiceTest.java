@@ -1,7 +1,5 @@
 package com.zbib.hiresync.unit;
 
-import com.zbib.hiresync.dto.JobCountDTO;
-import com.zbib.hiresync.dto.StatusCountDTO;
 import com.zbib.hiresync.dto.builder.ApplicationBuilder;
 import com.zbib.hiresync.dto.filter.ApplicationFilter;
 import com.zbib.hiresync.dto.request.CreateApplicationRequest;

@@ -100,13 +100,13 @@ public class ApplicationController {
             @AuthenticationPrincipal String username) {
         return ResponseEntity.ok(applicationService.getRecentApplications(username));
     }
-
-    @GetMapping("/stats")
-    @PreAuthorize("hasAnyRole('RECRUITER', 'EMPLOYER', 'ADMIN')")
-    @SecurityRequirement(name = "bearerAuth")
-    @Operation(summary = "Get application statistics", description = "Retrieves statistics for applications handled by the recruiter")
-    public ResponseEntity<ApplicationStatsResponse> getApplicationStats(
-            @AuthenticationPrincipal String username) {
-        return ResponseEntity.ok(applicationService.getApplicationStats(username));
-    }
+//
+//    @GetMapping("/stats")
+//    @PreAuthorize("hasAnyRole('RECRUITER', 'EMPLOYER', 'ADMIN')")
+//    @SecurityRequirement(name = "bearerAuth")
+//    @Operation(summary = "Get application statistics", description = "Retrieves statistics for applications handled by the recruiter")
+//    public ResponseEntity<ApplicationStatsResponse> getApplicationStats(
+//            @AuthenticationPrincipal String username) {
+//        return ResponseEntity.ok(applicationService.getApplicationStats(username));
+//    }
 } 

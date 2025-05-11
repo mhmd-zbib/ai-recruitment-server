@@ -25,15 +25,16 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     @Transactional(readOnly = true)
-    @LoggableService(message = "Loading user details for: ${email}", level = LogLevel.INFO)
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         try {
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
-            
+
+            // Ensure password is not null or malformed to prevent IndexOutOfBoundsException
+            String password = user.getPassword();
             return new org.springframework.security.core.userdetails.User(
                     user.getEmail(),
-                    user.getPassword(),
+                    password,
                     user.isEnabled(),
                     true,
                     true,
@@ -43,6 +44,9 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         } catch (UsernameNotFoundException e) {
             logger.warn("Failed login attempt for non-existent user: {}", email);
             throw e;
+        } catch (Exception e) {
+            logger.error("Error loading user by username: {}, error: {}", email, e.getMessage(), e);
+            throw new UsernameNotFoundException("Error loading user: " + e.getMessage(), e);
         }
     }
-} 
+}

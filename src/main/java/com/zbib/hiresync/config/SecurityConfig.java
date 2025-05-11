@@ -1,5 +1,6 @@
 package com.zbib.hiresync.config;
 
+
 import com.zbib.hiresync.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -27,11 +28,17 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
+
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            UserDetailsService userDetailsService) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.userDetailsService = userDetailsService;
+    }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -39,62 +46,63 @@ public class SecurityConfig {
     }
 
     @Bean
-    public DaoAuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(userDetailsService);
-        authProvider.setPasswordEncoder(passwordEncoder());
-        return authProvider;
-    }
-
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
-        return authConfig.getAuthenticationManager();
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(AbstractHttpConfigurer::disable)
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                // Auth endpoints
-                .requestMatchers("/v1/auth/login", "/v1/auth/signup", "/v1/auth/refresh", "/v1/auth/logout").permitAll()
-                
-                // Public job posts endpoints
-                .requestMatchers(HttpMethod.GET, "/v1/jobs/public/**").permitAll()
-                
-                // Public application endpoints
-                .requestMatchers(HttpMethod.POST, "/v1/applications").permitAll()
-                .requestMatchers(HttpMethod.GET, "/v1/public/applications/**").permitAll()
-                
-                // Public job feed endpoints
-                .requestMatchers(HttpMethod.GET, "/v1/feed/**").permitAll()
-                
-                // Swagger and docs - using expanded patterns to account for context path issues
-                .requestMatchers(
-                    "/swagger-ui.html",
-                    "/swagger-ui/**", 
-                    "/v3/api-docs/**", 
-                    "/api-docs/**",
-                    "/swagger-resources/**",
-                    "/webjars/**"
-                ).permitAll()
-                
-                // Monitoring
-                .requestMatchers("/actuator/**").permitAll()
-                
-                // CORS preflight
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                
-                // All other endpoints require authentication
-                .anyRequest().authenticated()
-            )
-            .authenticationProvider(authenticationProvider())
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        // Auth endpoints
+                        .requestMatchers("/v1/auth/login",
+                                "/v1/auth/signup",
+                                "/v1/auth/refresh",
+                                "/v1/auth/logout").permitAll()
+
+                        .requestMatchers(HttpMethod.GET, "/v1/jobs/public/**").permitAll()
+
+                        .requestMatchers(HttpMethod.POST, "/v1/applications").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/v1/public/applications/**").permitAll()
+
+                        .requestMatchers(HttpMethod.GET, "/v1/feed/**").permitAll()
+
+                        .requestMatchers(
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/api-docs/**",
+                                "/swagger-resources/**",
+                                "/webjars/**"
+                        ).permitAll()
+
+                        // Monitoring
+                        .requestMatchers("/actuator/**").permitAll()
+
+                        // CORS preflight
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // All other endpoints require authentication
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
+
+    @Bean
+    public DaoAuthenticationProvider daoAuthenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
+    }
+
+
+
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -104,7 +112,7 @@ public class SecurityConfig {
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "X-API-Key"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

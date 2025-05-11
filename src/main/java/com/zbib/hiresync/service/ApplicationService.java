@@ -1,7 +1,5 @@
 package com.zbib.hiresync.service;
 
-import com.zbib.hiresync.dto.JobCountDTO;
-import com.zbib.hiresync.dto.StatusCountDTO;
 import com.zbib.hiresync.dto.builder.ApplicationBuilder;
 import com.zbib.hiresync.dto.filter.ApplicationFilter;
 import com.zbib.hiresync.dto.request.CreateApplicationRequest;
@@ -154,31 +152,31 @@ public class ApplicationService {
                 .collect(Collectors.toList());
     }
 
-    @Transactional(readOnly = true)
-    @LoggableService(message = "Retrieved application statistics")
-    public ApplicationStatsResponse getApplicationStats(String username) {
-        User currentUser = userService.findByUsernameOrThrow(username);
-
-        long totalApplications = applicationRepository.countByJobPostCreatedBy(currentUser);
-
-        List<StatusCountDTO> statusCounts = applicationRepository.countApplicationsByStatusForUser(currentUser);
-        Map<ApplicationStatus, Long> applicationsByStatus = new HashMap<>();
-        for (StatusCountDTO dto : statusCounts) {
-            applicationsByStatus.put(dto.getStatus(), dto.getCount());
-        }
-
-        List<JobCountDTO> jobCounts = applicationRepository.countApplicationsByJobPostForUser(currentUser);
-        Map<UUID, Long> applicationsByJob = new HashMap<>();
-        for (JobCountDTO dto : jobCounts) {
-            applicationsByJob.put(dto.getJobId(), dto.getCount());
-        }
-
-        return ApplicationStatsResponse.builder()
-                .totalApplications(totalApplications)
-                .applicationsByStatus(applicationsByStatus)
-                .applicationsByJob(applicationsByJob)
-                .build();
-    }
+//    @Transactional(readOnly = true)
+//    @LoggableService(message = "Retrieved application statistics")
+//    public ApplicationStatsResponse getApplicationStats(String username) {
+//        User currentUser = userService.findByUsernameOrThrow(username);
+//
+//        long totalApplications = applicationRepository.countByJobPostCreatedBy(currentUser);
+//
+//        List<StatusCountDTO> statusCounts = applicationRepository.countApplicationsByStatusForUser(currentUser);
+//        Map<ApplicationStatus, Long> applicationsByStatus = new HashMap<>();
+//        for (StatusCountDTO dto : statusCounts) {
+//            applicationsByStatus.put(dto.getStatus(), dto.getCount());
+//        }
+//
+//        List<JobCountDTO> jobCounts = applicationRepository.countApplicationsByJobPostForUser(currentUser);
+//        Map<UUID, Long> applicationsByJob = new HashMap<>();
+//        for (JobCountDTO dto : jobCounts) {
+//            applicationsByJob.put(dto.getJobId(), dto.getCount());
+//        }
+//
+//        return ApplicationStatsResponse.builder()
+//                .totalApplications(totalApplications)
+//                .applicationsByStatus(applicationsByStatus)
+//                .applicationsByJob(applicationsByJob)
+//                .build();
+//    }
 
     private Application findApplicationByIdOrThrow(UUID applicationId) {
         return applicationRepository.findById(applicationId)

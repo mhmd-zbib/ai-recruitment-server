@@ -10,10 +10,10 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class AuthResponseBuilder {
-    
+
     private final JwtTokenProvider tokenProvider;
-    
-    private AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken, Long expiresIn, String sessionId) {
+
+    private AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken, Long expiresIn) {
         return AuthResponse.builder()
             .id(user.getId().toString())
             .email(user.getEmail())
@@ -23,46 +23,42 @@ public class AuthResponseBuilder {
             .refreshToken(refreshToken)
             .tokenType("Bearer")
             .expiresIn(expiresIn)
-            .sessionId(sessionId)
             .build();
     }
 
-    public AuthResponse buildLoginResponse(User user, Authentication authentication, String sessionId) {
+    public AuthResponse buildLoginResponse(User user, Authentication authentication) {
         String accessToken = tokenProvider.createToken(authentication);
         String refreshToken = tokenProvider.createRefreshToken(authentication);
-        
+
         return buildAuthResponse(
-            user, 
-            accessToken, 
-            refreshToken, 
-            tokenProvider.getTokenValidityInMilliseconds(),
-            sessionId
+            user,
+            accessToken,
+            refreshToken,
+            tokenProvider.getTokenValidityInMilliseconds()
         );
     }
-    
-    public AuthResponse buildSignupResponse(User savedUser, Authentication authentication, String sessionId) {
+
+    public AuthResponse buildSignupResponse(User savedUser, Authentication authentication) {
         String accessToken = tokenProvider.createToken(authentication);
         String refreshToken = tokenProvider.createRefreshToken(authentication);
-        
+
         return buildAuthResponse(
-            savedUser, 
-            accessToken, 
-            refreshToken, 
-            tokenProvider.getTokenValidityInMilliseconds(),
-            sessionId
+            savedUser,
+            accessToken,
+            refreshToken,
+            tokenProvider.getTokenValidityInMilliseconds()
         );
     }
-    
-    public AuthResponse buildRefreshResponse(User user, Authentication authentication, String sessionId) {
+
+    public AuthResponse buildRefreshResponse(User user, Authentication authentication) {
         String accessToken = tokenProvider.createToken(authentication);
         String refreshToken = tokenProvider.createRefreshToken(authentication);
-        
+
         return buildAuthResponse(
-            user, 
-            accessToken, 
-            refreshToken, 
-            tokenProvider.getTokenValidityInMilliseconds(),
-            sessionId
+            user,
+            accessToken,
+            refreshToken,
+            tokenProvider.getTokenValidityInMilliseconds()
         );
     }
-} 
+}
