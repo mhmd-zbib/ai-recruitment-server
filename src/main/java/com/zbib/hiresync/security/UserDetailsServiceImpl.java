@@ -1,8 +1,7 @@
 package com.zbib.hiresync.security;
 
 import com.zbib.hiresync.entity.User;
-import com.zbib.hiresync.logging.LoggableService;
-import com.zbib.hiresync.logging.LogLevel;
+
 import com.zbib.hiresync.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.LogManager;
@@ -30,7 +29,6 @@ public class UserDetailsServiceImpl implements UserDetailsService {
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
-            // Ensure password is not null or malformed to prevent IndexOutOfBoundsException
             String password = user.getPassword();
             return new org.springframework.security.core.userdetails.User(
                     user.getEmail(),

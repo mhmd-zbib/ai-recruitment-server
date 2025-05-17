@@ -12,14 +12,11 @@ import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.UUID;
 
-/**
- * DTO for returning summarized job details
- */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class JobSummaryResponse {
+public class JobListResponse {
     private UUID id;
     private String title;
     private String companyName;

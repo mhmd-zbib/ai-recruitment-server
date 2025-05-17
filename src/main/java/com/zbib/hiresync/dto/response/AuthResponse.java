@@ -14,33 +14,25 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class AuthResponse {
 
-    @JsonProperty("id")
     private String id;
 
     private String email;
 
-    @JsonProperty("first_name")
     private String firstName;
 
-    @JsonProperty("last_name")
     private String lastName;
 
-    @JsonProperty("display_name")
     private String displayName;
 
     private String role;
 
     private boolean success;
 
-    // Token data
-    @JsonProperty("access_token")
     private String accessToken;
 
     private String refreshToken;
 
-    @JsonProperty("expires_in")
     private long expiresIn;
 
-    @JsonProperty("token_type")
     private String tokenType;
 }

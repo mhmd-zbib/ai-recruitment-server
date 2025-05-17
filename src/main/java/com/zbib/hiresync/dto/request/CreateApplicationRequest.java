@@ -20,24 +20,20 @@ public class CreateApplicationRequest {
     @NotNull(message = "Job ID is required")
     private UUID jobId;
 
-    @NotBlank(message = "Applicant name is required")
-    @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
-    private String applicantName;
+    @NotBlank(message = "First name is required")
+    @Size(min = 2, max = 50, message = "First name must be between 2 and 50 characters")
+    private String firstName;
+
+    @NotBlank(message = "Last name is required")
+    @Size(min = 2, max = 50, message = "Last name must be between 2 and 50 characters")
+    private String lastName;
 
     @NotBlank(message = "Email is required")
     @Email(message = "Must be a valid email address")
     @Size(max = 100, message = "Email must be less than 100 characters")
     private String applicantEmail;
 
-    @Size(max = 20, message = "Phone number must be less than 20 characters")
-    private String phoneNumber;
-
-    @Size(max = 5000, message = "Cover letter must be less than 5000 characters")
-    private String coverLetter;
-
     private String resumeUrl;
-
-    private String portfolioUrl;
     
     private String linkedinUrl;
-} 
+}

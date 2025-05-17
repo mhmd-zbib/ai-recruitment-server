@@ -15,9 +15,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Set;
 
-/**
- * DTO for creating a new job
- */
 @Data
 @Builder
 @NoArgsConstructor
@@ -65,4 +62,4 @@ public class CreateJobRequest {
     private LocalDateTime visibleUntil;
 
     private boolean active;
-} 
+}

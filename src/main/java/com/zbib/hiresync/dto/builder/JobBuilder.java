@@ -3,8 +3,8 @@ package com.zbib.hiresync.dto.builder;
 import com.zbib.hiresync.dto.request.CreateJobRequest;
 import com.zbib.hiresync.dto.request.UpdateJobRequest;
 import com.zbib.hiresync.dto.response.JobResponse;
-import com.zbib.hiresync.dto.response.JobStatsResponse;
-import com.zbib.hiresync.dto.response.JobSummaryResponse;
+
+import com.zbib.hiresync.dto.response.JobListResponse;
 import com.zbib.hiresync.entity.Address;
 import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.entity.Skill;
@@ -143,8 +143,8 @@ public class JobBuilder {
                 .build();
     }
     
-    public JobSummaryResponse buildJobSummaryResponse(Job job) {
-        return JobSummaryResponse.builder()
+    public JobListResponse buildJobListResponse(Job job) {
+        return JobListResponse.builder()
                 .id(job.getId())
                 .title(job.getTitle())
                 .companyName(job.getCompanyName())
@@ -161,41 +161,5 @@ public class JobBuilder {
                 .applicationCount(job.getApplicationCount())
                 .createdAt(job.getCreatedAt())
                 .build();
-    }
-    
-    public JobStatsResponse buildJobStatsResponse(Job job, Map<ApplicationStatus, Long> applicationsByStatus, Map<String, Long> applicantsByTopSkills) {
-        long totalViews = job.getApplications() != null ? job.getApplications().size() * 5 : 0;
-        
-        return JobStatsResponse.builder()
-                .totalViews(totalViews)
-                .totalApplications(job.getApplicationCount())
-                .applicationsByStatus(applicationsByStatus)
-                .applicantsByTopSkills(applicantsByTopSkills)
-                .build();
-    }
-    
-    private String formatSalary(java.math.BigDecimal minSalary, java.math.BigDecimal maxSalary, String currency) {
-        if (minSalary == null && maxSalary == null) {
-            return "Not specified";
-        }
-        
-        StringBuilder sb = new StringBuilder();
-        if (minSalary != null) {
-            sb.append(minSalary.toString());
-        }
-        
-        if (minSalary != null && maxSalary != null) {
-            sb.append(" - ");
-        }
-        
-        if (maxSalary != null) {
-            sb.append(maxSalary.toString());
-        }
-        
-        if (currency != null && !currency.isBlank()) {
-            sb.append(" ").append(currency);
-        }
-        
-        return sb.toString();
     }
 }

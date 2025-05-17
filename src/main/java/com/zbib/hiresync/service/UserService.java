@@ -1,7 +1,7 @@
 package com.zbib.hiresync.service;
 
 import com.zbib.hiresync.entity.User;
-import com.zbib.hiresync.exception.auth.UserNotFoundException;
+import com.zbib.hiresync.exception.AuthException;
 import com.zbib.hiresync.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +16,6 @@ public class UserService {
     @Transactional(readOnly = true)
     public User findByUsernameOrThrow(String username) {
         return userRepository.findByEmail(username)
-                .orElseThrow(() -> new UserNotFoundException("User not found with email: " + username));
+                .orElseThrow(() -> AuthException.userNotFound(username));
     }
-} 
+}

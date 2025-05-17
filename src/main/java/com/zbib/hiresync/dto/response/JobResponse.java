@@ -12,9 +12,6 @@ import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.UUID;
 
-/**
- * DTO for returning job details
- */
 @Data
 @Builder
 @NoArgsConstructor

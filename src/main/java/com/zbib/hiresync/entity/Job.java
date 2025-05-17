@@ -19,9 +19,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-/**
- * Represents a job in the system
- */
 @Data
 @Entity
 @Table(
@@ -200,4 +197,4 @@ public class Job {
                 .map(Skill::getName)
                 .collect(Collectors.toSet());
     }
-} 
+}

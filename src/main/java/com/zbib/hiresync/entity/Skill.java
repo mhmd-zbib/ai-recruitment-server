@@ -45,8 +45,5 @@ public class Skill {
     @ManyToMany(mappedBy = "skills")
     @Builder.Default
     private Set<Job> jobs = new HashSet<>();
-    
-    @ManyToMany(mappedBy = "skills")
-    @Builder.Default
-    private Set<Application> applications = new HashSet<>();
+
 } 

@@ -1,42 +1,22 @@
 package com.zbib.hiresync.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
+import lombok.EqualsAndHashCode;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Validation error response format.
- * Extends the standard error response with validation details.
+ * Extends the standard error response with validation-specific details.
+ * The validationErrors field is inherited from ErrorResponse.
  */
 @Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
+@SuperBuilder
+@EqualsAndHashCode(callSuper = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ValidationErrorResponse {
-    /**
-     * HTTP status code
-     */
-    private int status;
-
-    /**
-     * Error message
-     */
-    private String message;
-
-    /**
-     * List of validation errors
-     */
-    private List<Map<String, String>> details;
-
-    /**
-     * Timestamp when the error occurred
-     */
-    private LocalDateTime timestamp;
+public class ValidationErrorResponse extends ErrorResponse {
+    
+    public ValidationErrorResponse() {
+        super();
+    }
 }

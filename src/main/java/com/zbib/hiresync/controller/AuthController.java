@@ -3,8 +3,7 @@ package com.zbib.hiresync.controller;
 import com.zbib.hiresync.dto.request.AuthRequest;
 import com.zbib.hiresync.dto.request.SignupRequest;
 import com.zbib.hiresync.dto.response.AuthResponse;
-import com.zbib.hiresync.logging.LogLevel;
-import com.zbib.hiresync.logging.LoggableService;
+
 import com.zbib.hiresync.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/v1/auth")
 @RequiredArgsConstructor
 @Tag(name = "Authentication", description = "Authentication management APIs")
-@LoggableService(level = LogLevel.INFO)
 public class AuthController {
 
     private final AuthService authService;

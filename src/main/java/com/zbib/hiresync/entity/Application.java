@@ -1,7 +1,6 @@
 package com.zbib.hiresync.entity;
 
 import com.zbib.hiresync.enums.ApplicationStatus;
-import com.zbib.hiresync.exception.application.InvalidApplicationStateException;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,15 +10,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
-/**
- * Represents a job application in the system
- */
 @Data
 @Entity
 @Builder
@@ -36,23 +28,17 @@ public class Application {
     @JoinColumn(name = "job_id", nullable = false)
     private Job job;
 
-    @Column(name = "applicant_name", nullable = false, length = 100)
-    private String applicantName;
+    @Column(name = "first_name", nullable = false, length = 50)
+    private String firstName;
+
+    @Column(name = "last_name", nullable = false, length = 50)
+    private String lastName;
 
     @Column(name = "applicant_email", nullable = false, length = 100)
     private String applicantEmail;
 
-    @Column(name = "phone_number", length = 20)
-    private String phoneNumber;
-
-    @Column(name = "cover_letter", columnDefinition = "TEXT")
-    private String coverLetter;
-
     @Column(name = "resume_url", length = 255)
     private String resumeUrl;
-
-    @Column(name = "portfolio_url", length = 255)
-    private String portfolioUrl;
 
     @Column(name = "linkedin_url", length = 255)
     private String linkedinUrl;
@@ -65,15 +51,6 @@ public class Application {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-    @ManyToMany
-    @JoinTable(
-        name = "application_skills",
-        joinColumns = @JoinColumn(name = "application_id"),
-        inverseJoinColumns = @JoinColumn(name = "skill_id")
-    )
-    @Builder.Default
-    private Set<Skill> skills = new HashSet<>();
-
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -82,27 +59,7 @@ public class Application {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
     
-    public void addSkill(Skill skill) {
-        this.skills.add(skill);
-    }
-    
-    public void removeSkill(Skill skill) {
-        this.skills.remove(skill);
-    }
-    
-    public boolean hasSkill(String skillName) {
-        return skills.stream()
-                .anyMatch(skill -> skill.getName().equalsIgnoreCase(skillName));
-    }
-    
-    public Set<String> getSkillNames() {
-        return skills.stream()
-                .map(Skill::getName)
-                .collect(Collectors.toSet());
-    }
-    
     public boolean isActive() {
-        // An application is considered active if it's not in a terminal state
         return !isInTerminalState();
     }
     
@@ -143,24 +100,7 @@ public class Application {
         return applicantEmail.equalsIgnoreCase(email);
     }
     
-    public double calculateMatchScore() {
-        if (job == null || skills.isEmpty()) {
-            return 0.0;
-        }
-        
-        Set<String> jobSkills = job.getSkillNames();
-        Set<String> applicantSkills = getSkillNames();
-        
-        if (jobSkills.isEmpty()) {
-            return 0.0;
-        }
-        
-        // Calculate intersection
-        long matchCount = applicantSkills.stream()
-                .filter(skill -> jobSkills.stream()
-                        .anyMatch(jobSkill -> jobSkill.equalsIgnoreCase(skill)))
-                .count();
-        
-        return (double) matchCount / jobSkills.size() * 100.0;
+    public String getApplicantName() {
+        return firstName + " " + lastName;
     }
-} 
+}

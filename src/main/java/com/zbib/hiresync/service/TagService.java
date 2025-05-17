@@ -1,14 +1,18 @@
 package com.zbib.hiresync.service;
 
-import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.entity.Tag;
+import com.zbib.hiresync.exception.TagException;
 import com.zbib.hiresync.repository.TagRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
+
 
 @Service
 @RequiredArgsConstructor
@@ -17,30 +21,29 @@ public class TagService {
     private final TagRepository tagRepository;
 
     @Transactional
-    public void addTagsToJob(Job job, Set<String> tagNames) {
-        if (tagNames == null || tagNames.isEmpty()) return;
+    public Set<Tag> getOrCreateTags(Set<String> tagNames) {
+        if (tagNames == null || tagNames.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        Set<Tag> tags = new HashSet<>();
+        
         for (String name : tagNames) {
-            Tag tag = tagRepository.findByNameIgnoreCase(name)
+            String normalizedName = name.trim();
+            
+            if (normalizedName.isEmpty()) {
+                continue;
+            }
+                        Tag tag = tagRepository.findByNameIgnoreCase(normalizedName)
                     .orElseGet(() -> {
-                        Tag newTag = new Tag();
-                        newTag.setName(name);
+                        Tag newTag = Tag.builder()
+                                .name(normalizedName)
+                                .build();
                         return tagRepository.save(newTag);
                     });
-            job.addTag(tag);
+            
+            tags.add(tag);
         }
-    }
-
-    @Transactional(readOnly = true)
-    public Tag findByName(String name) {
-        return tagRepository.findByNameIgnoreCase(name).orElse(null);
-    }
-
-    @Transactional
-    public Tag createTag(String name) {
-        if (tagRepository.findByNameIgnoreCase(name).isPresent())
-            throw new IllegalArgumentException("Tag already exists with name: " + name);
-        Tag tag = new Tag();
-        tag.setName(name);
-        return tagRepository.save(tag);
+        return tags;
     }
 }

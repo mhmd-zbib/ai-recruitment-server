@@ -13,8 +13,11 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ApplicationResponse {
+public class JobApplicationListResponse {
     private UUID id;
+    private UUID jobId;
+    private String jobTitle;
+    private String companyName;
     private String firstName;
     private String lastName;
     private String applicantEmail;
@@ -24,15 +27,4 @@ public class ApplicationResponse {
     private String notes;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private JobInfo job;
-    
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class JobInfo {
-        private UUID id;
-        private String title;
-        private String companyName;
-    }
 }

@@ -39,19 +39,7 @@ public interface ApplicationRepository extends JpaRepository<Application, UUID>,
     @Query("SELECT COUNT(a) FROM Application a JOIN a.job j WHERE j.createdBy = :user")
     long countByJobPostCreatedBy(@Param("user") User user);
 
-//    @Query("SELECT new com.zbib.hiresync.dto.StatusCountDTO(a.status, COUNT(a)) " +
-//           "FROM Application a " +
-//           "JOIN a.job j WHERE j.createdBy = :user " +
-//           "GROUP BY a.status")
-//    List<StatusCountDTO> countApplicationsByStatusForUser(@Param("user") User user);
-//
-
-//    @Query("SELECT new com.zbib.hiresync.dto.JobCountDTO(j.id, COUNT(a)) " +
-//           "FROM Application a " +
-//           "JOIN a.job j WHERE j.createdBy = :user " +
-//           "GROUP BY j.id")
-//    List<JobCountDTO> countApplicationsByJobPostForUser(@Param("user") User user);
-
+    Page<Application> findByJobId(UUID jobId, Pageable pageable);
 
     Page<Application> findAll(Specification<Application> specification, Pageable pageable);
 }

@@ -4,40 +4,26 @@ import com.zbib.hiresync.dto.builder.JobBuilder;
 import com.zbib.hiresync.dto.filter.JobFilter;
 import com.zbib.hiresync.dto.request.CreateJobRequest;
 import com.zbib.hiresync.dto.request.UpdateJobRequest;
+import com.zbib.hiresync.dto.response.JobListResponse;
 import com.zbib.hiresync.dto.response.JobResponse;
-import com.zbib.hiresync.dto.response.JobStatsResponse;
-import com.zbib.hiresync.dto.response.JobSummaryResponse;
-import com.zbib.hiresync.entity.Application;
 import com.zbib.hiresync.entity.Job;
 import com.zbib.hiresync.entity.Skill;
 import com.zbib.hiresync.entity.Tag;
 import com.zbib.hiresync.entity.User;
-import com.zbib.hiresync.enums.ApplicationStatus;
-import com.zbib.hiresync.exception.ResourceNotFoundException;
-import com.zbib.hiresync.exception.auth.UserNotFoundException;
-import com.zbib.hiresync.exception.job.InvalidJobStateException;
-import com.zbib.hiresync.exception.job.JobNotFoundException;
-import com.zbib.hiresync.exception.security.UnauthorizedException;
-import com.zbib.hiresync.logging.LoggableService;
-import com.zbib.hiresync.repository.ApplicationRepository;
+import com.zbib.hiresync.exception.AuthException;
+import com.zbib.hiresync.exception.JobException;
 import com.zbib.hiresync.repository.JobRepository;
-import com.zbib.hiresync.repository.UserRepository;
 import com.zbib.hiresync.specification.JobSpecification;
 import com.zbib.hiresync.validation.JobValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -51,168 +37,81 @@ public class JobService {
     private final JobSpecification jobSpecification;
     private final JobValidator jobValidator;
 
-
-    public Page<JobSummaryResponse> getJobs(JobFilter filter, Pageable pageable, String username) {
-        User currentUser = userService.findByUsernameOrThrow(username);
-        filter.setCreatedById(currentUser.getId());
-        Page<Job> jobs = jobRepository.findAll(jobSpecification.buildSpecification(filter), pageable);
-        return jobs.map(jobBuilder::buildJobSummaryResponse);
-    }
-
-    public Page<JobSummaryResponse> getJobsFeed(JobFilter filter, Pageable pageable) {
-        filter.setActive(true);
-        filter.setVisibleAfter(LocalDateTime.now());
-        Page<Job> jobs = jobRepository.findAll(jobSpecification.buildSpecification(filter), pageable);
-        return jobs.map(jobBuilder::buildJobSummaryResponse);
-    }
-
-    @Transactional(readOnly = true)
-    @LoggableService(message = "Retrieved job by ID")
-    public JobResponse getJobById(UUID id, String username) {
-        Job job = findJobByIdOrThrow(id);
-
-        if (username == null && (!job.isActive() || job.isExpired())) {
-            throw new JobNotFoundException();
-        }
-
-        if (username != null) {
-            User user = userService.findByUsernameOrThrow(username);
-            if (!job.isActive() && !job.isOwnedBy(user)) {
-                throw new JobNotFoundException();
-            }
-        }
-
-        return jobBuilder.buildJobResponse(job);
-    }
-
     @Transactional
-    @LoggableService(message = "Created job")
     public JobResponse createJob(CreateJobRequest request, String username) {
-        User currentUser = userService.findByUsernameOrThrow(username);
-
-        Job job = jobBuilder.buildJob(request, currentUser, new HashSet<>(), new HashSet<>());
-
+        User user = userService.findByUsernameOrThrow(username);
+        
+        Set<Skill> skills = skillService.getOrCreateSkills(request.getSkills());
+        Set<Tag> tags = tagService.getOrCreateTags(request.getTags());
+        
+        Job job = jobBuilder.buildJob(request, user, skills, tags);
         jobValidator.validateJobCompleteness(job);
-
-        if (request.getSkills() != null && !request.getSkills().isEmpty()) {
-            skillService.addSkillsToJob(job, request.getSkills());
-        }
-
-        if (request.getTags() != null && !request.getTags().isEmpty()) {
-            tagService.addTagsToJob(job, request.getTags());
-        }
-
+        
         Job savedJob = jobRepository.save(job);
+        
         return jobBuilder.buildJobResponse(savedJob);
     }
-
+    
+    public Page<JobListResponse> getJobs(JobFilter filter, Pageable pageable, String username) {
+        User user = userService.findByUsernameOrThrow(username);
+        
+        filter.setCreatedById(user.getId());
+        
+        Specification<Job> spec = jobSpecification.buildSpecification(filter);
+        
+        Page<Job> jobsPage = jobRepository.findAll(spec, pageable);
+        
+        return jobsPage.map(jobBuilder::buildJobListResponse);
+    }
+    
+    public Page<JobListResponse> getJobsFeed(JobFilter filter, Pageable pageable) {
+        filter.setActive(true);
+        
+        Specification<Job> spec = jobSpecification.buildSpecification(filter);
+        
+        Page<Job> jobsPage = jobRepository.findAll(spec, pageable);
+        
+        return jobsPage.map(jobBuilder::buildJobListResponse);
+    }
+    
     @Transactional
-    @LoggableService(message = "Updated job")
-    public JobResponse updateJob(UUID id, UpdateJobRequest request, String username) {
-        User currentUser = userService.findByUsernameOrThrow(username);
-        Job job = findJobByIdOrThrow(id);
-
-        if (!job.isOwnedBy(currentUser)) {
-            throw UnauthorizedException.modifyJobPost();
+    public JobResponse updateJob(UUID jobId, UpdateJobRequest request, String username) {
+        User user = userService.findByUsernameOrThrow(username);
+        Job job = findJobByIdOrThrow(jobId);
+        
+        if (!job.isOwnedBy(user)) {
+            throw AuthException.accessDenied("job", jobId, username);
         }
-
-        jobBuilder.updateJob(job, request, new HashSet<>(), new HashSet<>());
-
-        if (request.getSkills() != null) {
-            job.getSkills().clear();
-            skillService.addSkillsToJob(job, request.getSkills());
-        }
-
-        if (request.getTags() != null) {
-            job.getTags().clear();
-            tagService.addTagsToJob(job, request.getTags());
-        }
-
+        
+        Set<Skill> skills = skillService.getOrCreateSkills(request.getSkills());
+        Set<Tag> tags = tagService.getOrCreateTags(request.getTags());
+        
+        jobBuilder.updateJob(job, request, skills, tags);
         jobValidator.validateJobCompleteness(job);
+        
         Job updatedJob = jobRepository.save(job);
+        
         return jobBuilder.buildJobResponse(updatedJob);
     }
-
+    
     @Transactional
-    @LoggableService(message = "Deleted job")
-    public void deleteJob(UUID id, String username) {
-        User currentUser = userService.findByUsernameOrThrow(username);
-        Job job = findJobByIdOrThrow(id);
-
-        if (!job.isOwnedBy(currentUser)) {
-            throw UnauthorizedException.deleteJobPost();
+    public void deleteJob(UUID jobId, String username) {
+        User user = userService.findByUsernameOrThrow(username);
+        Job job = findJobByIdOrThrow(jobId);
+        
+        if (!job.isOwnedBy(user)) {
+            throw AuthException.accessDenied("job", jobId, username);
         }
-
+        
         if (job.hasApplications()) {
-            throw UnauthorizedException.deleteJobPostWithApplications();
+            throw JobException.hasApplications(jobId);
         }
-
+        
         jobRepository.delete(job);
     }
-
-    @Transactional(readOnly = true)
-    @LoggableService(message = "Retrieved job statistics")
-    public JobStatsResponse getJobStats(UUID id, String username) {
-        User currentUser = userService.findByUsernameOrThrow(username);
-        Job job = findJobByIdOrThrow(id);
-
-        if (!job.isOwnedBy(currentUser)) {
-            throw new UnauthorizedException("You are not authorized to view this job's statistics");
-        }
-
-        List<Application> applications = job.getApplications();
-
-        Map<ApplicationStatus, Long> applicationsByStatus = applications.stream()
-                .collect(Collectors.groupingBy(Application::getStatus, Collectors.counting()));
-
-        Map<String, Long> applicantsByTopSkills = applications.stream()
-                .flatMap(app -> app.getSkillNames().stream())
-                .collect(Collectors.groupingBy(skill -> skill, Collectors.counting()));
-
-        return jobBuilder.buildJobStatsResponse(job, applicationsByStatus, applicantsByTopSkills);
-    }
-
-    @Transactional
-    @LoggableService(message = "Toggled job active status")
-    public JobResponse toggleJobActiveStatus(UUID id, String username) {
-        User currentUser = userService.findByUsernameOrThrow(username);
-        Job job = findJobByIdOrThrow(id);
-
-        if (!job.isOwnedBy(currentUser)) {
-            throw UnauthorizedException.modifyJobPost();
-        }
-
-        if (job.isActive()) {
-            job.deactivate();
-        } else {
-            jobValidator.validateCanBeActivated(job);
-            job.activate();
-        }
-
-        job.updateTimestamp();
-        Job savedJob = jobRepository.save(job);
-        return jobBuilder.buildJobResponse(savedJob);
-    }
-
-    @Transactional
-    @LoggableService(message = "Extended job visibility")
-    public JobResponse extendJobVisibility(UUID id, String username, int days) {
-        User currentUser = userService.findByUsernameOrThrow(username);
-        Job job = findJobByIdOrThrow(id);
-
-        if (!job.isOwnedBy(currentUser)) {
-            throw UnauthorizedException.modifyJobPost();
-        }
-
-        job.extendVisibilityBy(days);
-        job.updateTimestamp();
-
-        Job savedJob = jobRepository.save(job);
-        return jobBuilder.buildJobResponse(savedJob);
-    }
-
-    private Job findJobByIdOrThrow(UUID id) {
-        return jobRepository.findById(id)
-                .orElseThrow(JobNotFoundException::new);
+    
+    private Job findJobByIdOrThrow(UUID jobId) {
+        return jobRepository.findById(jobId)
+                .orElseThrow(() -> JobException.notFound(jobId));
     }
 }

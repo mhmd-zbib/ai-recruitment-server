@@ -1,13 +1,10 @@
 package com.zbib.hiresync.security;
 
-import com.zbib.hiresync.exception.auth.InvalidTokenException;
+import com.zbib.hiresync.exception.AuthException;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
-import io.jsonwebtoken.security.SignatureException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -33,9 +30,8 @@ public class JwtTokenProvider {
 
     private static final Logger log = LogManager.getLogger(JwtTokenProvider.class);
     private static final String AUTHORITIES_KEY = "auth";
-    
 
-    
+
     private final SecretKey secretKey;
     private final long tokenValidityInMilliseconds;
     private final long refreshTokenValidityInMilliseconds;
@@ -109,11 +105,9 @@ public class JwtTokenProvider {
 
             return new UsernamePasswordAuthenticationToken(principal, token, authorities);
         } catch (ExpiredJwtException e) {
-            log.error("JWT token is expired: {}", e.getMessage());
-            throw new InvalidTokenException("Token has expired");
+            throw AuthException.tokenExpired();
         } catch (Exception e) {
-            log.error("Failed to get authentication from token: {}", e.getMessage());
-            throw new InvalidTokenException("Invalid authentication token");
+            throw AuthException.tokenExpired();
         }
     }
 
@@ -131,7 +125,6 @@ public class JwtTokenProvider {
                     .collect(Collectors.toList());
         }
 
-        // Default authority if none specified in token
         return Arrays.asList(new SimpleGrantedAuthority("ROLE_USER"));
     }
 
@@ -143,19 +136,15 @@ public class JwtTokenProvider {
                     .parseClaimsJws(token)
                     .getBody();
         } catch (ExpiredJwtException e) {
-            log.error("JWT token is expired: {}", e.getMessage());
-            throw new InvalidTokenException("Token has expired");
+            throw AuthException.tokenExpired();
         } catch (Exception e) {
-            log.error("Failed to extract claims from token: {}", e.getMessage());
-            throw new InvalidTokenException("Invalid token");
+            throw AuthException.tokenExpired();
         }
     }
 
     public long getTokenValidityInMilliseconds() {
         return tokenValidityInMilliseconds;
     }
-    
-
 
     public boolean validateToken(String token) {
         if (token == null) {
@@ -164,9 +153,9 @@ public class JwtTokenProvider {
 
         try {
             Jwts.parserBuilder()
-                .setSigningKey(secretKey)
-                .build()
-                .parseClaimsJws(token);
+                    .setSigningKey(secretKey)
+                    .build()
+                    .parseClaimsJws(token);
             return true;
         } catch (ExpiredJwtException e) {
             log.error("JWT token is expired: {}", e.getMessage());
