@@ -57,39 +57,29 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Auth endpoints
                         .requestMatchers("/v1/auth/login",
                                 "/v1/auth/signup",
                                 "/v1/auth/refresh",
                                 "/v1/auth/logout").permitAll()
-
                         .requestMatchers(HttpMethod.GET, "/v1/jobs/public/**").permitAll()
-
                         .requestMatchers(HttpMethod.POST, "/v1/applications").permitAll()
                         .requestMatchers(HttpMethod.GET, "/v1/public/applications/**").permitAll()
-
                         .requestMatchers(HttpMethod.GET, "/v1/feed/**").permitAll()
-
+                        // Updated Swagger UI paths to match your application.yml configuration
                         .requestMatchers(
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/api-docs/**",
+                                "/v3/api-docs.yaml",
+                                "/docs",
                                 "/swagger-resources/**",
                                 "/webjars/**"
                         ).permitAll()
-
-                        // Monitoring
                         .requestMatchers("/actuator/**").permitAll()
-
-                        // CORS preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                        // All other endpoints require authentication
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-
         return http.build();
     }
 
@@ -100,8 +90,6 @@ public class SecurityConfig {
         provider.setPasswordEncoder(passwordEncoder());
         return provider;
     }
-
-
 
 
     @Bean

@@ -37,9 +37,8 @@ springdoc:
     display-request-duration: true
     disable-swagger-default-url: true
     urls:
-      - url: /docs
+      - url: /v3/api-docs
         name: HireSync API
-  paths-to-match: /v1/**
   packages-to-scan: com.zbib.hiresync.controller
   show-actuator: true
 
