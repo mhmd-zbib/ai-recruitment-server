@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.PrioritizedParameterNameDiscoverer;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -21,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -31,6 +33,7 @@ public class JobController {
 
     private final JobService jobService;
     private final ApplicationService applicationService;
+    private final PrioritizedParameterNameDiscoverer prioritizedParameterNameDiscoverer;
 
     @PostMapping
     @Operation(
@@ -39,8 +42,8 @@ public class JobController {
     )
     public ResponseEntity<JobResponse> createJob(
             @Valid @RequestBody CreateJobRequest request,
-            @AuthenticationPrincipal String username) {
-        JobResponse jobResponse = jobService.createJob(request, username);
+            Principal principal) {
+        JobResponse jobResponse = jobService.createJob(request, principal.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(jobResponse);
     }
     
@@ -52,8 +55,8 @@ public class JobController {
     public ResponseEntity<Page<JobListResponse>> getJobs(
             @ModelAttribute JobFilter filter,
             Pageable pageable,
-            @AuthenticationPrincipal String username) {
-        Page<JobListResponse> jobs = jobService.getJobs(filter, pageable, username);
+            Principal principal) {
+        Page<JobListResponse> jobs = jobService.getJobs(filter, pageable, principal.getName());
         return ResponseEntity.ok(jobs);
     }
     
@@ -90,8 +93,8 @@ public class JobController {
     public ResponseEntity<JobResponse> updateJob(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateJobRequest request,
-            @AuthenticationPrincipal String username) {
-        JobResponse updatedJob = jobService.updateJob(id, request, username);
+            Principal principal) {
+        JobResponse updatedJob = jobService.updateJob(id, request, principal.getName());
         return ResponseEntity.ok(updatedJob);
     }
     
@@ -102,8 +105,8 @@ public class JobController {
     )
     public ResponseEntity<Void> deleteJob(
             @PathVariable UUID id,
-            @AuthenticationPrincipal String username) {
-        jobService.deleteJob(id, username);
+            Principal principal) {
+        jobService.deleteJob(id, principal.getName());
         return ResponseEntity.noContent().build();
     }
     

@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -41,8 +42,8 @@ public class ApplicationController {
     )
     public ResponseEntity<ApplicationResponse> getApplicationById(
             @PathVariable UUID id,
-            @AuthenticationPrincipal String username) {
-        ApplicationResponse response = applicationService.getApplicationById(id, username);
+            Principal principal) {
+        ApplicationResponse response = applicationService.getApplicationById(id, principal.getName());
         return ResponseEntity.ok(response);
     }
     
@@ -54,8 +55,8 @@ public class ApplicationController {
     public ResponseEntity<ApplicationResponse> toggleApplicationStatus(
             @PathVariable UUID id,
             @Valid @RequestBody ToggleApplicationStatusRequest request,
-            @AuthenticationPrincipal String username) {
-        ApplicationResponse response = applicationService.toggleApplicationStatus(id, request, username);
+            Principal principal) {
+        ApplicationResponse response = applicationService.toggleApplicationStatus(id, request, principal.getName());
         return ResponseEntity.ok(response);
     }
 }

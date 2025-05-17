@@ -63,8 +63,14 @@ public class JwtTokenProvider {
         Date validity = new Date(now.getTime() + tokenValidityInMilliseconds);
         String tokenId = UUID.randomUUID().toString();
 
+        String email = authentication.getName();
+        String username = authentication.getPrincipal() instanceof User
+                ? ((User) authentication.getPrincipal()).getUsername()
+                : email;
+
         return Jwts.builder()
-                .setSubject(authentication.getName())
+                .setSubject(email)
+                .claim("username", username)
                 .claim(AUTHORITIES_KEY, authorities)
                 .setId(tokenId)
                 .setIssuedAt(now)
@@ -74,6 +80,7 @@ public class JwtTokenProvider {
                 .signWith(secretKey)
                 .compact();
     }
+
 
     public String createRefreshToken(Authentication authentication) {
         Date now = new Date();
