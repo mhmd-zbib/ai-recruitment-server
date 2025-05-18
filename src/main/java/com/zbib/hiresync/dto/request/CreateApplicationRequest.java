@@ -17,9 +17,6 @@ import java.util.UUID;
 @AllArgsConstructor
 public class CreateApplicationRequest {
 
-    @NotNull(message = "Job ID is required")
-    private UUID jobId;
-
     @NotBlank(message = "First name is required")
     @Size(min = 2, max = 50, message = "First name must be between 2 and 50 characters")
     private String firstName;
@@ -31,7 +28,7 @@ public class CreateApplicationRequest {
     @NotBlank(message = "Email is required")
     @Email(message = "Must be a valid email address")
     @Size(max = 100, message = "Email must be less than 100 characters")
-    private String applicantEmail;
+    private String email;
 
     private String resumeUrl;
     

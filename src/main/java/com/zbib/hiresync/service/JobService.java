@@ -7,8 +7,6 @@ import com.zbib.hiresync.dto.request.UpdateJobRequest;
 import com.zbib.hiresync.dto.response.JobListResponse;
 import com.zbib.hiresync.dto.response.JobResponse;
 import com.zbib.hiresync.entity.Job;
-import com.zbib.hiresync.entity.Skill;
-import com.zbib.hiresync.entity.Tag;
 import com.zbib.hiresync.entity.User;
 import com.zbib.hiresync.exception.AuthException;
 import com.zbib.hiresync.exception.JobException;
@@ -22,7 +20,6 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -32,19 +29,13 @@ public class JobService {
     private final JobRepository jobRepository;
     private final UserService userService;
     private final JobBuilder jobBuilder;
-    private final SkillService skillService;
-    private final TagService tagService;
     private final JobSpecification jobSpecification;
     private final JobValidator jobValidator;
 
     @Transactional
     public JobResponse createJob(CreateJobRequest request, String username) {
         User user = userService.findByUsernameOrThrow(username);
-        
-        Set<Skill> skills = skillService.getOrCreateSkills(request.getSkills());
-        Set<Tag> tags = tagService.getOrCreateTags(request.getTags());
-        
-        Job job = jobBuilder.buildJob(request, user, skills, tags);
+        Job job = jobBuilder.buildJob(request, user);
         jobValidator.validateJobCompleteness(job);
         
         Job savedJob = jobRepository.save(job);
@@ -82,11 +73,8 @@ public class JobService {
         if (!job.isOwnedBy(user)) {
             throw AuthException.accessDenied("job", jobId, username);
         }
-        
-        Set<Skill> skills = skillService.getOrCreateSkills(request.getSkills());
-        Set<Tag> tags = tagService.getOrCreateTags(request.getTags());
-        
-        jobBuilder.updateJob(job, request, skills, tags);
+
+        jobBuilder.updateJob(job, request);
         jobValidator.validateJobCompleteness(job);
         
         Job updatedJob = jobRepository.save(job);
@@ -109,7 +97,12 @@ public class JobService {
         
         jobRepository.delete(job);
     }
-    
+
+    public JobResponse getJobById(UUID jobId) {
+        Job job = findJobByIdOrThrow(jobId);
+        return jobBuilder.buildJobResponse(job);
+    }
+
     private Job findJobByIdOrThrow(UUID jobId) {
         return jobRepository.findById(jobId)
                 .orElseThrow(() -> JobException.notFound(jobId));

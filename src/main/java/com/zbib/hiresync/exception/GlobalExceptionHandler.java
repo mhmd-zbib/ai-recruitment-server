@@ -230,7 +230,7 @@ public class GlobalExceptionHandler {
         String methodName = ThreadContext.get("methodName");
         String userId = ThreadContext.get("userId");
         String correlationId = ThreadContext.get("correlationId");
-        
+        log.error("Unhandled exception: {}", ex.getMessage(), ex);
         if (className != null && methodName != null) {
             log.error("Unhandled exception in {}.{}{}{}: {}", 
                     className, 

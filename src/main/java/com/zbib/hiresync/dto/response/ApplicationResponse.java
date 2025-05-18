@@ -1,6 +1,7 @@
 package com.zbib.hiresync.dto.response;
 
 import com.zbib.hiresync.enums.ApplicationStatus;
+import jakarta.persistence.Column;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,17 +23,8 @@ public class ApplicationResponse {
     private String linkedinUrl;
     private ApplicationStatus status;
     private String notes;
+    private int matchRate;
+    private String summary;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private JobInfo job;
-    
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class JobInfo {
-        private UUID id;
-        private String title;
-        private String companyName;
-    }
 }

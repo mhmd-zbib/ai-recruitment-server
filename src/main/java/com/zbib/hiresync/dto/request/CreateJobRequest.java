@@ -54,12 +54,5 @@ public class CreateJobRequest {
     @Size(min = 3, max = 3, message = "Currency code must be 3 characters")
     private String currency;
 
-    private Set<String> skills;
-
-    private Set<String> tags;
-
-    @NotNull(message = "Visible until date is required")
-    private LocalDateTime visibleUntil;
-
     private boolean active;
 }

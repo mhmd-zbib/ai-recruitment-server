@@ -2,8 +2,6 @@ package com.zbib.hiresync.specification;
 
 import com.zbib.hiresync.dto.filter.JobFilter;
 import com.zbib.hiresync.entity.Job;
-import com.zbib.hiresync.entity.Skill;
-import com.zbib.hiresync.entity.Tag;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
@@ -67,17 +65,7 @@ public class JobSpecification {
             if (filter.getWorkplaceTypes() != null && !filter.getWorkplaceTypes().isEmpty()) {
                 predicates.add(root.get("workplaceType").in(filter.getWorkplaceTypes()));
             }
-            
-            if (filter.getSkills() != null && !filter.getSkills().isEmpty()) {
-                Join<Job, Skill> skillJoin = root.join("skills");
-                predicates.add(skillJoin.get("name").in(filter.getSkills()));
-            }
-            
-            if (filter.getTags() != null && !filter.getTags().isEmpty()) {
-                Join<Job, Tag> tagJoin = root.join("tags");
-                predicates.add(tagJoin.get("name").in(filter.getTags()));
-            }
-            
+
             if (filter.getPostedWithinDays() != null) {
                 LocalDateTime cutoffDate = LocalDateTime.now().minusDays(filter.getPostedWithinDays());
                 predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), cutoffDate));
@@ -89,31 +77,6 @@ public class JobSpecification {
             
             if (filter.getCreatedBefore() != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), filter.getCreatedBefore()));
-            }
-            
-            if (filter.getVisibleAfter() != null) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("visibleUntil"), filter.getVisibleAfter()));
-            }
-            
-            if (filter.getVisibleBefore() != null) {
-                predicates.add(cb.lessThanOrEqualTo(root.get("visibleUntil"), filter.getVisibleBefore()));
-            }
-            
-            if (filter.getActive() != null) {
-                predicates.add(cb.equal(root.get("active"), filter.getActive()));
-                
-                if (filter.getActive()) {
-                    predicates.add(cb.or(
-                        cb.isNull(root.get("visibleUntil")),
-                        cb.greaterThan(root.get("visibleUntil"), LocalDateTime.now())
-                    ));
-                }
-            } else if (filter.getIncludeInactive() == null || !filter.getIncludeInactive()) {
-                predicates.add(cb.equal(root.get("active"), true));
-                predicates.add(cb.or(
-                    cb.isNull(root.get("visibleUntil")),
-                    cb.greaterThan(root.get("visibleUntil"), LocalDateTime.now())
-                ));
             }
             
             if (filter.getCreatedById() != null) {

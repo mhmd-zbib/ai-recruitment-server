@@ -13,11 +13,10 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
+
+import static org.apache.commons.lang3.StringUtils.truncate;
 
 @Data
 @Entity
@@ -25,7 +24,6 @@ import java.util.stream.Collectors;
     name = "jobs",
     indexes = {
         @Index(name = "idx_job_active", columnList = "active"),
-        @Index(name = "idx_job_visible_until", columnList = "visible_until"),
         @Index(name = "idx_job_created_at", columnList = "created_at"),
         @Index(name = "idx_job_workplace_type", columnList = "workplace_type"),
         @Index(name = "idx_job_employment_type", columnList = "employment_type"),
@@ -81,40 +79,10 @@ public class Job {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_id", nullable = false)
-    private User createdBy;
-
-    @ManyToMany
-    @JoinTable(
-        name = "job_skills",
-        joinColumns = @JoinColumn(name = "job_id"),
-        inverseJoinColumns = @JoinColumn(name = "skill_id"),
-        indexes = {
-            @Index(name = "idx_job_skills_job_id", columnList = "job_id"),
-            @Index(name = "idx_job_skills_skill_id", columnList = "skill_id")
-        }
-    )
-    @Builder.Default
-    private Set<Skill> skills = new HashSet<>();
-
-    @ManyToMany
-    @JoinTable(
-        name = "job_tags",
-        joinColumns = @JoinColumn(name = "job_id"),
-        inverseJoinColumns = @JoinColumn(name = "tag_id"),
-        indexes = {
-            @Index(name = "idx_job_tags_job_id", columnList = "job_id"),
-            @Index(name = "idx_job_tags_tag_id", columnList = "tag_id")
-        }
-    )
-    @Builder.Default
-    private Set<Tag> tags = new HashSet<>();
+    private User user;
 
     @Column(name = "active", nullable = false)
     private boolean active;
-
-    @Column(name = "visible_until")
-    @Temporal(TemporalType.TIMESTAMP)
-    private LocalDateTime visibleUntil;
 
     @CreationTimestamp
     @Column(updatable = false)
@@ -130,24 +98,8 @@ public class Job {
     @Column(name = "application_count", nullable = false)
     private int applicationCount = 0;
 
-    public boolean isActive() {
-        return this.active && !isExpired();
-    }
-
-    public boolean isExpired() {
-        return this.visibleUntil != null && this.visibleUntil.isBefore(LocalDateTime.now());
-    }
-
-    public void activate() {
-        this.active = true;
-    }
-
-    public void deactivate() {
-        this.active = false;
-    }
-
     public boolean isOwnedBy(User user) {
-        return this.createdBy != null && this.createdBy.getId().equals(user.getId());
+        return this.user != null && this.user.getId().equals(user.getId());
     }
 
     public boolean hasApplications() {
@@ -158,43 +110,18 @@ public class Job {
         this.applicationCount++;
     }
 
-    public void extendVisibilityBy(int days) {
-        LocalDateTime newDate;
-        if (this.visibleUntil == null || this.visibleUntil.isBefore(LocalDateTime.now())) {
-            newDate = LocalDateTime.now().plusDays(days);
-        } else {
-            newDate = this.visibleUntil.plusDays(days);
-        }
-        this.visibleUntil = newDate;
-    }
-
-    public void updateTimestamp() {
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public Job addSkill(Skill skill) {
-        skills.add(skill);
-        return this;
-    }
-
-    public Job removeSkill(Skill skill) {
-        skills.remove(skill);
-        return this;
-    }
-
-    public Job addTag(Tag tag) {
-        tags.add(tag);
-        return this;
-    }
-
-    public Job removeTag(Tag tag) {
-        tags.remove(tag);
-        return this;
-    }
-
-    public Set<String> getSkillNames() {
-        return skills.stream()
-                .map(Skill::getName)
-                .collect(Collectors.toSet());
+    @Override
+    public String toString() {
+        return "Job{" +
+                "title='" + title + '\'' +
+                ", companyName='" + companyName + '\'' +
+                ", description='" + truncate(description, 200) + '\'' +
+                ", requirements='" + truncate(requirements, 200) + '\'' +
+                ", workplaceType=" + workplaceType +
+                ", employmentType=" + employmentType +
+                ", minSalary=" + minSalary +
+                ", maxSalary=" + maxSalary +
+                ", currency='" + currency + '\'' +
+                '}';
     }
 }

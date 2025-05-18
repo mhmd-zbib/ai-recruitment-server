@@ -18,8 +18,8 @@ public class ApplicationBuilder {
                 .job(job)
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
-                .applicantEmail(request.getApplicantEmail())
-                .resumeUrl(request.getResumeUrl())
+                .applicantEmail(request.getEmail())
+//                .resumeUrl(request.getResumeUrl())
                 .linkedinUrl(request.getLinkedinUrl())
                 .status(ApplicationStatus.SUBMITTED)
                 .build();
@@ -31,12 +31,8 @@ public class ApplicationBuilder {
                 .firstName(application.getFirstName())
                 .lastName(application.getLastName())
                 .applicantEmail(application.getApplicantEmail())
-                .resumeUrl(application.getResumeUrl())
-                .linkedinUrl(application.getLinkedinUrl())
+                .matchRate(application.getMatchRate())
                 .status(application.getStatus())
-                .notes(application.getNotes())
-                .createdAt(application.getCreatedAt())
-                .updatedAt(application.getUpdatedAt())
                 .build();
     }
     
@@ -50,21 +46,10 @@ public class ApplicationBuilder {
                 .linkedinUrl(application.getLinkedinUrl())
                 .status(application.getStatus())
                 .notes(application.getNotes())
+                .summary(application.getSummary())
+                .matchRate(application.getMatchRate())
                 .createdAt(application.getCreatedAt())
                 .updatedAt(application.getUpdatedAt())
-                .job(buildJobInfo(application.getJob()))
-                .build();
-    }
-    
-    private ApplicationResponse.JobInfo buildJobInfo(Job job) {
-        if (job == null) {
-            return null;
-        }
-        
-        return ApplicationResponse.JobInfo.builder()
-                .id(job.getId())
-                .title(job.getTitle())
-                .companyName(job.getCompanyName())
                 .build();
     }
 }

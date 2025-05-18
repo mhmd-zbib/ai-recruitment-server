@@ -24,17 +24,6 @@ public class ApplicationController {
 
     private final ApplicationService applicationService;
 
-    @PostMapping
-    @Operation(
-        summary = "Create a new job application",
-        description = "Submit an application for a job posting with the applicant's details"
-    )
-    public ResponseEntity<ApplicationResponse> createApplication(
-            @Valid @RequestBody CreateApplicationRequest request) {
-        ApplicationResponse response = applicationService.createApplication(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
     @GetMapping("/{id}")
     @Operation(
         summary = "Get application by ID",

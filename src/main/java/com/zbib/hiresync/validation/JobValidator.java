@@ -37,10 +37,6 @@ public class JobValidator {
             errors.put("employmentType", "Employment type is required");
         }
         
-        if (job.getVisibleUntil() == null) {
-            errors.put("visibleUntil", "Visibility end date is required");
-        }
-        
         if (job.getMinSalary() != null || job.getMaxSalary() != null) {
             if (job.getMinSalary() != null && job.getMinSalary().compareTo(java.math.BigDecimal.ZERO) <= 0) {
                 errors.put("minSalary", "Minimum salary must be positive");

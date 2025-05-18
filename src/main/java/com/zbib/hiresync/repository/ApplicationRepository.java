@@ -14,32 +14,10 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
-/**
- * Repository for managing application data
- */
 @Repository
 public interface ApplicationRepository extends JpaRepository<Application, UUID>, JpaSpecificationExecutor<Application> {
-
     boolean existsByJobAndApplicantEmail(Job job, String email);
-
-    @Query("SELECT a FROM Application a JOIN a.job j WHERE j.createdBy = :user " +
-           "ORDER BY a.createdAt DESC")
-    List<Application> findRecentApplicationsForCreatedBy(@Param("user") User user, Pageable pageable);
-
-    @Query(value = "SELECT a.* FROM applications a " +
-                   "JOIN jobs j ON a.job_id = j.id " +
-                   "WHERE j.created_by_id = :#{#user.id} " +
-                   "ORDER BY a.created_at DESC LIMIT :limit",
-           nativeQuery = true)
-    List<Application> findRecentApplicationsForCreatedBy(@Param("user") User user, @Param("limit") int limit);
-
-
-    @Query("SELECT COUNT(a) FROM Application a JOIN a.job j WHERE j.createdBy = :user")
-    long countByJobPostCreatedBy(@Param("user") User user);
-
-    Page<Application> findByJobId(UUID jobId, Pageable pageable);
-
-    Page<Application> findAll(Specification<Application> specification, Pageable pageable);
 }

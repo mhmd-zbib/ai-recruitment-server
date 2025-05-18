@@ -61,11 +61,8 @@ public class SecurityConfig {
                                 "/v1/auth/signup",
                                 "/v1/auth/refresh",
                                 "/v1/auth/logout").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/v1/jobs/public/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/v1/applications").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/v1/public/applications/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/v1/feed/**").permitAll()
-                        // Updated Swagger UI paths to match your application.yml configuration
+                        .requestMatchers(HttpMethod.GET, "/v1/jobs/*").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/v1/jobs/*/applications").permitAll()
                         .requestMatchers(
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",

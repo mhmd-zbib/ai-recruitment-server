@@ -2,7 +2,6 @@ package com.zbib.hiresync.specification;
 
 import com.zbib.hiresync.dto.filter.ApplicationFilter;
 import com.zbib.hiresync.entity.Application;
-import com.zbib.hiresync.entity.Skill;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
@@ -39,11 +38,6 @@ public class ApplicationSpecification {
             
             if (filter.getStatuses() != null && !filter.getStatuses().isEmpty()) {
                 predicates.add(root.get("status").in(filter.getStatuses()));
-            }
-            
-            if (filter.getSkills() != null && !filter.getSkills().isEmpty()) {
-                Join<Application, Skill> skillJoin = root.join("skills");
-                predicates.add(skillJoin.get("name").in(filter.getSkills()));
             }
             
             if (filter.getAppliedWithinDays() != null) {

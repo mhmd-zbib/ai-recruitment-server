@@ -37,10 +37,10 @@ public class Application {
     @Column(name = "applicant_email", nullable = false, length = 100)
     private String applicantEmail;
 
-    @Column(name = "resume_url", length = 255)
+    @Column(name = "resume_url")
     private String resumeUrl;
 
-    @Column(name = "linkedin_url", length = 255)
+    @Column(name = "linkedin_url")
     private String linkedinUrl;
 
     @Enumerated(EnumType.STRING)
@@ -58,6 +58,12 @@ public class Application {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "match_rate")
+    private int matchRate;
+
+    @Column(name = "summary", length = 1000)
+    private String summary;
     
     public boolean isActive() {
         return !isInTerminalState();
@@ -80,27 +86,5 @@ public class Application {
                         newStatus + ": " + statusChangeNotes;
             }
         }
-    }
-    
-    public boolean belongsToJob(UUID jobId) {
-        return job != null && job.getId().equals(jobId);
-    }
-    
-    public boolean belongsToRecruiter(User recruiter) {
-        return job != null && 
-               job.getCreatedBy() != null && 
-               job.getCreatedBy().getId().equals(recruiter.getId());
-    }
-    
-    public boolean canBeViewedBy(User user) {
-        return belongsToRecruiter(user) || isApplicant(user.getEmail());
-    }
-    
-    public boolean isApplicant(String email) {
-        return applicantEmail.equalsIgnoreCase(email);
-    }
-    
-    public String getApplicantName() {
-        return firstName + " " + lastName;
     }
 }

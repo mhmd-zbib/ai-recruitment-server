@@ -29,9 +29,6 @@ public class JobResponse {
     private BigDecimal maxSalary;
     private String currency;
     private boolean active;
-    private LocalDateTime visibleUntil;
-    private Set<String> skills;
-    private Set<String> tags;
     private long applicationCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
