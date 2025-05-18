@@ -1,7 +1,7 @@
 spring:
   jpa:
     hibernate:
-      ddl-auto: create-drop # for staging and setup 
+      ddl-auto: update
     show-sql: false
 
 server:
